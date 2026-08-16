@@ -1,4 +1,3 @@
-```jsx
 "use client";
 
 import { useState } from "react";
@@ -237,9 +236,6 @@ export default function AddProductPage() {
             ? form.outfitLayer
             : "none",
           outfitCompatible: form.outfitCompatible,
-
-          // Keep the existing API contract:
-          // images are sent as an array of data URLs.
           images: form.images.map((image) => image.preview),
         }),
       });
@@ -277,7 +273,6 @@ export default function AddProductPage() {
     <main className="min-h-screen bg-black text-white">
       <div className="max-w-5xl mx-auto px-5 sm:px-8 py-10 md:py-16">
 
-        {/* HEADER */}
         <div className="mb-10">
           <Link
             href="/admin/products"
@@ -309,7 +304,6 @@ export default function AddProductPage() {
           </div>
         </div>
 
-        {/* ALERTS */}
         {error && (
           <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 px-5 py-4 text-sm text-red-300">
             {error}
@@ -324,7 +318,6 @@ export default function AddProductPage() {
 
         <div className="space-y-8">
 
-          {/* BASIC INFORMATION */}
           <section className="rounded-3xl border border-white/10 bg-neutral-950 p-6 md:p-8">
             <div className="mb-7">
               <p className="text-amber-400 text-[10px] font-bold uppercase tracking-[0.25em]">
@@ -342,7 +335,6 @@ export default function AddProductPage() {
 
             <div className="space-y-5">
 
-              {/* NAME */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
                   Product Name *
@@ -358,7 +350,6 @@ export default function AddProductPage() {
                 />
               </div>
 
-              {/* BRAND + CATEGORY */}
               <div className="grid md:grid-cols-2 gap-5">
 
                 <div>
@@ -407,7 +398,6 @@ export default function AddProductPage() {
                 </div>
               </div>
 
-              {/* PRICE + INVENTORY */}
               <div className="grid md:grid-cols-2 gap-5">
 
                 <div>
@@ -452,7 +442,6 @@ export default function AddProductPage() {
                 </div>
               </div>
 
-              {/* DESCRIPTION */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
                   Description
@@ -473,7 +462,6 @@ export default function AddProductPage() {
                 </p>
               </div>
 
-              {/* STYLE + OCCASION */}
               <div className="grid md:grid-cols-2 gap-5">
 
                 <div>
@@ -507,7 +495,6 @@ export default function AddProductPage() {
                 </div>
               </div>
 
-              {/* COLORS */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
                   Colors
@@ -529,7 +516,6 @@ export default function AddProductPage() {
             </div>
           </section>
 
-          {/* IMAGES */}
           <section className="rounded-3xl border border-white/10 bg-neutral-950 p-6 md:p-8">
 
             <div className="mb-7">
@@ -570,13 +556,13 @@ export default function AddProductPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-6">
                 {form.images.map((image, index) => (
                   <div
-                    key={`${image.name}-${index}`}
+                    key={"img-" + index}
                     className="relative group"
                   >
                     <div className="aspect-square rounded-2xl overflow-hidden border border-white/10 bg-black">
                       <img
                         src={image.preview}
-                        alt={`Product image ${index + 1}`}
+                        alt={"Product image " + (index + 1)}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -620,7 +606,6 @@ export default function AddProductPage() {
             )}
           </section>
 
-          {/* OUTFIT BUILDER */}
           <section className="rounded-3xl border border-white/10 bg-neutral-950 p-6 md:p-8">
 
             <div className="mb-7">
@@ -694,7 +679,6 @@ export default function AddProductPage() {
             </div>
           </section>
 
-          {/* SAVE */}
           <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
 
             <Link
@@ -719,4 +703,3 @@ export default function AddProductPage() {
     </main>
   );
 }
-```
