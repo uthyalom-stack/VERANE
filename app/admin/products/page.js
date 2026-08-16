@@ -1,4 +1,3 @@
-```jsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -48,7 +47,7 @@ export default function AdminProducts() {
 
   const deleteProduct = async (id, name) => {
     const confirmed = window.confirm(
-      `Delete "${name}"?\n\nThis action cannot be undone.`
+      'Delete "' + name + '"?\n\nThis action cannot be undone.'
     );
 
     if (!confirmed) return;
@@ -56,7 +55,7 @@ export default function AdminProducts() {
     try {
       setDeletingId(id);
 
-      const response = await fetch(`/api/products/${id}`, {
+      const response = await fetch("/api/products/" + id, {
         method: "DELETE",
       });
 
@@ -155,7 +154,6 @@ export default function AdminProducts() {
     <main className="min-h-screen bg-black text-white">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 py-10 md:py-14">
 
-        {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
           <div>
             <Link
@@ -187,7 +185,6 @@ export default function AdminProducts() {
           </Link>
         </div>
 
-        {/* STATS */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
           <div className="bg-neutral-950 border border-white/10 rounded-2xl p-5">
             <p className="text-[10px] uppercase tracking-[0.2em] text-neutral-600">
@@ -226,35 +223,18 @@ export default function AdminProducts() {
           </div>
         </div>
 
-        {/* FILTER BAR */}
         <div className="bg-neutral-950 border border-white/10 rounded-2xl p-4 mb-6">
           <div className="flex flex-col lg:flex-row gap-3">
 
-            {/* SEARCH */}
             <div className="relative flex-1">
-              <svg
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"
-                />
-              </svg>
-
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search products..."
-                className="w-full bg-black border border-white/10 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-amber-500/60 transition placeholder:text-neutral-700"
+                className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-amber-500/60 transition placeholder:text-neutral-700"
               />
             </div>
 
-            {/* BRAND */}
             <select
               value={brandFilter}
               onChange={(e) => setBrandFilter(e.target.value)}
@@ -267,7 +247,6 @@ export default function AdminProducts() {
               </option>
             </select>
 
-            {/* STOCK */}
             <select
               value={stockFilter}
               onChange={(e) => setStockFilter(e.target.value)}
@@ -281,7 +260,6 @@ export default function AdminProducts() {
           </div>
         </div>
 
-        {/* ERROR */}
         {error && (
           <div className="border border-red-500/20 bg-red-500/5 rounded-2xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <p className="text-sm text-red-400">
@@ -297,7 +275,6 @@ export default function AdminProducts() {
           </div>
         )}
 
-        {/* RESULTS */}
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs text-neutral-600">
             Showing{" "}
@@ -321,7 +298,6 @@ export default function AdminProducts() {
           )}
         </div>
 
-        {/* LOADING */}
         {loading ? (
           <div className="border border-white/10 rounded-2xl overflow-hidden">
             <div className="p-6 space-y-5">
@@ -334,7 +310,6 @@ export default function AdminProducts() {
             </div>
           </div>
         ) : filteredProducts.length === 0 ? (
-          /* EMPTY STATE */
           <div className="border border-white/10 rounded-3xl bg-neutral-950 py-24 px-6 text-center">
             <div className="w-16 h-16 rounded-full border border-white/10 mx-auto flex items-center justify-center text-2xl mb-5">
               📦
@@ -374,7 +349,6 @@ export default function AdminProducts() {
           </div>
         ) : (
           <>
-            {/* DESKTOP TABLE */}
             <div className="hidden md:block border border-white/10 rounded-2xl overflow-hidden bg-neutral-950">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -444,7 +418,7 @@ export default function AdminProducts() {
                               </span>
 
                               <span
-                                className={`inline-flex w-fit px-2 py-1 rounded-full border text-[9px] font-bold uppercase tracking-wider ${stockStatus.className}`}
+                                className={"inline-flex w-fit px-2 py-1 rounded-full border text-[9px] font-bold uppercase tracking-wider " + stockStatus.className}
                               >
                                 {stockStatus.label}
                               </span>
@@ -453,13 +427,6 @@ export default function AdminProducts() {
 
                           <td className="p-5">
                             <div className="flex justify-end items-center gap-3">
-                              <Link
-                                href={`/admin/products/${product.id}`}
-                                className="text-xs text-neutral-400 hover:text-white transition"
-                              >
-                                Edit
-                              </Link>
-
                               <button
                                 onClick={() =>
                                   deleteProduct(
@@ -484,7 +451,6 @@ export default function AdminProducts() {
               </div>
             </div>
 
-            {/* MOBILE CARDS */}
             <div className="md:hidden space-y-3">
               {filteredProducts.map((product) => {
                 const stock = Number(product.inventory || 0);
@@ -517,7 +483,7 @@ export default function AdminProducts() {
                       </span>
 
                       <span
-                        className={`px-3 py-1.5 rounded-full border text-[9px] font-bold uppercase tracking-wider ${stockStatus.className}`}
+                        className={"px-3 py-1.5 rounded-full border text-[9px] font-bold uppercase tracking-wider " + stockStatus.className}
                       >
                         {stockStatus.label}
                       </span>
@@ -528,13 +494,6 @@ export default function AdminProducts() {
                     </div>
 
                     <div className="flex gap-3 mt-5 pt-4 border-t border-white/5">
-                      <Link
-                        href={`/admin/products/${product.id}`}
-                        className="flex-1 text-center bg-white text-black rounded-full py-2.5 text-xs font-bold hover:bg-neutral-200 transition"
-                      >
-                        Edit Product
-                      </Link>
-
                       <button
                         onClick={() =>
                           deleteProduct(product.id, product.name)
@@ -557,4 +516,3 @@ export default function AdminProducts() {
     </main>
   );
 }
-```
