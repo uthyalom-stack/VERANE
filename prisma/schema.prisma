@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  name        String?
+  orders      Order[]
+  savedLooks  SavedLook[]
+  createdAt   DateTime  @default(now())
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  name             String
+  brand            String
+  category         String
+  price            Float
+  description      String?
+  images           String
+  inventory        Int      @default(0)
+  colors           String?
+  style            String?
+  occasion         String?
+  outfitLayer      String   @default("none")
+  outfitCompatible Boolean  @default(false)
+  mannequinAsset   String?
+  createdAt        DateTime @default(now())
+  orderItems       OrderItem[]
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  status    String      @default("pending")
+  total     Float
+  createdAt DateTime    @default(now())
+  items     OrderItem[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float
+}
+
+model SavedLook {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  products  String
+  createdAt DateTime @default(now())
+}
+
+model Subscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
