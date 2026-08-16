@@ -3,16 +3,29 @@ import prisma from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const products = await prisma.product.findMany({ orderBy: { createdAt: "desc" } });
+    const products = await prisma.product.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
     return NextResponse.json(products);
-  } catch {
-    return NextResponse.json([]);
+  } catch (error) {
+    console.error("GET /api/products error:", error);
+
+    return NextResponse.json(
+      {
+        error: error?.message || "Failed to load products",
+      },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request) {
-  const body = await request.json();
   try {
+    const body = await request.json();
+
+    console.log("Creating product:", body);
+
     const product = await prisma.product.create({
       data: {
         name: body.name,
@@ -30,8 +43,16 @@ export async function POST(request) {
         mannequinAsset: body.mannequinAsset || null,
       },
     });
+
     return NextResponse.json(product);
-  } catch {
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+  } catch (error) {
+    console.error("POST /api/products error:", error);
+
+    return NextResponse.json(
+      {
+        error: error?.message || "Failed to create product",
+      },
+      { status: 500 }
+    );
   }
 }
