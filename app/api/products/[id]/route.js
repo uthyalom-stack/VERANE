@@ -32,11 +32,7 @@ export async function PUT(request, { params }) {
     console.error("PUT /api/products/[id] error:", error);
 
     return NextResponse.json(
-      {
-        error:
-          error?.message ||
-          "Failed to update product.",
-      },
+      { error: error?.message || "Failed to update product." },
       { status: 500 }
     );
   }
@@ -50,21 +46,12 @@ export async function DELETE(request, { params }) {
       where: { id },
     });
 
-    return NextResponse.json({
-      success: true,
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(
-      "DELETE /api/products/[id] error:",
-      error
-    );
+    console.error("DELETE /api/products/[id] error:", error);
 
     return NextResponse.json(
-      {
-        error:
-          error?.message ||
-          "Failed to delete product.",
-      },
+      { error: error?.message || "Failed to delete product." },
       { status: 500 }
     );
   }
