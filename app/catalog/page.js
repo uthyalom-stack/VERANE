@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 
 const categories = [
   { id: "all", name: "All" },
@@ -41,26 +40,33 @@ function getImage(images) {
 }
 
 function getBrandName(brand) {
-  return brand === "UTHY_LUXURY"
-    ? "UTHY LUXURY"
-    : "ALOMZIEE FOOTIES";
+  if (brand === "UTHY_LUXURY") return "UTHY LUXURY";
+  if (brand === "ALOMZIEE_FOOTIES") return "ALOMZIEE FOOTIES";
+  return brand || "VERANE";
 }
 
 export default function CatalogPage() {
-  const searchParams = useSearchParams();
-
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [activeBrand, setActiveBrand] = useState(
-    searchParams.get("brand") || "all"
-  );
-
+  const [activeBrand, setActiveBrand] = useState("all");
   const [activeCat, setActiveCat] = useState("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
 
   useEffect(() => {
+    // Read ?brand=... without useSearchParams().
+    // This avoids the Vercel/Next.js Suspense build error.
+    const params = new URLSearchParams(window.location.search);
+    const brandFromUrl = params.get("brand");
+
+    if (
+      brandFromUrl === "UTHY_LUXURY" ||
+      brandFromUrl === "ALOMZIEE_FOOTIES"
+    ) {
+      setActiveBrand(brandFromUrl);
+    }
+
     async function loadProducts() {
       try {
         const response = await fetch("/api/products");
@@ -105,11 +111,11 @@ export default function CatalogPage() {
 
     return [...result].sort((a, b) => {
       if (sort === "price-low") {
-        return Number(a.price) - Number(b.price);
+        return Number(a.price || 0) - Number(b.price || 0);
       }
 
       if (sort === "price-high") {
-        return Number(b.price) - Number(a.price);
+        return Number(b.price || 0) - Number(a.price || 0);
       }
 
       return (
@@ -127,7 +133,6 @@ export default function CatalogPage() {
     return (
       <main className="min-h-screen bg-black text-white">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 py-16 md:py-24">
-
           <div className="h-3 w-32 bg-neutral-900 rounded-full animate-pulse mb-6" />
 
           <div className="h-16 md:h-24 w-2/3 bg-neutral-900 rounded-2xl animate-pulse mb-12" />
@@ -136,11 +141,8 @@ export default function CatalogPage() {
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i}>
                 <div className="aspect-[4/5] rounded-2xl bg-neutral-900 animate-pulse" />
-
                 <div className="h-3 w-24 bg-neutral-900 rounded mt-4 animate-pulse" />
-
                 <div className="h-4 w-32 bg-neutral-900 rounded mt-2 animate-pulse" />
-
                 <div className="h-3 w-20 bg-neutral-900 rounded mt-2 animate-pulse" />
               </div>
             ))}
@@ -153,12 +155,11 @@ export default function CatalogPage() {
   return (
     <main className="min-h-screen bg-black text-white overflow-hidden">
 
-      {/* HERO / EDITORIAL HEADER */}
+      {/* HERO */}
       <section className="relative border-b border-white/5">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 pt-20 md:pt-28 pb-14">
 
           <div className="max-w-4xl">
-
             <p className="text-amber-400 text-[10px] md:text-xs font-bold tracking-[0.45em] uppercase mb-5">
               The Collection
             </p>
@@ -166,7 +167,6 @@ export default function CatalogPage() {
             <h1 className="text-5xl sm:text-6xl md:text-8xl font-black tracking-[-0.05em] leading-[0.9]">
               DRESS YOUR
               <br />
-
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-500 to-amber-600">
                 EXPRESSION.
               </span>
@@ -176,12 +176,10 @@ export default function CatalogPage() {
               Explore UTHY LUXURY and ALOMZIEE FOOTIES — clothing,
               footwear and accessories designed to work together.
             </p>
-
           </div>
 
           {/* BRAND SELECTOR */}
           <div className="mt-14 flex gap-8 overflow-x-auto border-b border-white/10 scrollbar-hide">
-
             {brands.map((brand) => (
               <button
                 key={brand.id}
@@ -202,20 +200,17 @@ export default function CatalogPage() {
                 )}
               </button>
             ))}
-
           </div>
-
         </div>
       </section>
 
-      {/* SEARCH + SORT + CATEGORIES */}
+      {/* SEARCH / SORT / CATEGORIES */}
       <section className="max-w-7xl mx-auto px-5 sm:px-8 py-8">
 
         <div className="flex flex-col lg:flex-row gap-4 justify-between">
 
           {/* SEARCH */}
           <div className="relative w-full lg:max-w-md">
-
             <svg
               className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500"
               fill="none"
@@ -236,12 +231,10 @@ export default function CatalogPage() {
               placeholder="Search the collection..."
               className="w-full bg-neutral-950 border border-white/10 rounded-full pl-12 pr-5 py-3.5 text-sm text-white placeholder:text-neutral-600 outline-none focus:border-amber-500/60 transition"
             />
-
           </div>
 
           {/* SORT */}
           <div className="flex items-center gap-3">
-
             <span className="hidden sm:block text-[10px] uppercase tracking-[0.2em] text-neutral-600">
               Sort
             </span>
@@ -255,14 +248,11 @@ export default function CatalogPage() {
               <option value="price-low">Price: Low to High</option>
               <option value="price-high">Price: High to Low</option>
             </select>
-
           </div>
-
         </div>
 
         {/* CATEGORIES */}
         <div className="flex gap-2 overflow-x-auto pt-7 pb-2 scrollbar-hide">
-
           {categories.map((category) => (
             <button
               key={category.id}
@@ -276,18 +266,14 @@ export default function CatalogPage() {
               {category.name}
             </button>
           ))}
-
         </div>
-
       </section>
 
       {/* RESULTS HEADER */}
       <section className="max-w-7xl mx-auto px-5 sm:px-8 pt-5 pb-8">
-
         <div className="flex items-end justify-between">
 
           <div>
-
             <p className="text-[10px] text-amber-400 uppercase tracking-[0.3em] font-bold mb-2">
               {activeBrandName}
             </p>
@@ -297,27 +283,22 @@ export default function CatalogPage() {
                 ? "All Pieces"
                 : categories.find((c) => c.id === activeCat)?.name}
             </h2>
-
           </div>
 
           <p className="text-xs text-neutral-600">
             {filtered.length}{" "}
             {filtered.length === 1 ? "piece" : "pieces"}
           </p>
-
         </div>
-
       </section>
 
       {/* PRODUCTS */}
       <section className="max-w-7xl mx-auto px-5 sm:px-8 pb-28">
 
         {filtered.length === 0 ? (
-
           <div className="border border-white/5 rounded-3xl bg-neutral-950 py-28 px-6 text-center">
 
             <div className="w-16 h-16 rounded-full border border-white/10 mx-auto flex items-center justify-center mb-6">
-
               <svg
                 className="w-6 h-6 text-neutral-600"
                 fill="none"
@@ -331,7 +312,6 @@ export default function CatalogPage() {
                   d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"
                 />
               </svg>
-
             </div>
 
             <h3 className="text-xl font-bold">
@@ -352,24 +332,16 @@ export default function CatalogPage() {
             >
               Clear all filters →
             </button>
-
           </div>
-
         ) : (
-
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-12 md:gap-x-6 md:gap-y-16">
 
             {filtered.map((product, index) => {
-
               const image = getImage(product.images);
-
               const isNew = index < 4;
-
-              const isOutOfStock =
-                Number(product.inventory) <= 0;
+              const isOutOfStock = Number(product.inventory) <= 0;
 
               return (
-
                 <Link
                   key={product.id}
                   href={`/product/${product.id}`}
@@ -380,22 +352,18 @@ export default function CatalogPage() {
                   <div className="relative aspect-[4/5] bg-neutral-950 rounded-2xl overflow-hidden">
 
                     {image ? (
-
                       <img
                         src={image}
-                        alt={product.name}
+                        alt={product.name || "Product"}
                         loading={index < 4 ? "eager" : "lazy"}
                         className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.045]"
                       />
-
                     ) : (
-
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-900 to-black">
                         <span className="text-neutral-700 text-xs uppercase tracking-[0.3em]">
                           No Image
                         </span>
                       </div>
-
                     )}
 
                     {/* IMAGE GRADIENT */}
@@ -424,7 +392,6 @@ export default function CatalogPage() {
                       aria-label="Add to wishlist"
                       className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-black"
                     >
-
                       <svg
                         className="w-4 h-4"
                         fill="none"
@@ -438,18 +405,14 @@ export default function CatalogPage() {
                           d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"
                         />
                       </svg>
-
                     </button>
 
                     {/* VIEW PIECE */}
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-
                       <span className="bg-white text-black rounded-full px-5 py-2.5 text-[9px] font-black uppercase tracking-wider whitespace-nowrap">
                         View Piece →
                       </span>
-
                     </div>
-
                   </div>
 
                   {/* PRODUCT DETAILS */}
@@ -460,7 +423,6 @@ export default function CatalogPage() {
                     </p>
 
                     <div className="flex justify-between gap-3 mt-1.5">
-
                       <h3 className="text-sm md:text-[15px] font-semibold leading-tight group-hover:text-amber-100 transition">
                         {product.name}
                       </h3>
@@ -468,7 +430,6 @@ export default function CatalogPage() {
                       <span className="text-xs md:text-sm text-neutral-300 whitespace-nowrap">
                         ₦{Number(product.price || 0).toLocaleString()}
                       </span>
-
                     </div>
 
                     {product.category && (
@@ -476,23 +437,16 @@ export default function CatalogPage() {
                         {product.category}
                       </p>
                     )}
-
                   </div>
-
                 </Link>
-
               );
             })}
-
           </div>
-
         )}
-
       </section>
 
       {/* OUTFIT BUILDER CTA */}
       <section className="border-t border-white/5 bg-neutral-950">
-
         <div className="max-w-7xl mx-auto px-5 sm:px-8 py-20 md:py-28">
 
           <div className="rounded-[2rem] border border-white/10 overflow-hidden relative">
@@ -502,7 +456,6 @@ export default function CatalogPage() {
             <div className="relative px-7 py-14 md:px-14 md:py-20 flex flex-col md:flex-row md:items-center justify-between gap-10">
 
               <div>
-
                 <p className="text-amber-400 text-[10px] font-bold tracking-[0.35em] uppercase mb-4">
                   VÉRANE STUDIO
                 </p>
@@ -510,7 +463,6 @@ export default function CatalogPage() {
                 <h2 className="text-4xl md:text-6xl font-black leading-[0.9]">
                   FOUND SOMETHING?
                   <br />
-
                   <span className="text-neutral-500">
                     BUILD THE LOOK.
                   </span>
@@ -520,7 +472,6 @@ export default function CatalogPage() {
                   Mix pieces from UTHY LUXURY and ALOMZIEE FOOTIES
                   to create your complete outfit before you buy.
                 </p>
-
               </div>
 
               <Link
@@ -531,11 +482,8 @@ export default function CatalogPage() {
               </Link>
 
             </div>
-
           </div>
-
         </div>
-
       </section>
 
     </main>
