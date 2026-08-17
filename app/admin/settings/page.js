@@ -90,7 +90,7 @@ export default function SettingsPage() {
   useEffect(() => {
     let mounted = true;
 
-    const loadSettings = async () => {
+    async function loadSettings() {
       try {
         const response = await fetch("/api/admin/settings", {
           cache: "no-store",
@@ -119,7 +119,7 @@ export default function SettingsPage() {
           setLoading(false);
         }
       }
-    };
+    }
 
     loadSettings();
 
@@ -128,7 +128,7 @@ export default function SettingsPage() {
     };
   }, []);
 
-  const updateSetting = (key, value) => {
+  function updateSetting(key, value) {
     setSettings((current) => ({
       ...current,
       [key]: value,
@@ -136,9 +136,9 @@ export default function SettingsPage() {
 
     setSaved(false);
     setError("");
-  };
+  }
 
-  const save = async () => {
+  async function save() {
     setSaving(true);
     setSaved(false);
     setError("");
@@ -169,7 +169,7 @@ export default function SettingsPage() {
 
       setSaved(true);
 
-      window.setTimeout(() => {
+      setTimeout(() => {
         setSaved(false);
       }, 3000);
     } catch (error) {
@@ -181,7 +181,7 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
-  };
+  }
 
   if (loading) {
     return (
@@ -209,7 +209,6 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-black px-4 pb-32 pt-8 text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl">
 
-        {/* Header */}
         <header className="mb-10">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -237,7 +236,6 @@ export default function SettingsPage() {
           </div>
         </header>
 
-        {/* Error */}
         {error && (
           <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-red-400/20 bg-red-400/[0.06] px-5 py-4">
             <p className="text-sm text-red-300">
@@ -255,7 +253,6 @@ export default function SettingsPage() {
 
         <div className="space-y-6">
 
-          {/* Brand Identity */}
           <Section
             eyebrow="01 / Identity"
             title="Brand Identity"
@@ -353,7 +350,6 @@ export default function SettingsPage() {
             </div>
           </Section>
 
-          {/* Contact */}
           <Section
             eyebrow="02 / Contact"
             title="Contact Information"
@@ -390,7 +386,6 @@ export default function SettingsPage() {
             </div>
           </Section>
 
-          {/* Social */}
           <Section
             eyebrow="03 / Social"
             title="Social Presence"
@@ -424,7 +419,6 @@ export default function SettingsPage() {
             />
           </Section>
 
-          {/* Announcement */}
           <Section
             eyebrow="04 / Storefront"
             title="Announcement Bar"
@@ -497,7 +491,6 @@ export default function SettingsPage() {
           </Section>
         </div>
 
-        {/* Save Bar */}
         <div className="sticky bottom-4 z-20 mt-8">
           <div className="flex flex-col gap-4 rounded-[24px] border border-white/[0.08] bg-black/80 p-4 shadow-2xl shadow-black/50 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div>
