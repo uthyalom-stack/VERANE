@@ -1,154 +1,163 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const globalForPrisma = globalThis;
-
-const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+import prisma from "@/lib/prisma";
 
 const DEFAULT_SETTINGS = {
-  id: "main",
   siteName: "VÉRANE",
-  siteTagline: "",
-  siteDescription: "",
-
+  tagline: "Two Brands. One Expression.",
   logo: "",
   favicon: "",
+  primaryColor: "#f5b942",
 
-  primaryColor: "#f59e0b",
-  secondaryColor: "#000000",
-  accentColor: "#ffffff",
-
-  heroTitle: "",
-  heroSubtitle: "",
-  heroImage: "",
-  heroButtonText: "Shop Now",
-  heroButtonLink: "/products",
-
-  uthyEnabled: true,
-  uthyName: "UTHY LUXURY",
-  uthyDescription: "",
-  uthyImage: "",
-
-  alomzieeEnabled: true,
-  alomzieeName: "ALOMZIEE FOOTIES",
-  alomzieeDescription: "",
-  alomzieeImage: "",
-
-  announcementEnabled: false,
-  announcementText: "",
+  email: "",
+  phone: "",
+  whatsapp: "",
 
   instagram: "",
   facebook: "",
   tiktok: "",
-  whatsapp: "",
-  email: "",
-  phone: "",
 
-  currency: "NGN",
-  shippingEnabled: true,
-
-  seoTitle: "",
-  seoDescription: "",
-  seoImage: "",
+  announcementEnabled: "false",
+  announcementText: "",
 };
+
+// Only settings that are intentionally allowed to be stored.
+const ALLOWED_SETTINGS = new Set([
+  "siteName",
+  "tagline",
+  "logo",
+  "favicon",
+  "primaryColor",
+
+  "email",
+  "phone",
+  "whatsapp",
+
+  "instagram",
+  "facebook",
+  "tiktok",
+
+  "announcementEnabled",
+  "announcementText",
+]);
+
+function normalizeValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+
+  return String(value).trim();
+}
 
 export async function GET() {
   try {
-    let settings = await prisma.siteSettings.findUnique({
-      where: { id: "main" },
+    const rows = await prisma.siteSetting.findMany({
+      orderBy: {
+        key: "asc",
+      },
     });
 
-    if (!settings) {
-      settings = await prisma.siteSettings.create({
-        data: DEFAULT_SETTINGS,
-      });
+    const settings: Record<string, string> = {
+      ...DEFAULT_SETTINGS,
+    };
+
+    for (const row of rows) {
+      if (ALLOWED_SETTINGS.has(row.key)) {
+        settings[row.key] = row.value;
+      }
     }
 
-    return NextResponse.json(settings);
+    return NextResponse.json(settings, {
+      status: 200,
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    });
   } catch (error) {
-    console.error("GET SETTINGS ERROR:", error);
+    console.error("Failed to load site settings:", error);
 
-    return NextResponse.json(
-      { error: "Failed to load settings" },
-      { status: 500 }
-    );
+    return NextResponse.json(DEFAULT_SETTINGS, {
+      status: 200,
+    });
   }
 }
 
-export async function PUT(request) {
+export async function PUT(request: Request) {
   try {
     const body = await request.json();
 
-    const data = {
-      siteName: body.siteName ?? "",
-      siteTagline: body.siteTagline ?? "",
-      siteDescription: body.siteDescription ?? "",
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid settings data.",
+        },
+        { status: 400 }
+      );
+    }
 
-      logo: body.logo ?? "",
-      favicon: body.favicon ?? "",
+    const entries = Object.entries(body);
 
-      primaryColor: body.primaryColor ?? "#f59e0b",
-      secondaryColor: body.secondaryColor ?? "#000000",
-      accentColor: body.accentColor ?? "#ffffff",
+    const invalidKeys = entries
+      .map(([key]) => key)
+      .filter((key) => !ALLOWED_SETTINGS.has(key));
 
-      heroTitle: body.heroTitle ?? "",
-      heroSubtitle: body.heroSubtitle ?? "",
-      heroImage: body.heroImage ?? "",
-      heroButtonText: body.heroButtonText ?? "Shop Now",
-      heroButtonLink: body.heroButtonLink ?? "/products",
+    if (invalidKeys.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Unsupported setting(s): ${invalidKeys.join(", ")}`,
+        },
+        { status: 400 }
+      );
+    }
 
-      uthyEnabled: Boolean(body.uthyEnabled),
-      uthyName: body.uthyName ?? "UTHY LUXURY",
-      uthyDescription: body.uthyDescription ?? "",
-      uthyImage: body.uthyImage ?? "",
+    await prisma.$transaction(
+      entries.map(([key, value]) =>
+        prisma.siteSetting.upsert({
+          where: { key },
+          update: {
+            value: normalizeValue(value),
+          },
+          create: {
+            key,
+            value: normalizeValue(value),
+          },
+        })
+      )
+    );
 
-      alomzieeEnabled: Boolean(body.alomzieeEnabled),
-      alomzieeName: body.alomzieeName ?? "ALOMZIEE FOOTIES",
-      alomzieeDescription: body.alomzieeDescription ?? "",
-      alomzieeImage: body.alomzieeImage ?? "",
+    const rows = await prisma.siteSetting.findMany();
 
-      announcementEnabled: Boolean(body.announcementEnabled),
-      announcementText: body.announcementText ?? "",
-
-      instagram: body.instagram ?? "",
-      facebook: body.facebook ?? "",
-      tiktok: body.tiktok ?? "",
-      whatsapp: body.whatsapp ?? "",
-      email: body.email ?? "",
-      phone: body.phone ?? "",
-
-      currency: body.currency ?? "NGN",
-      shippingEnabled: Boolean(body.shippingEnabled),
-
-      seoTitle: body.seoTitle ?? "",
-      seoDescription: body.seoDescription ?? "",
-      seoImage: body.seoImage ?? "",
+    const settings: Record<string, string> = {
+      ...DEFAULT_SETTINGS,
     };
 
-    const settings = await prisma.siteSettings.upsert({
-      where: { id: "main" },
-      update: data,
-      create: {
-        id: "main",
-        ...data,
-      },
-    });
+    for (const row of rows) {
+      if (ALLOWED_SETTINGS.has(row.key)) {
+        settings[row.key] = row.value;
+      }
+    }
 
     return NextResponse.json({
       success: true,
       settings,
     });
   } catch (error) {
-    console.error("SAVE SETTINGS ERROR:", error);
+    console.error("Failed to update site settings:", error);
 
     return NextResponse.json(
-      { error: "Failed to save settings" },
+      {
+        success: false,
+        error: "Failed to save site settings.",
+      },
       { status: 500 }
     );
   }
