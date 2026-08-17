@@ -2,23 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type Settings = {
-  siteName: string;
-  tagline: string;
-  logo: string;
-  favicon: string;
-  primaryColor: string;
-  email: string;
-  phone: string;
-  whatsapp: string;
-  instagram: string;
-  facebook: string;
-  tiktok: string;
-  announcementEnabled: string;
-  announcementText: string;
-};
-
-const DEFAULT_SETTINGS: Settings = {
+const DEFAULT_SETTINGS = {
   siteName: "",
   tagline: "",
   logo: "",
@@ -41,26 +25,24 @@ function Field({
   onChange,
   placeholder,
   type = "text",
-}: {
-  label: string;
-  description?: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  type?: string;
 }) {
   return (
     <div className="space-y-2">
       <div>
-        <label className="text-sm font-semibold text-white">{label}</label>
+        <label className="text-sm font-semibold text-white">
+          {label}
+        </label>
+
         {description && (
-          <p className="mt-1 text-xs text-white/35">{description}</p>
+          <p className="mt-1 text-xs text-white/35">
+            {description}
+          </p>
         )}
       </div>
 
       <input
         type={type}
-        value={value}
+        value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/20 hover:border-white/[0.14] focus:border-amber-400/50 focus:bg-white/[0.05] focus:ring-4 focus:ring-amber-400/[0.06]"
@@ -74,11 +56,6 @@ function Section({
   title,
   description,
   children,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  children: React.ReactNode;
 }) {
   return (
     <section className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.025] shadow-2xl shadow-black/20">
@@ -96,15 +73,15 @@ function Section({
         </p>
       </div>
 
-      <div className="space-y-6 px-6 py-7 sm:px-8">{children}</div>
+      <div className="space-y-6 px-6 py-7 sm:px-8">
+        {children}
+      </div>
     </section>
   );
 }
 
 export default function SettingsPage() {
-  const [settings, setSettings] =
-    useState<Settings>(DEFAULT_SETTINGS);
-
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -131,8 +108,8 @@ export default function SettingsPage() {
             ...data,
           });
         }
-      } catch (err) {
-        console.error(err);
+      } catch (error) {
+        console.error("Settings loading error:", error);
 
         if (mounted) {
           setError("Unable to load your site settings.");
@@ -151,7 +128,7 @@ export default function SettingsPage() {
     };
   }, []);
 
-  const updateSetting = (key: keyof Settings, value: string) => {
+  const updateSetting = (key, value) => {
     setSettings((current) => ({
       ...current,
       [key]: value,
@@ -178,7 +155,9 @@ export default function SettingsPage() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to save settings");
+        throw new Error(
+          data.error || "Failed to save settings"
+        );
       }
 
       if (data.settings) {
@@ -193,9 +172,12 @@ export default function SettingsPage() {
       window.setTimeout(() => {
         setSaved(false);
       }, 3000);
-    } catch (err) {
-      console.error(err);
-      setError("Your settings could not be saved. Please try again.");
+    } catch (error) {
+      console.error("Settings saving error:", error);
+
+      setError(
+        "Your settings could not be saved. Please try again."
+      );
     } finally {
       setSaving(false);
     }
@@ -207,7 +189,9 @@ export default function SettingsPage() {
         <div className="mx-auto max-w-5xl animate-pulse">
           <div className="mb-10">
             <div className="h-3 w-24 rounded-full bg-white/10" />
+
             <div className="mt-4 h-10 w-72 rounded-xl bg-white/10" />
+
             <div className="mt-3 h-4 w-96 max-w-full rounded-full bg-white/5" />
           </div>
 
@@ -224,12 +208,14 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-black px-4 pb-32 pt-8 text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl">
+
         {/* Header */}
         <header className="mb-10">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="mb-4 flex items-center gap-3">
                 <span className="h-px w-8 bg-amber-400/70" />
+
                 <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400">
                   Control Center
                 </span>
@@ -240,8 +226,8 @@ export default function SettingsPage() {
               </h1>
 
               <p className="mt-3 max-w-xl text-sm leading-6 text-white/40 sm:text-base">
-                Control the identity, communication and visual presence of
-                your entire storefront from one place.
+                Control the identity, communication and visual
+                presence of your entire storefront from one place.
               </p>
             </div>
 
@@ -254,7 +240,9 @@ export default function SettingsPage() {
         {/* Error */}
         {error && (
           <div className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-red-400/20 bg-red-400/[0.06] px-5 py-4">
-            <p className="text-sm text-red-300">{error}</p>
+            <p className="text-sm text-red-300">
+              {error}
+            </p>
 
             <button
               onClick={() => setError("")}
@@ -266,6 +254,7 @@ export default function SettingsPage() {
         )}
 
         <div className="space-y-6">
+
           {/* Brand Identity */}
           <Section
             eyebrow="01 / Identity"
@@ -277,7 +266,9 @@ export default function SettingsPage() {
                 label="Site Name"
                 description="The main name displayed across your website."
                 value={settings.siteName}
-                onChange={(value) => updateSetting("siteName", value)}
+                onChange={(value) =>
+                  updateSetting("siteName", value)
+                }
                 placeholder="VÉRANE"
               />
 
@@ -285,7 +276,9 @@ export default function SettingsPage() {
                 label="Tagline"
                 description="Your short brand statement."
                 value={settings.tagline}
-                onChange={(value) => updateSetting("tagline", value)}
+                onChange={(value) =>
+                  updateSetting("tagline", value)
+                }
                 placeholder="Two Brands. One Expression."
               />
             </div>
@@ -293,9 +286,11 @@ export default function SettingsPage() {
             <div className="grid gap-6 md:grid-cols-2">
               <Field
                 label="Logo"
-                description="Enter the URL of your primary logo."
+                description="URL of your primary logo."
                 value={settings.logo}
-                onChange={(value) => updateSetting("logo", value)}
+                onChange={(value) =>
+                  updateSetting("logo", value)
+                }
                 placeholder="https://..."
               />
 
@@ -303,7 +298,9 @@ export default function SettingsPage() {
                 label="Favicon"
                 description="Small icon shown in browser tabs."
                 value={settings.favicon}
-                onChange={(value) => updateSetting("favicon", value)}
+                onChange={(value) =>
+                  updateSetting("favicon", value)
+                }
                 placeholder="https://..."
               />
             </div>
@@ -313,8 +310,10 @@ export default function SettingsPage() {
                 <label className="text-sm font-semibold text-white">
                   Primary Brand Color
                 </label>
+
                 <p className="mt-1 text-xs text-white/35">
-                  Accent color used throughout your storefront and admin.
+                  Accent color used throughout your storefront
+                  and admin.
                 </p>
               </div>
 
@@ -323,7 +322,10 @@ export default function SettingsPage() {
                   type="color"
                   value={settings.primaryColor || "#f5b942"}
                   onChange={(e) =>
-                    updateSetting("primaryColor", e.target.value)
+                    updateSetting(
+                      "primaryColor",
+                      e.target.value
+                    )
                   }
                   className="h-12 w-16 cursor-pointer rounded-xl border border-white/10 bg-transparent p-1"
                 />
@@ -331,7 +333,10 @@ export default function SettingsPage() {
                 <input
                   value={settings.primaryColor || ""}
                   onChange={(e) =>
-                    updateSetting("primaryColor", e.target.value)
+                    updateSetting(
+                      "primaryColor",
+                      e.target.value
+                    )
                   }
                   placeholder="#f5b942"
                   className="w-full max-w-xs rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3.5 text-sm uppercase text-white outline-none transition placeholder:text-white/20 focus:border-amber-400/50 focus:ring-4 focus:ring-amber-400/[0.06]"
@@ -359,21 +364,27 @@ export default function SettingsPage() {
                 label="Email Address"
                 type="email"
                 value={settings.email}
-                onChange={(value) => updateSetting("email", value)}
+                onChange={(value) =>
+                  updateSetting("email", value)
+                }
                 placeholder="hello@yourbrand.com"
               />
 
               <Field
                 label="Phone Number"
                 value={settings.phone}
-                onChange={(value) => updateSetting("phone", value)}
+                onChange={(value) =>
+                  updateSetting("phone", value)
+                }
                 placeholder="+234..."
               />
 
               <Field
                 label="WhatsApp"
                 value={settings.whatsapp}
-                onChange={(value) => updateSetting("whatsapp", value)}
+                onChange={(value) =>
+                  updateSetting("whatsapp", value)
+                }
                 placeholder="+234..."
               />
             </div>
@@ -388,21 +399,27 @@ export default function SettingsPage() {
             <Field
               label="Instagram"
               value={settings.instagram}
-              onChange={(value) => updateSetting("instagram", value)}
+              onChange={(value) =>
+                updateSetting("instagram", value)
+              }
               placeholder="https://instagram.com/..."
             />
 
             <Field
               label="Facebook"
               value={settings.facebook}
-              onChange={(value) => updateSetting("facebook", value)}
+              onChange={(value) =>
+                updateSetting("facebook", value)
+              }
               placeholder="https://facebook.com/..."
             />
 
             <Field
               label="TikTok"
               value={settings.tiktok}
-              onChange={(value) => updateSetting("tiktok", value)}
+              onChange={(value) =>
+                updateSetting("tiktok", value)
+              }
               placeholder="https://tiktok.com/@..."
             />
           </Section>
@@ -419,7 +436,9 @@ export default function SettingsPage() {
               </label>
 
               <select
-                value={settings.announcementEnabled}
+                value={
+                  settings.announcementEnabled || "false"
+                }
                 onChange={(e) =>
                   updateSetting(
                     "announcementEnabled",
@@ -428,10 +447,17 @@ export default function SettingsPage() {
                 }
                 className="mt-2 w-full rounded-2xl border border-white/[0.08] bg-white/[0.035] px-4 py-3.5 text-sm text-white outline-none transition focus:border-amber-400/50 focus:ring-4 focus:ring-amber-400/[0.06]"
               >
-                <option value="false" className="bg-neutral-950">
+                <option
+                  value="false"
+                  className="bg-neutral-950"
+                >
                   Disabled
                 </option>
-                <option value="true" className="bg-neutral-950">
+
+                <option
+                  value="true"
+                  className="bg-neutral-950"
+                >
                   Enabled
                 </option>
               </select>
@@ -443,7 +469,7 @@ export default function SettingsPage() {
               </label>
 
               <textarea
-                value={settings.announcementText}
+                value={settings.announcementText || ""}
                 onChange={(e) =>
                   updateSetting(
                     "announcementText",
@@ -471,12 +497,14 @@ export default function SettingsPage() {
           </Section>
         </div>
 
-        {/* Save bar */}
+        {/* Save Bar */}
         <div className="sticky bottom-4 z-20 mt-8">
           <div className="flex flex-col gap-4 rounded-[24px] border border-white/[0.08] bg-black/80 p-4 shadow-2xl shadow-black/50 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div>
               <p className="text-sm font-semibold text-white">
-                {saved ? "Changes saved" : "Unsaved changes"}
+                {saved
+                  ? "Changes saved"
+                  : "Unsaved changes"}
               </p>
 
               <p className="mt-1 text-xs text-white/35">
@@ -501,6 +529,7 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
+
       </div>
     </div>
   );
