@@ -8,126 +8,102 @@ datasource db {
 }
 
 model User {
-  id         String      @id @default(cuid())
-  email      String      @unique
-  password   String
-  name       String?
-  createdAt  DateTime    @default(now())
-  orders     Order[]
-  savedLooks SavedLook[]
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  name        String?
+  orders      Order[]
+  savedLooks  SavedLook[]
+  createdAt   DateTime  @default(now())
 }
 
 model Product {
-  id               String      @id @default(cuid())
+  id               String   @id @default(cuid())
   name             String
   brand            String
   category         String
   price            Float
   description      String?
   images           String
-  inventory        Int         @default(0)
+  inventory        Int      @default(0)
   colors           String?
   style            String?
   occasion         String?
-  outfitLayer      String      @default("none")
-  outfitCompatible Boolean     @default(false)
+  outfitLayer      String   @default("none")
+  outfitCompatible Boolean  @default(false)
   mannequinAsset   String?
-  createdAt        DateTime    @default(now())
+  collectionId     String?
+  collection       Collection? @relation(fields: [collectionId], references: [id])
+  createdAt        DateTime @default(now())
   orderItems       OrderItem[]
+}
+
+model Collection {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  image       String?
+  enabled     Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+}
+
+model HomepageSection {
+  id                  String   @id @default(cuid())
+  key                 String   @unique
+  type                String   @default("text")
+  enabled             Boolean  @default(true)
+  sortOrder           Int      @default(0)
+  title               String   @default("")
+  subtitle            String   @default("")
+  description         String   @default("")
+  image               String   @default("")
+  mobileImage         String   @default("")
+  buttonText          String   @default("")
+  buttonLink          String   @default("")
+  secondaryButtonText String   @default("")
+  secondaryButtonLink String   @default("")
+  products            String   @default("[]")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model SiteSetting {
+  id          String @id @default(cuid())
+  key         String @unique
+  value       String
 }
 
 model Order {
   id        String      @id @default(cuid())
   userId    String
+  user      User        @relation(fields: [userId], references: [id])
   status    String      @default("pending")
   total     Float
   createdAt DateTime    @default(now())
-  user      User        @relation(fields: [userId], references: [id])
   items     OrderItem[]
 }
 
 model OrderItem {
   id        String  @id @default(cuid())
   orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
   productId String
+  product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
-  order     Order   @relation(fields: [orderId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
 }
 
 model SavedLook {
   id        String   @id @default(cuid())
   userId    String
+  user      User     @relation(fields: [userId], references: [id])
   products  String
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
 }
 
 model Subscriber {
   id        String   @id @default(cuid())
   email     String   @unique
   createdAt DateTime @default(now())
-}
-
-model SiteSettings {
-  id                  String   @id @default("main")
-  siteName            String   @default("VÉRANE")
-  siteTagline         String   @default("")
-  siteDescription     String   @default("")
-  logo                String   @default("")
-  favicon             String   @default("")
-  primaryColor        String   @default("#f59e0b")
-  secondaryColor      String   @default("#000000")
-  accentColor         String   @default("#ffffff")
-  heroTitle           String   @default("")
-  heroSubtitle        String   @default("")
-  heroImage           String   @default("")
-  heroButtonText      String   @default("Shop Now")
-  heroButtonLink      String   @default("/products")
-  uthyEnabled         Boolean  @default(true)
-  uthyName            String   @default("UTHY LUXURY")
-  uthyDescription     String   @default("")
-  uthyImage           String   @default("")
-  alomzieeEnabled     Boolean  @default(true)
-  alomzieeName        String   @default("ALOMZIEE FOOTIES")
-  alomzieeDescription String   @default("")
-  alomzieeImage       String   @default("")
-  announcementEnabled Boolean  @default(false)
-  announcementText    String   @default("")
-  instagram           String   @default("")
-  facebook            String   @default("")
-  tiktok              String   @default("")
-  whatsapp            String   @default("")
-  email               String   @default("")
-  phone               String   @default("")
-  currency            String   @default("NGN")
-  shippingEnabled     Boolean  @default(true)
-  seoTitle            String   @default("")
-  seoDescription      String   @default("")
-  seoImage            String   @default("")
-  updatedAt           DateTime @updatedAt
-}
-model HomepageSection {
-  id          String   @id @default(cuid())
-
-  key         String   @unique
-  enabled     Boolean  @default(true)
-  sortOrder   Int      @default(0)
-
-  title       String   @default("")
-  subtitle    String   @default("")
-  description String   @default("")
-
-  image       String   @default("")
-  mobileImage String   @default("")
-
-  buttonText  String   @default("")
-  buttonLink  String   @default("")
-
-  secondaryButtonText String @default("")
-  secondaryButtonLink String @default("")
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 }
