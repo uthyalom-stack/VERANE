@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { PrismaClient } from "@prisma/client";
+import SiteNav from "@/components/SiteNav";
+import SiteFooter from "@/components/SiteFooter";
 
 const globalForPrisma = globalThis;
 
@@ -266,6 +268,7 @@ export default async function HomePage() {
 
   return (
     <main className="bg-black text-white overflow-hidden">
+      <SiteNav />
 
       {/* HERO */}
       {hero?.enabled !== false && (
@@ -740,6 +743,7 @@ export default async function HomePage() {
         </section>
       )}
 
+      <SiteFooter />
     </main>
   );
 }
