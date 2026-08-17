@@ -1,284 +1,241 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const dashboardItems = [
-  {
-    title: "Products",
-    description: "View, edit, and manage your entire product catalog.",
-    href: "/admin/products",
-    icon: "📦",
-    active: true,
-  },
-  {
-    title: "Add Product",
-    description: "Create and publish a new piece to the collection.",
-    href: "/admin/products/add",
-    icon: "＋",
-    active: true,
-  },
-  {
-    title: "Orders",
-    description: "View and manage customer orders and purchases.",
-    href: "#",
-    icon: "🛍️",
-    active: false,
-  },
-  {
-    title: "Customers",
-    description: "Manage customer accounts and purchase history.",
-    href: "#",
-    icon: "👥",
-    active: false,
-  },
-  {
-    title: "Analytics",
-    description: "Track sales, products, and store performance.",
-    href: "#",
-    icon: "📊",
-    active: false,
-  },
-  {
-    title: "Settings",
-    description: "Manage store configuration and preferences.",
-    href: "#",
-    icon: "⚙️",
-    active: false,
-  },
-];
+export default function AdminDashboard() {
+  const router = useRouter();
 
-export default function AdminPage() {
+  const [role, setRole] = useState("");
+  const [brand, setBrand] = useState("");
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const auth = localStorage.getItem("adminAuth");
+    const savedRole = localStorage.getItem("adminRole");
+    const savedBrand = localStorage.getItem("adminBrand");
+
+    if (auth !== "true" || !savedRole) {
+      router.replace("/admin/login");
+      return;
+    }
+
+    setRole(savedRole);
+    setBrand(savedBrand || "");
+    setReady(true);
+  }, [router]);
+
+  const logout = () => {
+    localStorage.removeItem("adminAuth");
+    localStorage.removeItem("adminRole");
+    localStorage.removeItem("adminBrand");
+
+    router.replace("/admin/login");
+  };
+
+  if (!ready) {
+    return (
+      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+        <p className="text-neutral-500 text-sm">
+          Loading admin...
+        </p>
+      </main>
+    );
+  }
+
+  const isUthy = role === "UTHY";
+
   return (
     <main className="min-h-screen bg-black text-white">
-      {/* HEADER */}
-      <section className="border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 py-10 md:py-16">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
+
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 py-10 md:py-14">
+
+        {/* HEADER */}
+
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12">
+
+          <div>
+
+            <p className="text-amber-400 text-[10px] font-bold uppercase tracking-[0.35em]">
+              VÉRANE ADMIN
+            </p>
+
+            <h1 className="text-4xl md:text-6xl font-black tracking-tight mt-3">
+              {brand}
+            </h1>
+
+            <p className="text-neutral-500 mt-3">
+              {isUthy
+                ? "Manage UTHY LUXURY."
+                : "Manage ALOMZIEE FOOTIES."}
+            </p>
+
+          </div>
+
+          <button
+            onClick={logout}
+            className="px-5 py-3 rounded-full border border-white/10 text-xs font-bold text-neutral-400 hover:text-white hover:bg-white/5 transition"
+          >
+            Logout
+          </button>
+
+        </div>
+
+        {/* BRAND BADGE */}
+
+        <div className="mb-8 rounded-3xl border border-amber-500/20 bg-amber-500/5 p-6">
+
+          <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400 font-bold">
+            Currently managing
+          </p>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-3">
+
             <div>
-              <p className="text-amber-400 text-[10px] font-bold tracking-[0.4em] uppercase mb-4">
-                VÉRANE CONTROL
-              </p>
+              <h2 className="text-2xl font-black">
+                {brand}
+              </h2>
 
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-[-0.04em] leading-none">
-                Admin
-                <br />
-                <span className="text-neutral-500">Dashboard.</span>
-              </h1>
-
-              <p className="text-neutral-400 text-sm md:text-base mt-5 max-w-xl">
-                Manage your products, collections, orders and the VÉRANE
-                storefront from one place.
+              <p className="text-sm text-neutral-500 mt-1">
+                You are logged in as the {brand} administrator.
               </p>
             </div>
 
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center border border-white/10 rounded-full px-6 py-3 text-xs font-bold uppercase tracking-wider text-neutral-300 hover:text-white hover:border-white/30 transition"
-            >
-              View Store →
-            </Link>
+            <div className="px-4 py-2 rounded-full bg-amber-500 text-black text-[10px] font-black uppercase tracking-wider w-fit">
+              {role} ADMIN
+            </div>
+
           </div>
+
         </div>
-      </section>
 
-      {/* OVERVIEW */}
-      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-10">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="rounded-2xl border border-white/5 bg-neutral-950 p-5 md:p-6">
-            <p className="text-[9px] text-neutral-600 uppercase tracking-[0.2em]">
-              Store
-            </p>
-            <p className="text-xl font-bold mt-3">VÉRANE</p>
-            <p className="text-[10px] text-emerald-500 mt-2">
-              ● Online
-            </p>
-          </div>
+        {/* MANAGEMENT */}
 
-          <div className="rounded-2xl border border-white/5 bg-neutral-950 p-5 md:p-6">
-            <p className="text-[9px] text-neutral-600 uppercase tracking-[0.2em]">
-              Collections
-            </p>
-            <p className="text-xl font-bold mt-3">02</p>
-            <p className="text-[10px] text-neutral-500 mt-2">
-              UTHY + ALOMZIEE
-            </p>
-          </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
-          <div className="rounded-2xl border border-white/5 bg-neutral-950 p-5 md:p-6">
-            <p className="text-[9px] text-neutral-600 uppercase tracking-[0.2em]">
+          <Link
+            href="/admin/products"
+            className="group rounded-3xl border border-white/10 bg-neutral-950 p-7 hover:border-amber-500/30 hover:bg-neutral-900 transition"
+          >
+            <p className="text-amber-400 text-[10px] uppercase tracking-[0.25em] font-bold">
+              Catalog
+            </p>
+
+            <h2 className="text-2xl font-black mt-3">
+              Products
+            </h2>
+
+            <p className="text-sm text-neutral-500 mt-2">
+              Add, edit and remove {brand} products.
+            </p>
+
+            <p className="text-sm text-amber-400 mt-6 group-hover:translate-x-1 transition">
+              Manage Products →
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/orders"
+            className="group rounded-3xl border border-white/10 bg-neutral-950 p-7 hover:border-amber-500/30 hover:bg-neutral-900 transition"
+          >
+            <p className="text-amber-400 text-[10px] uppercase tracking-[0.25em] font-bold">
+              Commerce
+            </p>
+
+            <h2 className="text-2xl font-black mt-3">
               Orders
-            </p>
-            <p className="text-xl font-bold mt-3">—</p>
-            <p className="text-[10px] text-neutral-500 mt-2">
-              Coming soon
-            </p>
-          </div>
+            </h2>
 
-          <div className="rounded-2xl border border-white/5 bg-neutral-950 p-5 md:p-6">
-            <p className="text-[9px] text-neutral-600 uppercase tracking-[0.2em]">
+            <p className="text-sm text-neutral-500 mt-2">
+              View and manage customer orders.
+            </p>
+
+            <p className="text-sm text-amber-400 mt-6 group-hover:translate-x-1 transition">
+              View Orders →
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/settings"
+            className="group rounded-3xl border border-white/10 bg-neutral-950 p-7 hover:border-amber-500/30 hover:bg-neutral-900 transition"
+          >
+            <p className="text-amber-400 text-[10px] uppercase tracking-[0.25em] font-bold">
+              Configuration
+            </p>
+
+            <h2 className="text-2xl font-black mt-3">
+              Site Settings
+            </h2>
+
+            <p className="text-sm text-neutral-500 mt-2">
+              Manage your brand and website settings.
+            </p>
+
+            <p className="text-sm text-amber-400 mt-6 group-hover:translate-x-1 transition">
+              Open Settings →
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/subscribers"
+            className="group rounded-3xl border border-white/10 bg-neutral-950 p-7 hover:border-amber-500/30 hover:bg-neutral-900 transition"
+          >
+            <p className="text-amber-400 text-[10px] uppercase tracking-[0.25em] font-bold">
+              Audience
+            </p>
+
+            <h2 className="text-2xl font-black mt-3">
               Customers
-            </p>
-            <p className="text-xl font-bold mt-3">—</p>
-            <p className="text-[10px] text-neutral-500 mt-2">
-              Coming soon
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* QUICK ACTIONS */}
-      <section className="max-w-7xl mx-auto px-5 sm:px-8 pb-12">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <p className="text-amber-400 text-[9px] font-bold tracking-[0.3em] uppercase mb-2">
-              Manage
-            </p>
-
-            <h2 className="text-2xl md:text-3xl font-black">
-              Store Management
             </h2>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {dashboardItems.map((item) => {
-            if (item.active) {
-              return (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className="group relative overflow-hidden rounded-3xl border border-white/10 bg-neutral-950 p-7 md:p-8 hover:border-amber-500/40 transition-all duration-300"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.06] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                  <div className="relative">
-                    <div className="flex items-start justify-between">
-                      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-xl">
-                        {item.icon}
-                      </div>
-
-                      <span className="text-neutral-600 group-hover:text-amber-400 transition text-lg">
-                        →
-                      </span>
-                    </div>
-
-                    <h3 className="text-xl font-bold mt-7">
-                      {item.title}
-                    </h3>
-
-                    <p className="text-neutral-500 text-sm leading-relaxed mt-2">
-                      {item.description}
-                    </p>
-
-                    <p className="text-amber-400 text-[9px] font-bold uppercase tracking-[0.2em] mt-6">
-                      Open →
-                    </p>
-                  </div>
-                </Link>
-              );
-            }
-
-            return (
-              <div
-                key={item.title}
-                className="relative rounded-3xl border border-white/5 bg-neutral-950/60 p-7 md:p-8 opacity-60"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-xl grayscale">
-                    {item.icon}
-                  </div>
-
-                  <span className="px-2.5 py-1 rounded-full border border-white/5 text-[8px] font-bold uppercase tracking-wider text-neutral-600">
-                    Soon
-                  </span>
-                </div>
-
-                <h3 className="text-xl font-bold mt-7">
-                  {item.title}
-                </h3>
-
-                <p className="text-neutral-600 text-sm leading-relaxed mt-2">
-                  {item.description}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* BRANDS */}
-      <section className="border-t border-white/5 bg-neutral-950">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 py-16 md:py-20">
-          <div className="mb-8">
-            <p className="text-amber-400 text-[9px] font-bold tracking-[0.3em] uppercase mb-2">
-              Collections
+            <p className="text-sm text-neutral-500 mt-2">
+              View subscribers and customer information.
             </p>
 
-            <h2 className="text-2xl md:text-3xl font-black">
-              Two Brands. One Expression.
+            <p className="text-sm text-amber-400 mt-6 group-hover:translate-x-1 transition">
+              View Customers →
+            </p>
+          </Link>
+
+          <div className="rounded-3xl border border-white/10 bg-neutral-950 p-7">
+
+            <p className="text-amber-400 text-[10px] uppercase tracking-[0.25em] font-bold">
+              Analytics
+            </p>
+
+            <h2 className="text-2xl font-black mt-3">
+              Analytics
             </h2>
+
+            <p className="text-sm text-neutral-500 mt-2">
+              Store performance and sales insights.
+            </p>
+
+            <p className="text-xs text-neutral-700 mt-6 uppercase tracking-wider">
+              Coming next
+            </p>
+
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <Link
-              href="/admin/products?brand=UTHY_LUXURY"
-              className="group rounded-3xl border border-white/5 bg-black p-8 md:p-10 hover:border-amber-500/30 transition"
-            >
-              <p className="text-[9px] text-amber-400 font-bold tracking-[0.3em] uppercase">
-                Collection 01
-              </p>
-
-              <h3 className="text-3xl md:text-4xl font-black mt-4">
-                UTHY
-                <br />
-                <span className="text-neutral-500">LUXURY</span>
-              </h3>
-
-              <p className="text-neutral-500 text-sm mt-5">
-                Custom shirts, trousers, hoodies and traditional wear.
-              </p>
-
-              <span className="inline-block text-xs font-bold uppercase tracking-wider text-neutral-400 group-hover:text-amber-400 mt-7 transition">
-                Manage collection →
-              </span>
-            </Link>
-
-            <Link
-              href="/admin/products?brand=ALOMZIEE_FOOTIES"
-              className="group rounded-3xl border border-white/5 bg-black p-8 md:p-10 hover:border-amber-500/30 transition"
-            >
-              <p className="text-[9px] text-amber-400 font-bold tracking-[0.3em] uppercase">
-                Collection 02
-              </p>
-
-              <h3 className="text-3xl md:text-4xl font-black mt-4">
-                ALOMZIEE
-                <br />
-                <span className="text-neutral-500">FOOTIES</span>
-              </h3>
-
-              <p className="text-neutral-500 text-sm mt-5">
-                Handmade shoes, sandals, slides, boots, belts and bags.
-              </p>
-
-              <span className="inline-block text-xs font-bold uppercase tracking-wider text-neutral-400 group-hover:text-amber-400 mt-7 transition">
-                Manage collection →
-              </span>
-            </Link>
-          </div>
         </div>
-      </section>
 
-      {/* FOOTER */}
-      <footer className="border-t border-white/5">
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-700">
-            VÉRANE ADMIN
+        {/* ROLE INFO */}
+
+        <div className="mt-10 border-t border-white/5 pt-8">
+
+          <p className="text-[10px] uppercase tracking-[0.25em] text-neutral-700">
+            Admin access
           </p>
 
-          <p className="text-[9px] text-neutral-700">
-            Two Brands. One Expression.
+          <p className="text-xs text-neutral-600 mt-2">
+            Logged in as {role} administrator.
           </p>
+
         </div>
-      </footer>
+
+      </div>
+
     </main>
   );
 }

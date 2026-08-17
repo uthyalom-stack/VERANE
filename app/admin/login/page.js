@@ -3,16 +3,32 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+const ADMINS = {
+  UTHY: {
+    password: "uthy2026",
+    name: "UTHY LUXURY",
+    role: "UTHY",
+  },
+  ALOMZIEE: {
+    password: "alomziee2026",
+    name: "ALOMZIEE FOOTIES",
+    role: "ALOMZIEE",
+  },
+};
+
 export default function AdminLogin() {
   const router = useRouter();
+
+  const [brand, setBrand] = useState("UTHY");
   const [pass, setPass] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const auth = localStorage.getItem("adminAuth");
+    const role = localStorage.getItem("adminRole");
 
-    if (auth) {
+    if (auth === "true" && role) {
       router.replace("/admin");
     }
   }, [router]);
@@ -29,8 +45,13 @@ export default function AdminLogin() {
 
     setLoading(true);
 
-    if (pass === "verane2026") {
+    const selectedAdmin = ADMINS[brand];
+
+    if (pass === selectedAdmin.password) {
       localStorage.setItem("adminAuth", "true");
+      localStorage.setItem("adminRole", selectedAdmin.role);
+      localStorage.setItem("adminBrand", selectedAdmin.name);
+
       router.replace("/admin");
       return;
     }
@@ -42,6 +63,7 @@ export default function AdminLogin() {
   return (
     <main className="min-h-screen bg-black text-white flex items-center justify-center px-5">
       <div className="w-full max-w-md">
+
         <div className="text-center mb-10">
           <p className="text-amber-500 text-[10px] font-bold uppercase tracking-[0.45em]">
             VÉRANE
@@ -60,8 +82,47 @@ export default function AdminLogin() {
           onSubmit={login}
           className="bg-neutral-950 border border-white/10 rounded-3xl p-6 md:p-8"
         >
+
           <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mb-3">
-            Admin Password
+            Select Brand
+          </label>
+
+          <div className="grid grid-cols-2 gap-3 mb-6">
+
+            <button
+              type="button"
+              onClick={() => {
+                setBrand("UTHY");
+                setError("");
+              }}
+              className={`rounded-2xl px-4 py-4 text-sm font-bold border transition ${
+                brand === "UTHY"
+                  ? "bg-amber-500 text-black border-amber-500"
+                  : "bg-black text-neutral-500 border-white/10 hover:border-white/20"
+              }`}
+            >
+              UTHY LUXURY
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setBrand("ALOMZIEE");
+                setError("");
+              }}
+              className={`rounded-2xl px-4 py-4 text-sm font-bold border transition ${
+                brand === "ALOMZIEE"
+                  ? "bg-amber-500 text-black border-amber-500"
+                  : "bg-black text-neutral-500 border-white/10 hover:border-white/20"
+              }`}
+            >
+              ALOMZIEE
+            </button>
+
+          </div>
+
+          <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mb-3">
+            {ADMINS[brand].name} Password
           </label>
 
           <input
@@ -86,6 +147,7 @@ export default function AdminLogin() {
           >
             {loading ? "Authenticating..." : "Enter Admin →"}
           </button>
+
         </form>
 
         <a
@@ -94,6 +156,7 @@ export default function AdminLogin() {
         >
           ← Return to VÉRANE
         </a>
+
       </div>
     </main>
   );
