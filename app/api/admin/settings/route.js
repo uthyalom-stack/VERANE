@@ -20,7 +20,6 @@ const DEFAULT_SETTINGS = {
   announcementText: "",
 };
 
-// Only settings that are intentionally allowed to be stored.
 const ALLOWED_SETTINGS = new Set([
   "siteName",
   "tagline",
@@ -40,7 +39,7 @@ const ALLOWED_SETTINGS = new Set([
   "announcementText",
 ]);
 
-function normalizeValue(value: unknown): string {
+function normalizeValue(value) {
   if (value === null || value === undefined) {
     return "";
   }
@@ -64,7 +63,7 @@ export async function GET() {
       },
     });
 
-    const settings: Record<string, string> = {
+    const settings = {
       ...DEFAULT_SETTINGS,
     };
 
@@ -89,7 +88,7 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request) {
   try {
     const body = await request.json();
 
@@ -122,7 +121,9 @@ export async function PUT(request: Request) {
     await prisma.$transaction(
       entries.map(([key, value]) =>
         prisma.siteSetting.upsert({
-          where: { key },
+          where: {
+            key,
+          },
           update: {
             value: normalizeValue(value),
           },
@@ -134,9 +135,13 @@ export async function PUT(request: Request) {
       )
     );
 
-    const rows = await prisma.siteSetting.findMany();
+    const rows = await prisma.siteSetting.findMany({
+      orderBy: {
+        key: "asc",
+      },
+    });
 
-    const settings: Record<string, string> = {
+    const settings = {
       ...DEFAULT_SETTINGS,
     };
 
