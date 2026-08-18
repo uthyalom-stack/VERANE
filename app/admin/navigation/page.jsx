@@ -2,35 +2,42 @@
 
 import { useEffect, useState } from "react";
 
-const DEFAULT_NAVIGATION = [
+const DEFAULT_NAV_ITEMS = [
+  {
+    label: "Shop",
+    href: "/catalog",
+  },
   {
     label: "UTHY LUXURY",
-    url: "/catalog?brand=UTHY_LUXURY",
+    href: "/catalog?brand=UTHY_LUXURY",
   },
   {
     label: "ALOMZIEE",
-    url: "/catalog?brand=ALOMZIEE_FOOTIES",
+    href: "/catalog?brand=ALOMZIEE_FOOTIES",
   },
   {
     label: "Outfit Builder",
-    url: "/outfit-builder",
-  },
-  {
-    label: "Shop",
-    url: "/catalog",
-  },
-  {
-    label: "Cart",
-    url: "/cart",
+    href: "/outfit-builder",
   },
 ];
 
 export default function NavigationPage() {
-  const [items, setItems] = useState(DEFAULT_NAVIGATION);
+  const [settings, setSettings] = useState({});
+  const [navItems, setNavItems] = useState([]);
+
+  const [editingIndex, setEditingIndex] =
+    useState(null);
+
+  const [editLabel, setEditLabel] = useState("");
+  const [editHref, setEditHref] = useState("");
+
+  const [newLabel, setNewLabel] = useState("");
+  const [newHref, setNewHref] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     loadNavigation();
@@ -39,379 +46,546 @@ export default function NavigationPage() {
   async function loadNavigation() {
     try {
       setLoading(true);
+      setError("");
 
-      const response = await fetch("/api/admin/settings");
+      const response = await fetch(
+        "/api/admin/settings",
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "Failed to load navigation settings."
+        );
+      }
+
       const data = await response.json();
 
-      if (data.navItems) {
-        try {
-          const parsed = JSON.parse(data.navItems);
+      setSettings(data || {});
 
-          if (Array.isArray(parsed)) {
-            setItems(parsed);
-          }
-        } catch {
-          const parsed = data.navItems
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean)
-            .map((line) => {
-              const separator = line.indexOf(":");
+      if (
+        data?.navItems &&
+        typeof data.navItems === "string"
+      ) {
+        const items = data.navItems
+          .split("\n")
+          .map((line) => {
+            const separatorIndex =
+              line.indexOf(":");
 
-              if (separator === -1) {
-                return {
-                  label: line,
-                  url: "#",
-                };
-              }
+            if (separatorIndex === -1) {
+              return null;
+            }
 
-              return {
-                label: line.slice(0, separator).trim(),
-                url: line.slice(separator + 1).trim(),
-              };
-            });
+            const label = line
+              .slice(0, separatorIndex)
+              .trim();
 
-          if (parsed.length > 0) {
-            setItems(parsed);
-          }
-        }
+            const href = line
+              .slice(separatorIndex + 1)
+              .trim();
+
+            if (!label || !href) {
+              return null;
+            }
+
+            return {
+              label,
+              href,
+            };
+          })
+          .filter(Boolean);
+
+        setNavItems(
+          items.length > 0
+            ? items
+            : DEFAULT_NAV_ITEMS
+        );
+      } else {
+        setNavItems(DEFAULT_NAV_ITEMS);
       }
-    } catch (error) {
-      console.error("Failed to load navigation:", error);
-      setMessage("Failed to load navigation.");
+    } catch (err) {
+      console.error(
+        "Failed to load navigation:",
+        err
+      );
+
+      setError(
+        "Could not load navigation settings."
+      );
+
+      setNavItems(DEFAULT_NAV_ITEMS);
     } finally {
       setLoading(false);
     }
   }
 
-  function updateItem(index, field, value) {
-    setItems((current) =>
-      current.map((item, itemIndex) =>
-        itemIndex === index
-          ? {
-              ...item,
-              [field]: value,
-            }
-          : item
-      )
-    );
-  }
+  async function save() {
+    if (saving) return;
 
-  function addItem() {
-    setItems((current) => [
-      ...current,
-      {
-        label: "New Menu Item",
-        url: "/",
-      },
-    ]);
-  }
-
-  function removeItem(index) {
-    setItems((current) =>
-      current.filter((_, itemIndex) => itemIndex !== index)
-    );
-  }
-
-  function moveItem(index, direction) {
-    setItems((current) => {
-      const newItems = [...current];
-      const newIndex = index + direction;
-
-      if (
-        newIndex < 0 ||
-        newIndex >= newItems.length
-      ) {
-        return current;
-      }
-
-      const temp = newItems[index];
-      newItems[index] = newItems[newIndex];
-      newItems[newIndex] = temp;
-
-      return newItems;
-    });
-  }
-
-  async function saveNavigation() {
     try {
       setSaving(true);
-      setSaved(false);
-      setMessage("");
+      setError("");
 
-      const response = await fetch("/api/admin/settings", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          navItems: JSON.stringify(items),
-        }),
-      });
+      const navString = navItems
+        .map(
+          (item) =>
+            `${item.label}:${item.href}`
+        )
+        .join("\n");
 
-      const data = await response.json();
+      const response = await fetch(
+        "/api/admin/settings",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ...settings,
+            navItems: navString,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(
-          data?.error || "Failed to save navigation."
+          "Failed to save navigation."
         );
       }
 
+      const data = await response.json();
+
+      if (data && typeof data === "object") {
+        setSettings(data);
+      }
+
       setSaved(true);
-      setMessage("Navigation saved successfully.");
 
       setTimeout(() => {
         setSaved(false);
       }, 3000);
-    } catch (error) {
-      console.error("Failed to save navigation:", error);
-      setMessage(
-        error.message || "Failed to save navigation."
+    } catch (err) {
+      console.error(
+        "Failed to save navigation:",
+        err
+      );
+
+      setError(
+        "Could not save navigation."
       );
     } finally {
       setSaving(false);
     }
   }
 
-  function resetNavigation() {
-    if (
-      !confirm(
-        "Reset navigation to the default VÉRANE menu?"
+  function addItem() {
+    const label = newLabel.trim();
+    const href = newHref.trim();
+
+    if (!label || !href) {
+      setError(
+        "Please enter both a label and URL."
+      );
+      return;
+    }
+
+    setNavItems((current) => [
+      ...current,
+      {
+        label,
+        href,
+      },
+    ]);
+
+    setNewLabel("");
+    setNewHref("");
+    setError("");
+  }
+
+  function editItem(index) {
+    const item = navItems[index];
+
+    if (!item) return;
+
+    setEditingIndex(index);
+    setEditLabel(item.label);
+    setEditHref(item.href);
+    setError("");
+  }
+
+  function cancelEdit() {
+    setEditingIndex(null);
+    setEditLabel("");
+    setEditHref("");
+  }
+
+  function saveEdit() {
+    const label = editLabel.trim();
+    const href = editHref.trim();
+
+    if (!label || !href) {
+      setError(
+        "Please enter both a label and URL."
+      );
+      return;
+    }
+
+    setNavItems((current) =>
+      current.map((item, index) =>
+        index === editingIndex
+          ? {
+              label,
+              href,
+            }
+          : item
       )
+    );
+
+    cancelEdit();
+    setError("");
+  }
+
+  function deleteItem(index) {
+    const item = navItems[index];
+
+    if (!item) return;
+
+    const confirmed = window.confirm(
+      `Delete "${item.label}" from the navigation?`
+    );
+
+    if (!confirmed) return;
+
+    setNavItems((current) =>
+      current.filter(
+        (_, currentIndex) =>
+          currentIndex !== index
+      )
+    );
+
+    if (editingIndex === index) {
+      cancelEdit();
+    }
+  }
+
+  function moveItem(index, direction) {
+    const newIndex = index + direction;
+
+    if (
+      newIndex < 0 ||
+      newIndex >= navItems.length
     ) {
       return;
     }
 
-    setItems(DEFAULT_NAVIGATION);
-    setMessage("Navigation reset. Save to apply the changes.");
+    const newItems = [...navItems];
+
+    [
+      newItems[index],
+      newItems[newIndex],
+    ] = [
+      newItems[newIndex],
+      newItems[index],
+    ];
+
+    setNavItems(newItems);
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-black text-white">
+        <p className="text-neutral-500">
+          Loading navigation...
+        </p>
+      </main>
+    );
   }
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <div className="mx-auto max-w-5xl px-5 py-10 sm:px-8 lg:px-10">
+
+      <div className="mx-auto max-w-4xl px-5 py-10 sm:px-8">
 
         {/* HEADER */}
-        <header className="mb-10">
-          <div className="mb-5 flex items-center gap-3">
-            <span className="h-px w-10 bg-amber-400" />
+        <div className="mb-8">
 
-            <span className="text-[10px] font-bold uppercase tracking-[0.35em] text-amber-400">
-              VÉRANE / NAVIGATION
-            </span>
-          </div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-amber-400">
+            Site Management
+          </p>
 
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h1 className="text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
-                Navigation
-              </h1>
+          <h1 className="mt-2 text-4xl font-black tracking-[-0.04em]">
+            Navigation
+          </h1>
 
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-white/40">
-                Control the links customers see in your
-                storefront navigation without editing the
-                website code.
-              </p>
-            </div>
+          <p className="mt-2 text-sm text-neutral-500">
+            Manage the links displayed in your
+            website navigation.
+          </p>
 
-            <div className="rounded-full border border-white/[0.08] bg-white/[0.025] px-5 py-3 text-xs text-white/40">
-              {items.length}{" "}
-              {items.length === 1 ? "item" : "items"}
-            </div>
-          </div>
-        </header>
+        </div>
 
-        {/* MESSAGE */}
-        {message && (
-          <div className="mb-6 rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] px-5 py-4 text-sm text-amber-300">
-            {message}
+        {/* ERROR */}
+        {error && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 px-5 py-4 text-sm text-red-400">
+            {error}
           </div>
         )}
 
-        {/* NAVIGATION EDITOR */}
-        <section className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.025]">
+        {/* NAVIGATION ITEMS */}
+        <div className="mb-8 space-y-3">
 
-          <div className="flex flex-col gap-4 border-b border-white/[0.06] px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-            <div>
-              <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber-400/70">
-                Menu Structure
+          {navItems.length === 0 ? (
+
+            <div className="rounded-3xl border border-white/10 bg-neutral-950 py-20 text-center">
+
+              <p className="font-semibold">
+                No navigation items.
               </p>
 
-              <h2 className="mt-2 text-xl font-semibold tracking-tight">
-                Storefront navigation
-              </h2>
+              <p className="mt-2 text-sm text-neutral-600">
+                Add your first menu item below.
+              </p>
+
             </div>
 
-            <button
-              type="button"
-              onClick={addItem}
-              className="w-fit rounded-full bg-amber-400 px-5 py-3 text-xs font-bold text-black transition hover:bg-amber-300"
-            >
-              + Add Menu Item
-            </button>
-          </div>
+          ) : (
 
-          <div className="p-6 sm:p-8">
+            navItems.map((item, index) => (
 
-            {loading ? (
-              <div className="py-16 text-center text-sm text-white/30">
-                Loading navigation...
-              </div>
-            ) : (
-              <div className="space-y-3">
+              <div
+                key={`${item.href}-${index}`}
+                className="rounded-2xl border border-white/10 bg-neutral-950 p-4 transition hover:border-white/[0.15]"
+              >
 
-                {items.map((item, index) => (
-                  <div
-                    key={`${index}-${item.label}`}
-                    className="group rounded-2xl border border-white/[0.07] bg-black/50 p-4 transition hover:border-white/[0.13]"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                {editingIndex === index ? (
 
-                      {/* NUMBER */}
-                      <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.025] text-[10px] font-bold tracking-widest text-white/25 sm:flex">
-                        {String(index + 1).padStart(2, "0")}
-                      </div>
+                  /* EDIT MODE */
+                  <div className="space-y-4">
 
-                      {/* LABEL */}
-                      <div className="flex-1">
-                        <label className="mb-2 block text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">
-                          Label
-                        </label>
-
-                        <input
-                          value={item.label}
-                          onChange={(e) =>
-                            updateItem(
-                              index,
-                              "label",
-                              e.target.value
-                            )
-                          }
-                          className="w-full rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-amber-400/40"
-                          placeholder="Menu name"
-                        />
-                      </div>
-
-                      {/* URL */}
-                      <div className="flex-1">
-                        <label className="mb-2 block text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">
-                          Destination
-                        </label>
-
-                        <input
-                          value={item.url}
-                          onChange={(e) =>
-                            updateItem(
-                              index,
-                              "url",
-                              e.target.value
-                            )
-                          }
-                          className="w-full rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-amber-400/40"
-                          placeholder="/catalog"
-                        />
-                      </div>
-
-                      {/* CONTROLS */}
-                      <div className="flex items-center gap-2 lg:pt-5">
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            moveItem(index, -1)
-                          }
-                          disabled={index === 0}
-                          className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.07] text-white/40 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-20"
-                          title="Move up"
-                        >
-                          ↑
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            moveItem(index, 1)
-                          }
-                          disabled={
-                            index === items.length - 1
-                          }
-                          className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.07] text-white/40 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-20"
-                          title="Move down"
-                        >
-                          ↓
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeItem(index)
-                          }
-                          className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-400/10 text-red-400/50 transition hover:border-red-400/30 hover:text-red-400"
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-
-                      </div>
+                    <div>
+                      <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400">
+                        Editing Menu Item
+                      </p>
                     </div>
-                  </div>
-                ))}
 
-                {items.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-white/[0.1] px-6 py-14 text-center">
-                    <p className="text-sm font-semibold">
-                      No navigation items
-                    </p>
+                    <div className="grid gap-3 md:grid-cols-2">
 
-                    <p className="mt-2 text-xs text-white/30">
-                      Add your first menu item above.
-                    </p>
+                      <input
+                        value={editLabel}
+                        onChange={(event) =>
+                          setEditLabel(
+                            event.target.value
+                          )
+                        }
+                        className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm outline-none transition focus:border-amber-400/40"
+                        placeholder="Label"
+                      />
+
+                      <input
+                        value={editHref}
+                        onChange={(event) =>
+                          setEditHref(
+                            event.target.value
+                          )
+                        }
+                        className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm outline-none transition focus:border-amber-400/40"
+                        placeholder="/catalog"
+                      />
+
+                    </div>
+
+                    <div className="flex gap-2">
+
+                      <button
+                        type="button"
+                        onClick={saveEdit}
+                        className="rounded-full bg-amber-500 px-5 py-2.5 text-xs font-bold text-black transition hover:bg-amber-400"
+                      >
+                        Save Changes
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="rounded-full border border-white/10 px-5 py-2.5 text-xs font-bold text-neutral-400 transition hover:bg-white/[0.04] hover:text-white"
+                      >
+                        Cancel
+                      </button>
+
+                    </div>
+
                   </div>
+
+                ) : (
+
+                  /* NORMAL MODE */
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+                    <div className="min-w-0 flex-1">
+
+                      <p className="font-bold">
+                        {item.label}
+                      </p>
+
+                      <p className="mt-1 break-all text-xs text-neutral-500">
+                        {item.href}
+                      </p>
+
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-2">
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          moveItem(
+                            index,
+                            -1
+                          )
+                        }
+                        disabled={index === 0}
+                        aria-label="Move item up"
+                        className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-neutral-400 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        ↑
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          moveItem(
+                            index,
+                            1
+                          )
+                        }
+                        disabled={
+                          index ===
+                          navItems.length - 1
+                        }
+                        aria-label="Move item down"
+                        className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-neutral-400 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        ↓
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          editItem(index)
+                        }
+                        className="rounded-lg px-3 py-1.5 text-xs font-semibold text-blue-400 transition hover:bg-blue-400/10"
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deleteItem(index)
+                        }
+                        className="rounded-lg px-3 py-1.5 text-xs font-semibold text-red-400 transition hover:bg-red-400/10"
+                      >
+                        Delete
+                      </button>
+
+                    </div>
+
+                  </div>
+
                 )}
+
               </div>
-            )}
 
-            {/* ACTIONS */}
-            <div className="mt-8 flex flex-col gap-3 border-t border-white/[0.06] pt-6 sm:flex-row sm:items-center sm:justify-between">
+            ))
 
-              <button
-                type="button"
-                onClick={resetNavigation}
-                className="w-fit text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 transition hover:text-white"
-              >
-                Reset Defaults
-              </button>
+          )}
 
-              <button
-                type="button"
-                onClick={saveNavigation}
-                disabled={saving || loading}
-                className="rounded-full bg-amber-400 px-7 py-3 text-xs font-bold text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {saving
-                  ? "Saving..."
-                  : saved
-                  ? "Saved ✓"
-                  : "Save Navigation"}
-              </button>
-            </div>
+        </div>
+
+        {/* ADD MENU ITEM */}
+        <div className="mb-8 rounded-3xl border border-white/10 bg-neutral-950 p-6">
+
+          <div className="mb-5">
+
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-neutral-600">
+              Navigation
+            </p>
+
+            <h2 className="mt-1 text-lg font-bold">
+              Add Menu Item
+            </h2>
+
           </div>
-        </section>
 
-        {/* INFO */}
-        <section className="mt-8 rounded-[24px] border border-white/[0.06] bg-white/[0.02] p-6">
-          <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber-400/60">
-            How it works
-          </p>
+          <div className="grid gap-3 md:grid-cols-2">
 
-          <p className="mt-3 text-sm leading-6 text-white/35">
-            Each menu item has a display name and destination.
-            Changes are saved to your database so you can update
-            your storefront navigation from the Admin without
-            touching the website code.
-          </p>
-        </section>
+            <input
+              value={newLabel}
+              onChange={(event) =>
+                setNewLabel(
+                  event.target.value
+                )
+              }
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter"
+                ) {
+                  addItem();
+                }
+              }}
+              className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm outline-none transition focus:border-amber-400/40"
+              placeholder="Label"
+            />
+
+            <input
+              value={newHref}
+              onChange={(event) =>
+                setNewHref(
+                  event.target.value
+                )
+              }
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter"
+                ) {
+                  addItem();
+                }
+              }}
+              className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm outline-none transition focus:border-amber-400/40"
+              placeholder="URL (e.g. /about)"
+            />
+
+          </div>
+
+          <button
+            type="button"
+            onClick={addItem}
+            className="mt-4 w-full rounded-xl bg-white px-5 py-3 text-sm font-bold text-black transition hover:bg-neutral-200"
+          >
+            + Add Menu Item
+          </button>
+
+        </div>
+
+        {/* SAVE */}
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="w-full rounded-full bg-amber-500 px-6 py-4 font-bold text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving
+            ? "Saving..."
+            : saved
+              ? "Saved ✓"
+              : "Save Navigation"}
+        </button>
 
       </div>
+
     </main>
   );
 }
