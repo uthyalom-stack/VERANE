@@ -3,6 +3,8 @@ import { PrismaClient } from "@prisma/client";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
 
+export const dynamic = "force-dynamic";
+
 const globalForPrisma = globalThis;
 
 const prisma =
@@ -118,72 +120,9 @@ const FALLBACK_SECTIONS = [
   },
 ];
 
-const PRODUCTS = [
-  {
-    name: "Signature Shirt",
-    brand: "UTHY LUXURY",
-    category: "Shirts",
-    price: "₦45,000",
-    image:
-      "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Classic Tailored Trouser",
-    brand: "UTHY LUXURY",
-    category: "Trousers",
-    price: "₦35,000",
-    image:
-      "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Handcrafted Leather Slide",
-    brand: "ALOMZIEE FOOTIES",
-    category: "Footwear",
-    price: "₦30,000",
-    image:
-      "https://images.unsplash.com/photo-1603487742131-4160ec999306?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Leather Statement Belt",
-    brand: "ALOMZIEE FOOTIES",
-    category: "Accessories",
-    price: "₦15,000",
-    image:
-      "https://images.unsplash.com/photo-1624222247344-550fb60583dc?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Oversized Signature Hoodie",
-    brand: "UTHY LUXURY",
-    category: "Hoodies",
-    price: "₦55,000",
-    image:
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Premium Leather Shoe",
-    brand: "ALOMZIEE FOOTIES",
-    category: "Footwear",
-    price: "₦48,000",
-    image:
-      "https://images.unsplash.com/photo-1614252235316-8c857d2a84a1?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Traditional Statement Set",
-    brand: "UTHY LUXURY",
-    category: "Traditional",
-    price: "₦75,000",
-    image:
-      "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=900&q=85",
-  },
-  {
-    name: "Handmade Crossbody Bag",
-    brand: "ALOMZIEE FOOTIES",
-    category: "Accessories",
-    price: "₦42,000",
-    image:
-      "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=900&q=85",
-  },
-];
+/* =========================================================
+   HOMEPAGE DATA
+========================================================= */
 
 async function getHomepageSections() {
   try {
@@ -204,8 +143,82 @@ async function getHomepageSections() {
   }
 }
 
+async function getProducts() {
+  try {
+    const products = await prisma.product.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return products;
+  } catch (error) {
+    console.error("Homepage products error:", error);
+    return [];
+  }
+}
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function getProductImage(images) {
+  if (!images) return null;
+
+  try {
+    if (Array.isArray(images)) {
+      return images[0] || null;
+    }
+
+    if (typeof images === "string") {
+      const parsed = JSON.parse(images);
+
+      if (Array.isArray(parsed)) {
+        return parsed[0] || null;
+      }
+
+      if (typeof parsed === "string") {
+        return parsed;
+      }
+    }
+  } catch {
+    if (typeof images === "string") {
+      const first = images
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)[0];
+
+      return first || null;
+    }
+  }
+
+  return null;
+}
+
+function getBrandName(brand) {
+  if (brand === "UTHY_LUXURY") {
+    return "UTHY LUXURY";
+  }
+
+  if (brand === "ALOMZIEE_FOOTIES") {
+    return "ALOMZIEE FOOTIES";
+  }
+
+  return brand || "VÉRANE";
+}
+
+function formatPrice(price) {
+  const number = Number(price || 0);
+
+  return `₦${number.toLocaleString("en-NG")}`;
+}
+
+/* =========================================================
+   SECTION IMAGE
+========================================================= */
+
 function SectionImage({ section, className = "" }) {
-  if (!section.image) return null;
+  if (!section?.image) return null;
 
   return (
     <picture>
@@ -225,34 +238,126 @@ function SectionImage({ section, className = "" }) {
   );
 }
 
-function ProductCard({ product }) {
+/* =========================================================
+   PRODUCT CARD
+========================================================= */
+
+function ProductCard({ product, featured = false }) {
+  const image = getProductImage(product.images);
+
   return (
-    <Link href="/catalog" className="group">
-      <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-neutral-900 mb-4">
-        <img
-          src={product.image}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-        />
+    <Link
+      href={`/product/${product.id}`}
+      className={`group block snap-start shrink-0 ${
+        featured
+          ? "w-[72vw] sm:w-[42vw] md:w-[30vw] lg:w-[23vw]"
+          : "w-[72vw] sm:w-[42vw] md:w-[30vw] lg:w-[23vw]"
+      }`}
+    >
+      <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-neutral-950 mb-4 border border-white/[0.04]">
+
+        {image ? (
+          <img
+            src={image}
+            alt={product.name || "Product"}
+            loading="lazy"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-neutral-900">
+            <span className="text-5xl opacity-20">V</span>
+          </div>
+        )}
+
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+        <div className="absolute left-3 top-3">
+          <span className="rounded-full border border-white/10 bg-black/60 backdrop-blur-md px-3 py-1.5 text-[8px] font-bold uppercase tracking-[0.18em] text-white/80">
+            View
+          </span>
+        </div>
       </div>
 
       <p className="text-[9px] md:text-[10px] font-bold tracking-[0.18em] uppercase text-amber-400">
-        {product.brand}
+        {getBrandName(product.brand)}
       </p>
 
-      <h3 className="font-semibold mt-1 text-sm md:text-base">
+      <h3 className="font-semibold mt-1 text-sm md:text-base truncate">
         {product.name}
       </h3>
 
       <p className="text-neutral-400 text-sm mt-1">
-        {product.price}
+        {formatPrice(product.price)}
       </p>
     </Link>
   );
 }
 
+/* =========================================================
+   HORIZONTAL PRODUCT RAIL
+========================================================= */
+
+function ProductRail({
+  products,
+  emptyText = "No products available yet.",
+}) {
+  if (!products.length) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-neutral-950 px-6 py-16 text-center">
+        <p className="text-sm text-neutral-500">
+          {emptyText}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+
+      <div
+        className="
+          flex
+          gap-4
+          md:gap-6
+          overflow-x-auto
+          snap-x
+          snap-mandatory
+          pb-5
+          pr-5
+          scrollbar-hide
+          overscroll-x-contain
+        "
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}
+      >
+        {products.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+          />
+        ))}
+      </div>
+
+      <div className="mt-2 flex items-center gap-3 text-[9px] uppercase tracking-[0.25em] text-white/20">
+        <span className="h-px w-8 bg-white/10" />
+        <span>Swipe to explore</span>
+        <span className="text-white/10">→</span>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   HOME PAGE
+========================================================= */
+
 export default async function HomePage() {
-  const sections = await getHomepageSections();
+  const [sections, products] = await Promise.all([
+    getHomepageSections(),
+    getProducts(),
+  ]);
 
   const getSection = (key) =>
     sections.find((section) => section.key === key);
@@ -266,15 +371,32 @@ export default async function HomePage() {
   const story = getSection("story");
   const newsletter = getSection("newsletter");
 
+  const selectedProducts = products.slice(0, 8);
+
+  const uthyProducts = products.filter(
+    (product) => product.brand === "UTHY_LUXURY"
+  );
+
+  const alomzieeProducts = products.filter(
+    (product) => product.brand === "ALOMZIEE_FOOTIES"
+  );
+
+  const newArrivals = products.slice(0, 8);
+
   return (
     <main className="bg-black text-white overflow-hidden">
+
       <SiteNav />
 
-      {/* HERO */}
+      {/* =====================================================
+          HERO
+      ===================================================== */}
+
       {hero?.enabled !== false && (
         <section className="relative min-h-screen flex items-center overflow-hidden">
 
           <div className="absolute inset-0">
+
             <SectionImage
               section={hero}
               className="absolute inset-0 w-full h-full object-cover"
@@ -297,7 +419,9 @@ export default async function HomePage() {
             )}
 
             <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black" />
+
             <div className="absolute inset-0 bg-gradient-to-r from-black via-black/20 to-black" />
+
           </div>
 
           <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 w-full py-32">
@@ -333,7 +457,10 @@ export default async function HomePage() {
 
                 {hero?.secondaryButtonText && (
                   <Link
-                    href={hero.secondaryButtonLink || "/outfit-builder"}
+                    href={
+                      hero.secondaryButtonLink ||
+                      "/outfit-builder"
+                    }
                     className="border border-white/30 backdrop-blur-md px-8 py-4 rounded-full font-bold text-sm uppercase tracking-wider text-center hover:bg-white hover:text-black transition"
                   >
                     {hero.secondaryButtonText}
@@ -342,12 +469,14 @@ export default async function HomePage() {
 
               </div>
             </div>
-
           </div>
         </section>
       )}
 
-      {/* SELECTED PIECES */}
+      {/* =====================================================
+          SELECTED PIECES
+      ===================================================== */}
+
       {selected?.enabled !== false && (
         <section className="max-w-7xl mx-auto px-5 sm:px-8 py-28">
 
@@ -376,21 +505,21 @@ export default async function HomePage() {
 
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-            {PRODUCTS.slice(0, 4).map((product) => (
-              <ProductCard
-                product={product}
-                key={product.name}
-              />
-            ))}
-          </div>
+          <ProductRail
+            products={selectedProducts}
+            emptyText="Products will appear here once you add them from the admin."
+          />
 
         </section>
       )}
 
-      {/* UTHY */}
+      {/* =====================================================
+          UTHY LUXURY
+      ===================================================== */}
+
       {uthy?.enabled !== false && (
         <>
+
           <section className="relative min-h-[75vh] flex items-center overflow-hidden border-y border-white/5">
 
             <SectionImage
@@ -426,7 +555,10 @@ export default async function HomePage() {
 
                 {uthy.buttonText && (
                   <Link
-                    href={uthy.buttonLink || "/catalog?brand=UTHY_LUXURY"}
+                    href={
+                      uthy.buttonLink ||
+                      "/catalog?brand=UTHY_LUXURY"
+                    }
                     className="inline-block mt-8 bg-white text-black px-7 py-4 rounded-full font-bold text-xs uppercase tracking-wider hover:bg-amber-400 transition"
                   >
                     {uthy.buttonText}
@@ -437,12 +569,21 @@ export default async function HomePage() {
             </div>
           </section>
 
+          {/* UTHY PRODUCTS */}
+
           <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20">
 
             <div className="flex justify-between items-center mb-8">
-              <h3 className="text-2xl md:text-3xl font-black">
-                From UTHY
-              </h3>
+
+              <div>
+                <p className="text-[9px] font-bold tracking-[0.3em] uppercase text-amber-400 mb-2">
+                  UTHY LUXURY
+                </p>
+
+                <h3 className="text-2xl md:text-3xl font-black">
+                  From UTHY
+                </h3>
+              </div>
 
               <Link
                 href="/catalog?brand=UTHY_LUXURY"
@@ -450,74 +591,114 @@ export default async function HomePage() {
               >
                 Shop all →
               </Link>
+
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {PRODUCTS.filter(
-                (product) => product.brand === "UTHY LUXURY"
-              )
-                .slice(0, 3)
-                .map((product) => (
-                  <ProductCard
-                    product={product}
-                    key={product.name}
-                  />
-                ))}
-            </div>
+            <ProductRail
+              products={uthyProducts}
+              emptyText="UTHY products will appear here once you add them."
+            />
+
           </section>
+
         </>
       )}
 
-      {/* ALOMZIEE */}
+      {/* =====================================================
+          ALOMZIEE FOOTIES
+      ===================================================== */}
+
       {alomziee?.enabled !== false && (
-        <section className="relative min-h-[75vh] flex items-center overflow-hidden border-y border-white/5">
+        <>
 
-          <SectionImage
-            section={alomziee}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+          <section className="relative min-h-[75vh] flex items-center overflow-hidden border-y border-white/5">
 
-          {!alomziee?.image && (
-            <div className="absolute inset-0 bg-neutral-900" />
-          )}
+            <SectionImage
+              section={alomziee}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
 
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
+            {!alomziee?.image && (
+              <div className="absolute inset-0 bg-neutral-900" />
+            )}
 
-          <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 w-full">
+            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
 
-            <div className="max-w-xl">
+            <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 w-full">
 
-              {alomziee.subtitle && (
-                <p className="text-xs font-bold tracking-[0.4em] uppercase mb-5 text-amber-400">
-                  {alomziee.subtitle}
+              <div className="max-w-xl">
+
+                {alomziee.subtitle && (
+                  <p className="text-xs font-bold tracking-[0.4em] uppercase mb-5 text-amber-400">
+                    {alomziee.subtitle}
+                  </p>
+                )}
+
+                <h2 className="text-5xl md:text-7xl font-black leading-[0.9]">
+                  {alomziee.title}
+                </h2>
+
+                {alomziee.description && (
+                  <p className="text-neutral-300 mt-7 leading-relaxed max-w-md">
+                    {alomziee.description}
+                  </p>
+                )}
+
+                {alomziee.buttonText && (
+                  <Link
+                    href={
+                      alomziee.buttonLink ||
+                      "/catalog?brand=ALOMZIEE_FOOTIES"
+                    }
+                    className="inline-block mt-8 bg-white text-black px-7 py-4 rounded-full font-bold text-xs uppercase tracking-wider hover:bg-amber-400 transition"
+                  >
+                    {alomziee.buttonText}
+                  </Link>
+                )}
+
+              </div>
+            </div>
+          </section>
+
+          {/* ALOMZIEE PRODUCTS */}
+
+          <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20">
+
+            <div className="flex justify-between items-center mb-8">
+
+              <div>
+                <p className="text-[9px] font-bold tracking-[0.3em] uppercase text-amber-400 mb-2">
+                  ALOMZIEE FOOTIES
                 </p>
-              )}
 
-              <h2 className="text-5xl md:text-7xl font-black leading-[0.9]">
-                {alomziee.title}
-              </h2>
+                <h3 className="text-2xl md:text-3xl font-black">
+                  From Alomziee
+                </h3>
+              </div>
 
-              {alomziee.description && (
-                <p className="text-neutral-300 mt-7 leading-relaxed max-w-md">
-                  {alomziee.description}
-                </p>
-              )}
-
-              {alomziee.buttonText && (
-                <Link
-                  href={alomziee.buttonLink || "/catalog?brand=ALOMZIEE_FOOTIES"}
-                  className="inline-block mt-8 bg-white text-black px-7 py-4 rounded-full font-bold text-xs uppercase tracking-wider hover:bg-amber-400 transition"
-                >
-                  {alomziee.buttonText}
-                </Link>
-              )}
+              <Link
+                href="/catalog?brand=ALOMZIEE_FOOTIES"
+                className="text-xs uppercase tracking-wider text-neutral-400 hover:text-white"
+              >
+                Shop all →
+              </Link>
 
             </div>
-          </div>
-        </section>
+
+            <ProductRail
+              products={alomzieeProducts}
+              emptyText="ALOMZIEE products will appear here once you add them."
+            />
+
+          </section>
+
+        </>
       )}
 
-      {/* OUTFIT BUILDER */}
+      {/* =====================================================
+          OUTFIT BUILDER
+      ===================================================== */}
+
       {outfit?.enabled !== false && (
         <section className="max-w-7xl mx-auto px-5 sm:px-8 py-28">
 
@@ -563,24 +744,33 @@ export default async function HomePage() {
                 )}
 
                 <div className="grid grid-cols-4 gap-2 mt-10">
-                  {["TOP", "BOTTOM", "SHOES", "ACCESSORIES"].map(
-                    (item) => (
-                      <div
-                        key={item}
-                        className="border border-white/10 rounded-xl p-3 text-center"
-                      >
-                        <div className="aspect-square bg-neutral-900 rounded-lg mb-2" />
-                        <p className="text-[8px] tracking-wider text-neutral-500">
-                          {item}
-                        </p>
-                      </div>
-                    )
-                  )}
+
+                  {[
+                    "TOP",
+                    "BOTTOM",
+                    "SHOES",
+                    "ACCESSORIES",
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      className="border border-white/10 rounded-xl p-3 text-center"
+                    >
+                      <div className="aspect-square bg-neutral-900 rounded-lg mb-2" />
+
+                      <p className="text-[8px] tracking-wider text-neutral-500">
+                        {item}
+                      </p>
+                    </div>
+                  ))}
+
                 </div>
 
                 {outfit.buttonText && (
                   <Link
-                    href={outfit.buttonLink || "/outfit-builder"}
+                    href={
+                      outfit.buttonLink ||
+                      "/outfit-builder"
+                    }
                     className="mt-8 inline-block px-7 py-4 rounded-full font-bold text-xs uppercase tracking-wider text-center bg-amber-500 text-black hover:bg-amber-400 transition"
                   >
                     {outfit.buttonText} →
@@ -593,13 +783,17 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* NEW ARRIVALS */}
+      {/* =====================================================
+          NEW ARRIVALS
+      ===================================================== */}
+
       {arrivals?.enabled !== false && (
         <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20">
 
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
 
             <div>
+
               {arrivals.subtitle && (
                 <p className="text-xs font-bold tracking-[0.35em] uppercase mb-4 text-amber-400">
                   {arrivals.subtitle}
@@ -609,6 +803,7 @@ export default async function HomePage() {
               <h2 className="text-4xl md:text-6xl font-black">
                 {arrivals.title}
               </h2>
+
             </div>
 
             {arrivals.buttonText && (
@@ -622,42 +817,18 @@ export default async function HomePage() {
 
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          <ProductRail
+            products={newArrivals}
+            emptyText="New arrivals will appear here once you add products."
+          />
 
-            {PRODUCTS.slice(4, 8).map((product) => (
-              <div key={product.name} className="group">
-                <div className="relative aspect-[4/5] bg-neutral-900 rounded-2xl overflow-hidden">
-
-                  <span className="absolute z-10 top-3 left-3 bg-white text-black text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                    New
-                  </span>
-
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
-                  />
-                </div>
-
-                <p className="text-[9px] font-bold tracking-wider mt-4 text-amber-400">
-                  {product.brand}
-                </p>
-
-                <h3 className="font-semibold text-sm mt-1">
-                  {product.name}
-                </h3>
-
-                <p className="text-neutral-400 text-sm mt-1">
-                  {product.price}
-                </p>
-              </div>
-            ))}
-
-          </div>
         </section>
       )}
 
-      {/* STORY */}
+      {/* =====================================================
+          STORY
+      ===================================================== */}
+
       {story?.enabled !== false && (
         <section className="relative min-h-[70vh] flex items-center justify-center text-center mt-20">
 
@@ -703,7 +874,10 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* NEWSLETTER */}
+      {/* =====================================================
+          NEWSLETTER
+      ===================================================== */}
+
       {newsletter?.enabled !== false && (
         <section className="max-w-3xl mx-auto px-5 py-28 text-center">
 
@@ -744,6 +918,7 @@ export default async function HomePage() {
       )}
 
       <SiteFooter />
+
     </main>
   );
 }
