@@ -35,7 +35,9 @@ function getImage(images) {
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed[0];
     }
-  } catch {}
+  } catch {
+    return null;
+  }
 
   return null;
 }
@@ -52,21 +54,48 @@ function getBrandName(brand) {
   return brand || "VÉRANE";
 }
 
-function CatalogContent({ initialBrand }) {
+function CatalogContent() {
   const [products, setProducts] = useState([]);
   const [collections, setCollections] = useState([]);
 
   const [loading, setLoading] = useState(true);
 
-  const [activeBrand, setActiveBrand] = useState(
-    initialBrand || "all"
-  );
-
+  const [activeBrand, setActiveBrand] = useState("all");
   const [activeCat, setActiveCat] = useState("all");
-  const [activeCollection, setActiveCollection] = useState("all");
+  const [activeCollection, setActiveCollection] =
+    useState("all");
 
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
+
+  /*
+   * Read the brand from the URL only in the browser.
+   * This avoids useSearchParams() during Vercel prerendering.
+   *
+   * Example:
+   * /catalog?brand=UTHY_LUXURY
+   */
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(
+        window.location.search
+      );
+
+      const brand = params.get("brand");
+
+      if (
+        brand === "UTHY_LUXURY" ||
+        brand === "ALOMZIEE_FOOTIES"
+      ) {
+        setActiveBrand(brand);
+      }
+    } catch (error) {
+      console.error(
+        "Failed to read catalog URL:",
+        error
+      );
+    }
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -81,6 +110,18 @@ function CatalogContent({ initialBrand }) {
             cache: "no-store",
           }),
         ]);
+
+        if (!prodRes.ok) {
+          throw new Error(
+            `Products request failed: ${prodRes.status}`
+          );
+        }
+
+        if (!colRes.ok) {
+          throw new Error(
+            `Collections request failed: ${colRes.status}`
+          );
+        }
 
         const productsData = await prodRes.json();
         const collectionsData = await colRes.json();
@@ -133,14 +174,16 @@ function CatalogContent({ initialBrand }) {
         activeCollection === "all" ||
         product.collectionId === activeCollection;
 
+      const productName =
+        product.name?.toLowerCase() || "";
+
+      const productDescription =
+        product.description?.toLowerCase() || "";
+
       const matchSearch =
         !searchTerm ||
-        product.name
-          ?.toLowerCase()
-          .includes(searchTerm) ||
-        product.description
-          ?.toLowerCase()
-          .includes(searchTerm);
+        productName.includes(searchTerm) ||
+        productDescription.includes(searchTerm);
 
       return (
         matchBrand &&
@@ -183,22 +226,22 @@ function CatalogContent({ initialBrand }) {
     return (
       <main className="min-h-screen bg-black text-white">
         <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8">
-
           <div className="mb-10">
-            <div className="h-3 w-32 rounded-full bg-neutral-900 animate-pulse" />
+            <div className="h-3 w-32 animate-pulse rounded-full bg-neutral-900" />
 
-            <div className="mt-5 h-20 w-full max-w-3xl rounded-2xl bg-neutral-900 animate-pulse" />
+            <div className="mt-5 h-20 w-full max-w-3xl animate-pulse rounded-2xl bg-neutral-900" />
           </div>
 
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-[4/5] rounded-2xl bg-neutral-900 animate-pulse"
-              />
-            ))}
+            {Array.from({ length: 8 }).map(
+              (_, i) => (
+                <div
+                  key={i}
+                  className="aspect-[4/5] animate-pulse rounded-2xl bg-neutral-900"
+                />
+              )
+            )}
           </div>
-
         </div>
       </main>
     );
@@ -206,12 +249,10 @@ function CatalogContent({ initialBrand }) {
 
   return (
     <main className="min-h-screen bg-black text-white">
-
       <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8">
 
         {/* HEADER */}
         <div className="mb-10">
-
           <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.45em] text-amber-400">
             The Collection
           </p>
@@ -224,15 +265,12 @@ function CatalogContent({ initialBrand }) {
               EXPRESSION.
             </span>
           </h1>
-
         </div>
 
         {/* COLLECTION FILTER */}
         {collections.length > 0 && (
           <div className="mb-8 overflow-x-auto pb-2">
-
             <div className="flex w-max gap-2">
-
               <button
                 onClick={() =>
                   setActiveCollection("all")
@@ -264,16 +302,13 @@ function CatalogContent({ initialBrand }) {
                   {collection.name}
                 </button>
               ))}
-
             </div>
           </div>
         )}
 
         {/* BRAND FILTER */}
         <div className="mb-6 overflow-x-auto pb-2">
-
           <div className="flex w-max gap-3">
-
             {brands.map((brand) => (
               <button
                 key={brand.id}
@@ -289,13 +324,11 @@ function CatalogContent({ initialBrand }) {
                 {brand.name}
               </button>
             ))}
-
           </div>
         </div>
 
         {/* SEARCH + SORT */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row">
-
           <input
             value={search}
             onChange={(e) =>
@@ -324,14 +357,11 @@ function CatalogContent({ initialBrand }) {
               Price: High to Low
             </option>
           </select>
-
         </div>
 
         {/* CATEGORY FILTER */}
         <div className="mb-10 overflow-x-auto pb-2">
-
           <div className="flex w-max gap-2">
-
             {categories.map((category) => (
               <button
                 key={category.id}
@@ -347,27 +377,22 @@ function CatalogContent({ initialBrand }) {
                 {category.name}
               </button>
             ))}
-
           </div>
         </div>
 
         {/* RESULT COUNT */}
         <div className="mb-6 flex items-center justify-between">
-
           <p className="text-xs text-neutral-500">
             {filtered.length}{" "}
             {filtered.length === 1
               ? "piece"
               : "pieces"}
           </p>
-
         </div>
 
         {/* PRODUCTS */}
         {filtered.length === 0 ? (
-
           <div className="py-24 text-center">
-
             <p className="text-lg font-semibold">
               No products found.
             </p>
@@ -375,15 +400,10 @@ function CatalogContent({ initialBrand }) {
             <p className="mt-2 text-sm text-neutral-500">
               Try changing your filters or search.
             </p>
-
           </div>
-
         ) : (
-
           <div className="grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-4">
-
             {filtered.map((product) => {
-
               const image = getImage(
                 product.images
               );
@@ -391,30 +411,21 @@ function CatalogContent({ initialBrand }) {
               return (
                 <Link
                   key={product.id}
-                  href={
-                    "/product/" +
-                    product.id
-                  }
+                  href={`/product/${product.id}`}
                   className="group block"
                 >
-
                   <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-neutral-950">
-
                     {image ? (
-
                       <img
                         src={image}
                         alt={product.name}
                         loading="lazy"
                         className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
                       />
-
                     ) : (
-
                       <div className="flex h-full w-full items-center justify-center text-6xl">
                         👔
                       </div>
-
                     )}
 
                     {product.stock === 0 && (
@@ -422,17 +433,13 @@ function CatalogContent({ initialBrand }) {
                         Sold Out
                       </span>
                     )}
-
                   </div>
 
                   <p className="mt-4 text-[9px] font-bold uppercase tracking-[0.18em] text-amber-400">
-                    {getBrandName(
-                      product.brand
-                    )}
+                    {getBrandName(product.brand)}
                   </p>
 
                   <div className="mt-1 flex items-start justify-between gap-3">
-
                     <h3 className="text-sm font-semibold md:text-base">
                       {product.name}
                     </h3>
@@ -443,32 +450,17 @@ function CatalogContent({ initialBrand }) {
                         product.price || 0
                       ).toLocaleString()}
                     </span>
-
                   </div>
-
                 </Link>
               );
             })}
-
           </div>
-
         )}
-
       </div>
-
     </main>
   );
 }
 
-export default function CatalogPage({
-  searchParams,
-}) {
-  const initialBrand =
-    searchParams?.brand || "all";
-
-  return (
-    <CatalogContent
-      initialBrand={initialBrand}
-    />
-  );
+export default function CatalogPage() {
+  return <CatalogContent />;
 }
