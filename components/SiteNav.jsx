@@ -2,135 +2,223 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const DEFAULT_NAV_ITEMS = [
+  {
+    label: "Shop",
+    href: "/catalog",
+  },
+  {
+    label: "UTHY LUXURY",
+    href: "/catalog?brand=UTHY_LUXURY",
+  },
+  {
+    label: "ALOMZIEE",
+    href: "/catalog?brand=ALOMZIEE_FOOTIES",
+  },
+  {
+    label: "Outfit Builder",
+    href: "/outfit-builder",
+  },
+  {
+    label: "Cart",
+    href: "/cart",
+  },
+];
 
 export default function SiteNav() {
+  const pathname = usePathname();
+
   const [settings, setSettings] = useState({});
   const [menuOpen, setMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/settings")
-      .then((response) => response.json())
-      .then((data) => {
-        setSettings(data || {});
-      })
-      .catch(() => {
-        setSettings({});
-      });
-  }, []);
+    let mounted = true;
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 12);
-    };
+    async function loadSettings() {
+      try {
+        const response = await fetch("/api/settings", {
+          cache: "no-store",
+        });
 
-    window.addEventListener("scroll", handleScroll);
+        if (!response.ok) {
+          throw new Error("Failed to load settings");
+        }
 
-    handleScroll();
+        const data = await response.json();
+
+        if (mounted) {
+          setSettings(data || {});
+        }
+      } catch (error) {
+        console.error("Failed to load site settings:", error);
+
+        if (mounted) {
+          setSettings({});
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadSettings();
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
+      mounted = false;
     };
   }, []);
 
-  const navLinks = [
-    {
-      href: "/catalog?brand=UTHY_LUXURY",
-      label: "UTHY LUXURY",
-    },
-    {
-      href: "/catalog?brand=ALOMZIEE_FOOTIES",
-      label: "ALOMZIEE",
-    },
-    {
-      href: "/outfit-builder",
-      label: "Outfit Builder",
-    },
-    {
-      href: "/catalog",
-      label: "Shop",
-    },
-    {
-      href: "/cart",
-      label: "Cart",
-    },
-  ];
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  function parseNavigation(value) {
+    if (!value || typeof value !== "string") {
+      return [];
+    }
+
+    return value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const separatorIndex = line.indexOf(":");
+
+        if (separatorIndex === -1) {
+          return null;
+        }
+
+        const label = line
+          .slice(0, separatorIndex)
+          .trim();
+
+        const href = line
+          .slice(separatorIndex + 1)
+          .trim();
+
+        if (!label || !href) {
+          return null;
+        }
+
+        return {
+          label,
+          href,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  const customNavItems = parseNavigation(
+    settings.navItems
+  );
+
+  const navLinks =
+    customNavItems.length > 0
+      ? customNavItems
+      : DEFAULT_NAV_ITEMS;
+
+  const announcementEnabled =
+    settings.announcementEnabled === "true";
+
+  const announcementText =
+    settings.announcementText?.trim();
+
+  const siteName =
+    settings.siteName?.trim() || "VÉRANE";
+
+  function isActive(href) {
+    if (!href || !href.startsWith("/")) {
+      return false;
+    }
+
+    const cleanHref = href.split("?")[0];
+
+    if (cleanHref === "/") {
+      return pathname === "/";
+    }
+
+    return (
+      pathname === cleanHref ||
+      pathname.startsWith(`${cleanHref}/`)
+    );
+  }
 
   return (
     <>
       {/* ANNOUNCEMENT BAR */}
-      {settings.announcementEnabled === "true" &&
-        settings.announcementText && (
-          <div className="relative z-[60] overflow-hidden bg-amber-400 px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-black">
-            <p className="truncate">
-              {settings.announcementText}
-            </p>
-          </div>
-        )}
+      {announcementEnabled && announcementText && (
+        <div className="relative z-[60] border-b border-black/10 bg-amber-400 px-4 py-2.5 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-black">
+          {announcementText}
+        </div>
+      )}
 
       {/* NAVIGATION */}
-      <nav
-        className={`sticky top-0 z-50 transition-all duration-300 ${
-          scrolled
-            ? "border-white/[0.09] bg-black/90 shadow-2xl shadow-black/20 backdrop-blur-2xl"
-            : "border-white/[0.06] bg-black/70 backdrop-blur-xl"
-        } border-b`}
-      >
-        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10">
+      <nav className="sticky top-0 z-50 border-b border-white/[0.07] bg-black/80 backdrop-blur-xl">
 
-          {/* BRAND */}
+        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
+
+          {/* LOGO / BRAND */}
           <Link
             href="/"
-            className="group flex min-w-0 items-center"
-            onClick={() => setMenuOpen(false)}
+            className="group flex shrink-0 items-center"
+            aria-label={`${siteName} home`}
           >
-            {settings.logo ? (
-              <img
-                src={settings.logo}
-                alt={settings.siteName || "VÉRANE"}
-                className="max-h-9 max-w-[150px] object-contain"
-              />
-            ) : (
-              <div className="flex items-center gap-3">
-                <span className="h-7 w-px bg-amber-400 transition-all duration-300 group-hover:h-9" />
-
-                <span className="text-lg font-semibold tracking-[0.08em] text-white transition-colors duration-300 group-hover:text-amber-400 sm:text-xl">
-                  {settings.siteName || "VÉRANE"}
-                </span>
-              </div>
-            )}
+            <span className="text-lg font-black tracking-[-0.04em] text-amber-400 transition-colors duration-300 group-hover:text-amber-300 sm:text-xl">
+              {siteName}
+            </span>
           </Link>
 
           {/* DESKTOP NAV */}
           <div className="hidden items-center gap-1 md:flex">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="group relative rounded-full px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45 transition-all duration-300 hover:bg-white/[0.04] hover:text-white"
-              >
-                {link.label}
 
-                <span className="absolute bottom-1 left-1/2 h-px w-0 -translate-x-1/2 bg-amber-400 transition-all duration-300 group-hover:w-5" />
-              </Link>
-            ))}
+            {navLinks.map((link, index) => {
+              const active = isActive(link.href);
+
+              return (
+                <Link
+                  key={`${link.href}-${index}`}
+                  href={link.href}
+                  className={`group relative px-4 py-3 text-[10px] font-bold uppercase tracking-[0.16em] transition-colors duration-300 ${
+                    active
+                      ? "text-white"
+                      : "text-white/45 hover:text-white"
+                  }`}
+                >
+                  {link.label}
+
+                  <span
+                    className={`absolute bottom-1 left-4 right-4 h-px bg-amber-400 transition-all duration-300 ${
+                      active
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-100"
+                    }`}
+                  />
+                </Link>
+              );
+            })}
+
           </div>
 
-          {/* MOBILE BUTTON */}
+          {/* MOBILE MENU BUTTON */}
           <button
             type="button"
+            onClick={() => setMenuOpen((current) => !current)}
             aria-label={
               menuOpen
                 ? "Close navigation menu"
                 : "Open navigation menu"
             }
             aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((current) => !current)}
-            className="group flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.025] transition hover:border-amber-400/30 hover:bg-white/[0.05] md:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.025] text-white transition hover:border-white/20 hover:bg-white/[0.06] md:hidden"
           >
             <span className="relative flex h-4 w-5 flex-col justify-between">
+
               <span
-                className={`h-px w-full bg-white transition-all duration-300 ${
+                className={`h-px w-full bg-current transition-all duration-300 ${
                   menuOpen
                     ? "translate-y-[7px] rotate-45"
                     : ""
@@ -138,74 +226,72 @@ export default function SiteNav() {
               />
 
               <span
-                className={`h-px w-full bg-white transition-all duration-300 ${
-                  menuOpen ? "opacity-0" : ""
+                className={`h-px w-full bg-current transition-all duration-300 ${
+                  menuOpen
+                    ? "opacity-0"
+                    : "opacity-100"
                 }`}
               />
 
               <span
-                className={`h-px w-full bg-white transition-all duration-300 ${
+                className={`h-px w-full bg-current transition-all duration-300 ${
                   menuOpen
                     ? "-translate-y-[7px] -rotate-45"
                     : ""
                 }`}
               />
+
             </span>
           </button>
+
         </div>
 
         {/* MOBILE MENU */}
         <div
-          className={`overflow-hidden border-t border-white/[0.06] transition-all duration-500 md:hidden ${
+          className={`overflow-hidden border-t border-white/[0.06] transition-all duration-300 md:hidden ${
             menuOpen
               ? "max-h-[500px] opacity-100"
               : "max-h-0 opacity-0"
           }`}
         >
-          <div className="mx-auto max-w-7xl px-5 py-5 sm:px-8">
+          <div className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
 
-            <div className="mb-4 flex items-center gap-3">
-              <span className="h-px w-6 bg-amber-400" />
+            <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-2">
 
-              <span className="text-[9px] font-bold uppercase tracking-[0.28em] text-amber-400/70">
-                Explore
-              </span>
-            </div>
+              {navLinks.map((link, index) => {
+                const active = isActive(link.href);
 
-            <div className="flex flex-col">
-              {navLinks.map((link, index) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="group flex items-center justify-between border-b border-white/[0.06] py-4"
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="text-[9px] tracking-[0.2em] text-white/20">
-                      0{index + 1}
+                return (
+                  <Link
+                    key={`mobile-${link.href}-${index}`}
+                    href={link.href}
+                    onClick={() => setMenuOpen(false)}
+                    className={`flex items-center justify-between rounded-xl px-4 py-3.5 text-xs font-bold uppercase tracking-[0.15em] transition ${
+                      active
+                        ? "bg-amber-400/[0.08] text-amber-400"
+                        : "text-white/55 hover:bg-white/[0.04] hover:text-white"
+                    }`}
+                  >
+                    <span>{link.label}</span>
+
+                    <span
+                      className={`text-sm transition-transform duration-300 ${
+                        active
+                          ? "translate-x-0 text-amber-400"
+                          : "text-white/20"
+                      }`}
+                    >
+                      →
                     </span>
+                  </Link>
+                );
+              })}
 
-                    <span className="text-sm font-semibold uppercase tracking-[0.1em] text-white/60 transition group-hover:text-white">
-                      {link.label}
-                    </span>
-                  </div>
-
-                  <span className="text-white/20 transition group-hover:translate-x-1 group-hover:text-amber-400">
-                    →
-                  </span>
-                </Link>
-              ))}
             </div>
 
-            {/* MOBILE BRAND TAGLINE */}
-            <div className="pt-6">
-              <p className="text-[9px] uppercase tracking-[0.25em] text-white/20">
-                {settings.tagline ||
-                  "Two Brands. One Expression."}
-              </p>
-            </div>
           </div>
         </div>
+
       </nav>
     </>
   );

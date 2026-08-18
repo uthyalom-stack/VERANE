@@ -5,122 +5,181 @@ import Link from "next/link";
 
 export default function SiteFooter() {
   const [settings, setSettings] = useState({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     fetch("/api/settings")
       .then((response) => response.json())
       .then((data) => {
-        setSettings(data || {});
+        if (mounted) {
+          setSettings(data || {});
+          setLoading(false);
+        }
       })
       .catch(() => {
-        setSettings({});
+        if (mounted) {
+          setLoading(false);
+        }
       });
+
+    return () => {
+      mounted = false;
+    };
   }, []);
+
+  const footerNav = [];
+
+  if (settings.navItems) {
+    settings.navItems
+      .split("\n")
+      .slice(0, 6)
+      .forEach((line) => {
+        const parts = line.split(":");
+
+        if (parts.length >= 2) {
+          const label = parts[0].trim();
+          const href = parts.slice(1).join(":").trim();
+
+          if (label && href) {
+            footerNav.push({ label, href });
+          }
+        }
+      });
+  }
+
+  if (footerNav.length === 0) {
+    footerNav.push(
+      { label: "Shop", href: "/catalog" },
+      {
+        label: "UTHY LUXURY",
+        href: "/catalog?brand=UTHY_LUXURY",
+      },
+      {
+        label: "ALOMZIEE",
+        href: "/catalog?brand=ALOMZIEE_FOOTIES",
+      },
+      {
+        label: "Outfit Builder",
+        href: "/outfit-builder",
+      },
+      { label: "Cart", href: "/cart" }
+    );
+  }
+
+  const currentYear = new Date().getFullYear();
 
   const siteName = settings.siteName || "VÉRANE";
   const tagline =
     settings.tagline || "Two Brands. One Expression.";
 
+  const socialLinks = [
+    {
+      name: "Instagram",
+      url: settings.instagram,
+    },
+    {
+      name: "Facebook",
+      url: settings.facebook,
+    },
+    {
+      name: "TikTok",
+      url: settings.tiktok,
+    },
+  ].filter((item) => item.url);
+
   return (
     <footer className="relative overflow-hidden border-t border-white/[0.08] bg-black text-white">
-
-      {/* SUBTLE AMBIENT GLOW */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-amber-400/[0.035] blur-3xl" />
+      {/* Ambient luxury glow */}
+      <div
+        className="pointer-events-none absolute left-1/2 top-0 h-[420px] w-[700px] -translate-x-1/2 rounded-full opacity-[0.06] blur-[120px]"
+        style={{
+          background:
+            settings.primaryColor || "#f5b942",
+        }}
+      />
 
       <div className="relative mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
-
-        {/* MAIN FOOTER */}
-        <div className="grid gap-12 py-16 sm:py-20 md:grid-cols-4 lg:gap-16">
-
-          {/* BRAND */}
-          <div className="md:col-span-1">
-
+        {/* Main footer */}
+        <div className="grid gap-12 py-16 sm:py-20 lg:grid-cols-12 lg:gap-8">
+          {/* Brand */}
+          <div className="lg:col-span-5">
             <Link
               href="/"
-              className="group inline-flex items-center gap-3"
+              className="group inline-flex items-center"
             >
-              {settings.logo ? (
-                <img
-                  src={settings.logo}
-                  alt={siteName}
-                  className="max-h-10 max-w-[160px] object-contain"
-                />
-              ) : (
-                <>
-                  <span className="h-8 w-px bg-amber-400 transition-all duration-300 group-hover:h-10" />
-
-                  <span className="text-xl font-semibold tracking-[0.08em] transition-colors duration-300 group-hover:text-amber-400">
-                    {siteName}
-                  </span>
-                </>
-              )}
+              <span className="text-2xl font-black tracking-[-0.04em] text-white transition duration-300 group-hover:text-amber-400">
+                {siteName}
+              </span>
             </Link>
 
-            <p className="mt-5 max-w-xs text-sm leading-7 text-white/35">
+            <div className="mt-5 flex items-center gap-3">
+              <span className="h-px w-8 bg-amber-400" />
+
+              <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber-400/70">
+                Premium Fashion
+              </span>
+            </div>
+
+            <p className="mt-5 max-w-sm text-sm leading-7 text-white/40">
               {tagline}
             </p>
 
-            <div className="mt-7 flex items-center gap-3">
-              <span className="h-px w-8 bg-amber-400/60" />
+            <p className="mt-4 max-w-sm text-xs leading-6 text-white/25">
+              UTHY LUXURY × ALOMZIEE FOOTIES
+            </p>
 
-              <span className="text-[9px] font-bold uppercase tracking-[0.3em] text-white/25">
-                Premium Handmade Fashion
-              </span>
-            </div>
+            {/* Social links */}
+            {socialLinks.length > 0 && (
+              <div className="mt-8 flex flex-wrap gap-3">
+                {socialLinks.map((social) => (
+                  <a
+                    key={social.name}
+                    href={social.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full border border-white/[0.08] bg-white/[0.025] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/45 transition duration-300 hover:border-amber-400/30 hover:bg-amber-400/[0.06] hover:text-amber-400"
+                  >
+                    {social.name}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* EXPLORE */}
-          <div>
+          {/* Explore */}
+          <div className="lg:col-span-2">
             <p className="mb-5 text-[9px] font-bold uppercase tracking-[0.3em] text-amber-400/70">
               Explore
             </p>
 
-            <div className="flex flex-col gap-3">
-              <Link
-                href="/catalog?brand=UTHY_LUXURY"
-                className="group flex items-center gap-2 text-sm text-white/40 transition-colors hover:text-white"
-              >
-                <span className="h-px w-0 bg-amber-400 transition-all duration-300 group-hover:w-4" />
-                UTHY LUXURY
-              </Link>
+            <div className="space-y-3">
+              {footerNav.map((link) => (
+                <Link
+                  key={`${link.label}-${link.href}`}
+                  href={link.href}
+                  className="group flex items-center gap-2 text-sm text-white/40 transition duration-300 hover:text-white"
+                >
+                  <span className="h-px w-0 bg-amber-400 transition-all duration-300 group-hover:w-3" />
 
-              <Link
-                href="/catalog?brand=ALOMZIEE_FOOTIES"
-                className="group flex items-center gap-2 text-sm text-white/40 transition-colors hover:text-white"
-              >
-                <span className="h-px w-0 bg-amber-400 transition-all duration-300 group-hover:w-4" />
-                ALOMZIEE FOOTIES
-              </Link>
-
-              <Link
-                href="/catalog"
-                className="group flex items-center gap-2 text-sm text-white/40 transition-colors hover:text-white"
-              >
-                <span className="h-px w-0 bg-amber-400 transition-all duration-300 group-hover:w-4" />
-                Shop
-              </Link>
-
-              <Link
-                href="/outfit-builder"
-                className="group flex items-center gap-2 text-sm text-white/40 transition-colors hover:text-white"
-              >
-                <span className="h-px w-0 bg-amber-400 transition-all duration-300 group-hover:w-4" />
-                Outfit Builder
-              </Link>
+                  <span>{link.label}</span>
+                </Link>
+              ))}
             </div>
           </div>
 
-          {/* CONTACT */}
-          <div>
+          {/* Contact */}
+          <div className="lg:col-span-2">
             <p className="mb-5 text-[9px] font-bold uppercase tracking-[0.3em] text-amber-400/70">
               Contact
             </p>
 
-            <div className="flex flex-col gap-3 text-sm text-white/40">
+            <div className="space-y-4 text-sm">
               {settings.email && (
                 <a
                   href={`mailto:${settings.email}`}
-                  className="transition-colors hover:text-white"
+                  className="block text-white/40 transition hover:text-white"
                 >
                   {settings.email}
                 </a>
@@ -129,7 +188,7 @@ export default function SiteFooter() {
               {settings.phone && (
                 <a
                   href={`tel:${settings.phone}`}
-                  className="transition-colors hover:text-white"
+                  className="block text-white/40 transition hover:text-white"
                 >
                   {settings.phone}
                 </a>
@@ -137,12 +196,13 @@ export default function SiteFooter() {
 
               {settings.whatsapp && (
                 <a
-                  href={`https://wa.me/${String(
-                    settings.whatsapp
-                  ).replace(/\D/g, "")}`}
+                  href={`https://wa.me/${String(settings.whatsapp).replace(
+                    /[^0-9]/g,
+                    ""
+                  )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="transition-colors hover:text-white"
+                  className="block text-white/40 transition hover:text-amber-400"
                 >
                   WhatsApp
                 </a>
@@ -151,89 +211,66 @@ export default function SiteFooter() {
               {!settings.email &&
                 !settings.phone &&
                 !settings.whatsapp && (
-                  <span className="text-white/20">
-                    Contact details coming soon.
-                  </span>
+                  <p className="text-white/20">
+                    Contact information can be configured from Site Settings.
+                  </p>
                 )}
             </div>
           </div>
 
-          {/* SOCIAL */}
-          <div>
-            <p className="mb-5 text-[9px] font-bold uppercase tracking-[0.3em] text-amber-400/70">
-              Follow
-            </p>
+          {/* Brand statement */}
+          <div className="lg:col-span-3">
+            <div className="rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-6">
+              <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-white/25">
+                The House
+              </p>
 
-            <div className="flex flex-col gap-3">
-              {settings.instagram && (
-                <a
-                  href={settings.instagram}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex items-center justify-between text-sm text-white/40 transition-colors hover:text-white"
-                >
-                  <span>Instagram</span>
-                  <span className="translate-x-0 text-white/20 transition-all duration-300 group-hover:translate-x-1 group-hover:text-amber-400">
-                    ↗
-                  </span>
-                </a>
-              )}
+              <h3 className="mt-4 text-xl font-semibold tracking-tight">
+                One expression.
+              </h3>
 
-              {settings.facebook && (
-                <a
-                  href={settings.facebook}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex items-center justify-between text-sm text-white/40 transition-colors hover:text-white"
-                >
-                  <span>Facebook</span>
-                  <span className="translate-x-0 text-white/20 transition-all duration-300 group-hover:translate-x-1 group-hover:text-amber-400">
-                    ↗
-                  </span>
-                </a>
-              )}
+              <p className="mt-3 text-sm leading-6 text-white/30">
+                Clothing, footwear and accessories brought together
+                through one premium experience.
+              </p>
 
-              {settings.tiktok && (
-                <a
-                  href={settings.tiktok}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex items-center justify-between text-sm text-white/40 transition-colors hover:text-white"
-                >
-                  <span>TikTok</span>
-                  <span className="translate-x-0 text-white/20 transition-all duration-300 group-hover:translate-x-1 group-hover:text-amber-400">
-                    ↗
-                  </span>
-                </a>
-              )}
+              <Link
+                href="/catalog"
+                className="mt-6 inline-flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400 transition hover:text-amber-300"
+              >
+                Discover the collection
+                <span className="transition-transform duration-300 hover:translate-x-1">
+                  →
+                </span>
+              </Link>
             </div>
           </div>
         </div>
 
-        {/* BOTTOM BAR */}
-        <div className="flex flex-col gap-4 border-t border-white/[0.07] py-6 sm:flex-row sm:items-center sm:justify-between">
-
-          <p className="text-[10px] uppercase tracking-[0.16em] text-white/20">
-            © {new Date().getFullYear()} {siteName}. All rights reserved.
+        {/* Bottom bar */}
+        <div className="flex flex-col gap-5 border-t border-white/[0.07] py-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[10px] uppercase tracking-[0.12em] text-white/20">
+            {settings.footerText ||
+              `© ${currentYear} ${siteName}. All rights reserved.`}
           </p>
 
-          <div className="flex items-center gap-5 text-[10px] uppercase tracking-[0.16em] text-white/20">
+          <div className="flex items-center gap-5 text-[10px] uppercase tracking-[0.15em] text-white/20">
             <Link
-              href="/privacy"
-              className="transition-colors hover:text-white/60"
+              href="/"
+              className="transition hover:text-white/50"
             >
-              Privacy
+              VÉRANE
             </Link>
 
-            <Link
-              href="/terms"
-              className="transition-colors hover:text-white/60"
-            >
-              Terms
-            </Link>
+            <span className="h-3 w-px bg-white/10" />
+
+            <span>UTHY LUXURY</span>
+
+            <span className="h-3 w-px bg-white/10" />
+
+            <span>ALOMZIEE FOOTIES</span>
           </div>
         </div>
-
       </div>
     </footer>
   );
