@@ -897,23 +897,12 @@ export default async function HomePage() {
             </p>
           )}
 
-          <form className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto">
-
-            <input
-              type="email"
-              placeholder="Your email address"
-              required
-              className="flex-1 bg-neutral-900 border border-white/10 rounded-full px-5 py-4 text-sm outline-none focus:border-amber-500 transition"
-            />
-
-            <button
-              type="submit"
-              className="px-7 py-4 rounded-full font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 transition"
-            >
-              {newsletter.buttonText || "Subscribe"}
-            </button>
-
-          </form>
+          <form className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto" action="/api/subscribe" method="POST">
+  <input type="email" name="email" placeholder="Your email address" required className="flex-1 bg-neutral-900 border border-white/10 rounded-full px-5 py-4 text-sm outline-none focus:border-amber-500 transition" />
+  <button type="submit" className="px-7 py-4 rounded-full font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 transition">
+    {newsletter.buttonText || "Subscribe"}
+  </button>
+</form>
         </section>
       )}
 
