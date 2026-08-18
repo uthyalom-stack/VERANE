@@ -158,7 +158,6 @@ export default function SiteNav() {
 
       {/* NAVIGATION */}
       <nav className="sticky top-0 z-50 border-b border-white/[0.07] bg-black/80 backdrop-blur-xl">
-
         <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
 
           {/* LOGO / BRAND */}
@@ -167,14 +166,21 @@ export default function SiteNav() {
             className="group flex shrink-0 items-center"
             aria-label={`${siteName} home`}
           >
-            <span className="text-lg font-black tracking-[-0.04em] text-amber-400 transition-colors duration-300 group-hover:text-amber-300 sm:text-xl">
-              {siteName}
-            </span>
+            {settings.logo ? (
+              <img
+                src={settings.logo}
+                alt={siteName}
+                className="h-10 w-auto object-contain transition-opacity duration-300 group-hover:opacity-80"
+              />
+            ) : (
+              <span className="text-lg font-black tracking-[-0.04em] text-amber-400 transition-colors duration-300 group-hover:text-amber-300 sm:text-xl">
+                {siteName}
+              </span>
+            )}
           </Link>
 
           {/* DESKTOP NAV */}
           <div className="hidden items-center gap-1 md:flex">
-
             {navLinks.map((link, index) => {
               const active = isActive(link.href);
 
@@ -200,13 +206,14 @@ export default function SiteNav() {
                 </Link>
               );
             })}
-
           </div>
 
           {/* MOBILE MENU BUTTON */}
           <button
             type="button"
-            onClick={() => setMenuOpen((current) => !current)}
+            onClick={() =>
+              setMenuOpen((current) => !current)
+            }
             aria-label={
               menuOpen
                 ? "Close navigation menu"
@@ -216,7 +223,6 @@ export default function SiteNav() {
             className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.025] text-white transition hover:border-white/20 hover:bg-white/[0.06] md:hidden"
           >
             <span className="relative flex h-4 w-5 flex-col justify-between">
-
               <span
                 className={`h-px w-full bg-current transition-all duration-300 ${
                   menuOpen
@@ -240,10 +246,8 @@ export default function SiteNav() {
                     : ""
                 }`}
               />
-
             </span>
           </button>
-
         </div>
 
         {/* MOBILE MENU */}
@@ -255,9 +259,7 @@ export default function SiteNav() {
           }`}
         >
           <div className="mx-auto max-w-7xl px-5 py-4 sm:px-8">
-
             <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-2">
-
               {navLinks.map((link, index) => {
                 const active = isActive(link.href);
 
@@ -286,12 +288,9 @@ export default function SiteNav() {
                   </Link>
                 );
               })}
-
             </div>
-
           </div>
         </div>
-
       </nav>
     </>
   );
