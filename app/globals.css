@@ -10,6 +10,7 @@
   --foreground: #f5f5f5;
   --gold: #f5b942;
   --gold-bright: #ffd166;
+  --primary: #f5b942;
 }
 
 html {
@@ -20,14 +21,14 @@ body {
   color: var(--foreground);
   background:
     radial-gradient(circle at 50% -10%, rgba(245, 185, 66, 0.08), transparent 35%),
-    #070707;
+    var(--background);
   min-height: 100vh;
 }
 
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #050505; }
 ::-webkit-scrollbar-thumb { background: #2a2a2d; border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
 button, a { transition: all 0.2s ease; }
 button:active, a:active { transform: scale(0.97); }
@@ -35,12 +36,12 @@ button:disabled { cursor: not-allowed; opacity: 0.4; }
 
 input:focus, textarea:focus, select:focus {
   outline: none;
-  border-color: var(--gold) !important;
-  box-shadow: 0 0 0 1px var(--gold), 0 0 20px rgba(245, 185, 66, 0.08);
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 1px var(--primary), 0 0 20px rgba(245, 185, 66, 0.08);
 }
 
 .gradient-text {
-  background: linear-gradient(100deg, #ffd166, #f5b942, #b7791f);
+  background: linear-gradient(100deg, #ffd166, var(--primary), #b7791f);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
