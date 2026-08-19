@@ -22,43 +22,36 @@ const ADMINS = {
 
 export async function POST(request) {
   try {
-    const { password } = await request.json();
+    const body = await request.json();
+    const password = body?.password?.trim();
 
     if (!password) {
       return NextResponse.json(
         {
+          success: false,
           error: "Password is required.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
-    /*
-     * Find the admin account matching the password.
-     */
-    const admin = Object.entries(ADMINS).find(
+    const adminEntry = Object.entries(ADMINS).find(
       ([, account]) => account.password === password
     );
 
-    if (!admin) {
+    if (!adminEntry) {
       return NextResponse.json(
         {
+          success: false,
           error: "Incorrect password.",
         },
-        {
-          status: 401,
-        }
+        { status: 401 }
       );
     }
 
-    const [role, account] = admin;
+    const [role, account] = adminEntry;
 
-    /*
-     * Admin session information.
-     */
-    const adminSession = {
+    const adminData = {
       role,
       name: account.name,
       brand: account.brand,
@@ -66,29 +59,39 @@ export async function POST(request) {
 
     const response = NextResponse.json({
       success: true,
-      admin: adminSession,
+      admin: adminData,
     });
 
     /*
+     * -------------------------------------------------------
+     * ADMIN AUTH COOKIE
+     * -------------------------------------------------------
+     *
      * IMPORTANT:
-     *
-     * middleware.js checks for:
-     *
-     * request.cookies.get("adminAuth")
-     *
-     * Therefore the login API MUST create the same cookie.
+     * middleware.js checks for "adminAuth".
+     * Therefore the login route MUST create "adminAuth".
      */
-    response.cookies.set(
-      "adminAuth",
-      JSON.stringify(adminSession),
-      {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7,
-      }
-    );
+
+    response.cookies.set("adminAuth", JSON.stringify(adminData), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    /*
+     * Keep the brand information separately available
+     * to the application if needed.
+     */
+
+    response.cookies.set("verane_admin", JSON.stringify(adminData), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
 
     return response;
   } catch (error) {
@@ -96,11 +99,10 @@ export async function POST(request) {
 
     return NextResponse.json(
       {
-        error: "Unable to log in.",
+        success: false,
+        error: "Unable to log in. Please try again.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
