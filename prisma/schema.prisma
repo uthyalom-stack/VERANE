@@ -8,33 +8,34 @@ datasource db {
 }
 
 model User {
-  id          String    @id @default(cuid())
-  email       String    @unique
-  password    String
-  name        String?
-  orders      Order[]
-  savedLooks  SavedLook[]
-  createdAt   DateTime  @default(now())
+  id         String      @id @default(cuid())
+  email      String      @unique
+  password   String
+  name       String?
+  orders     Order[]
+  savedLooks SavedLook[]
+  createdAt  DateTime    @default(now())
 }
 
 model Product {
-  id               String   @id @default(cuid())
+  id               String           @id @default(cuid())
   name             String
   brand            String
   category         String
   price            Float
   description      String?
   images           String
-  inventory        Int      @default(0)
+  inventory        Int              @default(0)
   colors           String?
   style            String?
   occasion         String?
-  outfitLayer      String   @default("none")
-  outfitCompatible Boolean  @default(false)
+  outfitLayer      String           @default("none")
+  outfitCompatible Boolean          @default(false)
   mannequinAsset   String?
   collectionId     String?
-  collection       Collection? @relation(fields: [collectionId], references: [id])
-  createdAt        DateTime @default(now())
+  collection       Collection?      @relation(fields: [collectionId], references: [id])
+  variants         ProductVariant[]
+  createdAt        DateTime         @default(now())
   orderItems       OrderItem[]
 }
 
@@ -69,9 +70,9 @@ model HomepageSection {
 }
 
 model SiteSetting {
-  id          String @id @default(cuid())
-  key         String @unique
-  value       String
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
 }
 
 model Order {
