@@ -7,9 +7,6 @@ export function middleware(request) {
    * -------------------------------------------------------
    * ADMIN PAGE PROTECTION
    * -------------------------------------------------------
-   *
-   * Everything under /admin requires the adminAuth cookie,
-   * except /admin/login.
    */
 
   if (pathname.startsWith("/admin")) {
@@ -19,10 +16,15 @@ export function middleware(request) {
       const auth = request.cookies.get("adminAuth")?.value;
 
       if (!auth) {
-        const loginUrl = new URL("/admin/login", request.url);
+        const loginUrl = new URL(
+          "/admin/login",
+          request.url
+        );
 
-        // Remember where the admin was trying to go.
-        loginUrl.searchParams.set("redirect", pathname);
+        loginUrl.searchParams.set(
+          "redirect",
+          pathname
+        );
 
         return NextResponse.redirect(loginUrl);
       }
@@ -34,18 +36,53 @@ export function middleware(request) {
    * ADMIN API PROTECTION
    * -------------------------------------------------------
    *
-   * API routes under /api/admin require the existing
-   * x-admin-auth header.
+   * Use the same adminAuth cookie that protects the
+   * dashboard. Browser fetch requests automatically send
+   * same-origin cookies.
    */
 
   if (pathname.startsWith("/api/admin")) {
-    const auth = request.headers.get("x-admin-auth");
+    const auth = request.cookies.get("adminAuth")?.value;
 
     if (!auth) {
       return NextResponse.json(
         {
           error: "Unauthorized",
           message: "Admin authentication required.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    /*
+     * Validate that the cookie contains usable admin data.
+     */
+    try {
+      const admin = JSON.parse(auth);
+
+      if (
+        !admin ||
+        !admin.role ||
+        !admin.name ||
+        !admin.brand
+      ) {
+        return NextResponse.json(
+          {
+            error: "Unauthorized",
+            message: "Invalid admin authentication.",
+          },
+          {
+            status: 401,
+          }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        {
+          error: "Unauthorized",
+          message: "Invalid admin authentication.",
         },
         {
           status: 401,
@@ -78,7 +115,7 @@ export function middleware(request) {
   );
 
   /*
-   * Prevent browsers from caching admin pages.
+   * Prevent browsers from caching admin pages/API responses.
    */
 
   if (
