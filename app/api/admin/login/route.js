@@ -26,52 +26,81 @@ export async function POST(request) {
 
     if (!password) {
       return NextResponse.json(
-        { error: "Password is required." },
-        { status: 400 }
+        {
+          error: "Password is required.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
+    /*
+     * Find the admin account matching the password.
+     */
     const admin = Object.entries(ADMINS).find(
       ([, account]) => account.password === password
     );
 
     if (!admin) {
       return NextResponse.json(
-        { error: "Incorrect password." },
-        { status: 401 }
+        {
+          error: "Incorrect password.",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
-    const [, account] = admin;
+    const [role, account] = admin;
+
+    /*
+     * Admin session information.
+     */
+    const adminSession = {
+      role,
+      name: account.name,
+      brand: account.brand,
+    };
 
     const response = NextResponse.json({
       success: true,
-      admin: {
-        role: admin[0],
-        name: account.name,
-        brand: account.brand,
-      },
+      admin: adminSession,
     });
 
-    response.cookies.set("verane_admin", JSON.stringify({
-      role: admin[0],
-      name: account.name,
-      brand: account.brand,
-    }), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    /*
+     * IMPORTANT:
+     *
+     * middleware.js checks for:
+     *
+     * request.cookies.get("adminAuth")
+     *
+     * Therefore the login API MUST create the same cookie.
+     */
+    response.cookies.set(
+      "adminAuth",
+      JSON.stringify(adminSession),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7,
+      }
+    );
 
     return response;
   } catch (error) {
     console.error("Admin login error:", error);
 
     return NextResponse.json(
-      { error: "Unable to log in." },
-      { status: 500 }
+      {
+        error: "Unable to log in.",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
