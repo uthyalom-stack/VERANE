@@ -1,30 +1,35 @@
 import { NextResponse } from "next/server";
 
-export function middleware(request) {
-  const { pathname } = request.nextUrl;
+export function proxy(request: Request) {
+  const url = new URL(request.url);
+  const pathname = url.pathname;
 
   /*
    * -------------------------------------------------------
-   * ADMIN AUTHENTICATION
+   * ADMIN PAGE AUTHENTICATION
    * -------------------------------------------------------
-   *
-   * All /admin pages require the adminAuth cookie,
-   * except /admin/login.
    */
 
   if (pathname.startsWith("/admin")) {
     const isLoginPage = pathname === "/admin/login";
 
     if (!isLoginPage) {
-      const auth = request.cookies.get("adminAuth")?.value;
+      const cookieHeader = request.headers.get("cookie") || "";
 
-      if (!auth) {
+      const hasAdminAuth = cookieHeader
+        .split(";")
+        .some((cookie) => cookie.trim().startsWith("adminAuth="));
+
+      if (!hasAdminAuth) {
+        console.log("[ADMIN AUTH]", pathname, "NO COOKIE");
+
         const loginUrl = new URL("/admin/login", request.url);
-
         loginUrl.searchParams.set("redirect", pathname);
 
         return NextResponse.redirect(loginUrl);
       }
+
+      console.log("[ADMIN AUTH]", pathname, "COOKIE FOUND");
     }
   }
 
@@ -32,26 +37,30 @@ export function middleware(request) {
    * -------------------------------------------------------
    * ADMIN API AUTHENTICATION
    * -------------------------------------------------------
-   *
-   * Admin API routes use the SAME adminAuth cookie.
-   *
-   * This means the browser does not need to manually send
-   * an x-admin-auth header for every request.
    */
 
   if (pathname.startsWith("/api/admin")) {
-    const auth = request.cookies.get("adminAuth")?.value;
+    /*
+     * Login itself must remain public.
+     */
+    if (pathname === "/api/admin/login") {
+      return NextResponse.next();
+    }
 
-    if (!auth) {
+    const cookieHeader = request.headers.get("cookie") || "";
+
+    const hasAdminAuth = cookieHeader
+      .split(";")
+      .some((cookie) => cookie.trim().startsWith("adminAuth="));
+
+    if (!hasAdminAuth) {
       return NextResponse.json(
         {
           success: false,
           error: "Unauthorized",
           message: "Admin authentication required.",
         },
-        {
-          status: 401,
-        }
+        { status: 401 }
       );
     }
   }
@@ -78,10 +87,6 @@ export function middleware(request) {
     "Referrer-Policy",
     "strict-origin-when-cross-origin"
   );
-
-  /*
-   * Prevent caching of admin pages and APIs.
-   */
 
   if (
     pathname.startsWith("/admin") ||
