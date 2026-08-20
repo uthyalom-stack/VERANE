@@ -22,6 +22,8 @@ model Product {
   name             String
   brand            String
   category         String
+  categoryId       String?
+  categoryRef      Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   price            Float
   description      String?
   images           String
@@ -33,20 +35,47 @@ model Product {
   outfitCompatible Boolean          @default(false)
   mannequinAsset   String?
   collectionId     String?
-  collection       Collection?      @relation(fields: [collectionId], references: [id])
+  collection       Collection?      @relation(fields: [collectionId], references: [id], onDelete: SetNull)
   variants         ProductVariant[]
-  createdAt        DateTime         @default(now())
-  orderItems       OrderItem[]
+
+  collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
+  collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
+
+  createdAt  DateTime    @default(now())
+  orderItems OrderItem[]
+
+  @@index([brand])
+  @@index([categoryId])
+  @@index([collectionId])
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  brand       String
+  name        String
+  slug        String
+  description String?
+  enabled     Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([brand, slug])
+  @@index([brand])
 }
 
 model Collection {
   id          String    @id @default(cuid())
+  brand       String?
   name        String
   description String?
   image       String?
   enabled     Boolean   @default(true)
   products    Product[]
   createdAt   DateTime  @default(now())
+
+  @@index([brand])
 }
 
 model HomepageSection {
@@ -93,6 +122,9 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
+
+  @@index([productId])
+  @@index([orderId])
 }
 
 model SavedLook {
@@ -105,16 +137,128 @@ model SavedLook {
 
 model Subscriber {
   id        String   @id @default(cuid())
-  email     String   @unique
+  email     String
+  brand     String?
   createdAt DateTime @default(now())
+
+  @@unique([email, brand])
+  @@index([brand])
+}
+
+model Discount {
+  id            String    @id @default(cuid())
+  brand         String?
+  code          String    @unique
+  name          String
+  description   String?
+  type          String
+  value         Float
+  enabled       Boolean   @default(true)
+  minOrderValue Float?
+  usageLimit    Int?
+  usageCount    Int       @default(0)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([brand])
 }
 
 model ProductVariant {
   id        String   @id @default(cuid())
   productId String
-  product   Product  @relation(fields: [productId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   name      String
   value     String
   stock     Int      @default(0)
   createdAt DateTime @default(now())
+
+  @@index([productId])
+}
+
+model CollaborationRequest {
+  id        String  @id @default(cuid())
+  fromBrand String
+  toBrand   String
+  title     String
+  message   String?
+  status    String  @default("pending")
+
+  collaborationId String?
+  collaboration   Collaboration? @relation(fields: [collaborationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notifications AdminNotification[]
+
+  @@index([fromBrand])
+  @@index([toBrand])
+  @@index([status])
+  @@index([collaborationId])
+}
+
+model Collaboration {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  brandA      String
+  brandB      String
+  status      String  @default("active")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  requests CollaborationRequest[]
+  products CollaborationProduct[]
+
+  @@index([brandA])
+  @@index([brandB])
+  @@index([status])
+}
+
+model CollaborationProduct {
+  id String @id @default(cuid())
+
+  collaborationId String
+  collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+
+  productAId String
+  productA   Product @relation("CollaborationProductA", fields: [productAId], references: [id], onDelete: Restrict)
+
+  productBId String
+  productB   Product @relation("CollaborationProductB", fields: [productBId], references: [id], onDelete: Restrict)
+
+  name        String
+  description String?
+  price       Float
+  images      String  @default("[]")
+  status      String  @default("draft")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([collaborationId])
+  @@index([productAId])
+  @@index([productBId])
+  @@index([status])
+}
+
+model AdminNotification {
+  id             String    @id @default(cuid())
+  recipientBrand String
+  type           String
+  title          String
+  message        String
+  readAt         DateTime?
+
+  requestId String?
+  request   CollaborationRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([recipientBrand])
+  @@index([readAt])
+  @@index([requestId])
 }

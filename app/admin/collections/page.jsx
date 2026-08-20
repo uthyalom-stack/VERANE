@@ -28,7 +28,7 @@ export default function CollectionsPage() {
 
       const [collectionsResponse, productsResponse] = await Promise.all([
         fetch("/api/admin/collections"),
-        fetch("/api/products"),
+        fetch("/api/admin/products"),
       ]);
 
       const collectionsData = await collectionsResponse.json();

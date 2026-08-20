@@ -1,24 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const categories = {
-  UTHY_LUXURY: [
-    { value: "shirts", label: "Shirts" },
-    { value: "trousers", label: "Trousers" },
-    { value: "hoodies", label: "Hoodies" },
-    { value: "traditional", label: "Traditional Wear" },
-  ],
-  ALOMZIEE_FOOTIES: [
-    { value: "shoes", label: "Shoes" },
-    { value: "sandals", label: "Sandals" },
-    { value: "slides", label: "Slides" },
-    { value: "boots", label: "Boots" },
-    { value: "belts", label: "Belts" },
-    { value: "bags", label: "Bags" },
-  ],
-};
 
 const outfitLayers = [
   { value: "top", label: "Top" },
@@ -31,10 +14,12 @@ const outfitLayers = [
 export default function AddProductPage() {
   const router = useRouter();
 
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
   const [form, setForm] = useState({
     name: "",
-    brand: "UTHY_LUXURY",
-    category: "shirts",
+    category: "",
     price: "",
     description: "",
     inventory: 0,
@@ -51,18 +36,55 @@ export default function AddProductPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const updateField = (field, value) => {
-    setForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  useEffect(() => {
+    loadCategories();
+  }, []);
 
-  const handleBrandChange = (brand) => {
-    setForm((prev) => ({
-      ...prev,
-      brand,
-      category: categories[brand]?.[0]?.value || "",
+  async function loadCategories() {
+    try {
+      setCategoriesLoading(true);
+      setError("");
+
+      const response = await fetch("/api/admin/categories", {
+        cache: "no-store",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Unable to load categories."
+        );
+      }
+
+      const availableCategories = Array.isArray(data)
+        ? data.filter((category) => category.enabled)
+        : [];
+
+      setCategories(availableCategories);
+
+      setForm((current) => ({
+        ...current,
+        category:
+          current.category ||
+          availableCategories[0]?.id ||
+          "",
+      }));
+    } catch (err) {
+      console.error("Category loading error:", err);
+
+      setError(
+        err?.message || "Unable to load categories."
+      );
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }
+
+  const updateField = (field, value) => {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
     }));
   };
 
@@ -71,18 +93,18 @@ export default function AddProductPage() {
 
     if (!url) return;
 
-    setForm((prev) => ({
-      ...prev,
-      images: [...prev.images, url],
+    setForm((current) => ({
+      ...current,
+      images: [...current.images, url],
     }));
 
     setImageInput("");
   };
 
   const removeImage = (index) => {
-    setForm((prev) => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index),
+    setForm((current) => ({
+      ...current,
+      images: current.images.filter((_, i) => i !== index),
     }));
   };
 
@@ -91,9 +113,21 @@ export default function AddProductPage() {
       return "Product name is required.";
     }
 
+    if (!form.category) {
+      return "Choose a category.";
+    }
+
+    if (categories.length === 0) {
+      return "Create at least one category before adding a product.";
+    }
+
     const price = Number(form.price);
 
-    if (!form.price || Number.isNaN(price) || price <= 0) {
+    if (
+      !form.price ||
+      Number.isNaN(price) ||
+      price <= 0
+    ) {
       return "Enter a valid product price.";
     }
 
@@ -131,14 +165,14 @@ export default function AddProductPage() {
     try {
       setSaving(true);
 
-      const response = await fetch("/api/products", {
+      const response = await fetch("/api/admin/products", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           name: form.name.trim(),
-          brand: form.brand,
           category: form.category,
           price: Number(form.price),
           description: form.description.trim(),
@@ -179,7 +213,7 @@ export default function AddProductPage() {
       console.error("Create product error:", err);
 
       setError(
-        err.message ||
+        err?.message ||
           "Something went wrong while creating the product."
       );
     } finally {
@@ -187,37 +221,32 @@ export default function AddProductPage() {
     }
   };
 
-  const brandCategories = categories[form.brand] || [];
-
   return (
     <main className="min-h-screen bg-black text-white">
-      <div className="max-w-5xl mx-auto px-5 sm:px-8 py-10 md:py-16">
-
-        {/* HEADER */}
+      <div className="mx-auto max-w-5xl px-5 py-10 sm:px-8 md:py-16">
         <div className="mb-10">
           <button
             type="button"
             onClick={() => router.push("/admin/products")}
-            className="inline-flex items-center gap-2 text-xs text-neutral-500 hover:text-white transition mb-6"
+            className="mb-6 inline-flex items-center gap-2 text-xs text-neutral-500 transition hover:text-white"
           >
             ← Back to Products
           </button>
 
-          <p className="text-amber-400 text-[10px] font-bold uppercase tracking-[0.35em] mb-3">
-            VÉRANE ADMIN
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.35em] text-amber-400">
+            STORE ADMIN
           </p>
 
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight">
+          <h1 className="text-4xl font-black tracking-tight md:text-6xl">
             Add Product
           </h1>
 
-          <p className="text-neutral-500 mt-3 max-w-xl">
-            Create a new product for UTHY LUXURY or
-            ALOMZIEE FOOTIES.
+          <p className="mt-3 max-w-xl text-neutral-500">
+            Create a product for your authorized store.
+            The store brand is assigned automatically.
           </p>
         </div>
 
-        {/* ALERTS */}
         {error && (
           <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 px-5 py-4 text-sm text-red-300">
             {error}
@@ -231,97 +260,97 @@ export default function AddProductPage() {
         )}
 
         <div className="space-y-8">
-
           {/* PRODUCT INFORMATION */}
           <section className="rounded-3xl border border-white/10 bg-neutral-950 p-6 md:p-8">
-
             <div className="mb-7">
-              <p className="text-amber-400 text-[10px] font-bold uppercase tracking-[0.25em]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">
                 01
               </p>
 
-              <h2 className="text-xl font-bold mt-1">
+              <h2 className="mt-1 text-xl font-bold">
                 Product Information
               </h2>
 
-              <p className="text-sm text-neutral-500 mt-1">
+              <p className="mt-1 text-sm text-neutral-500">
                 Add the information customers will see.
               </p>
             </div>
 
             <div className="space-y-5">
-
               {/* NAME */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
                   Product Name *
                 </label>
 
                 <input
                   value={form.name}
-                  onChange={(e) =>
-                    updateField("name", e.target.value)
-                  }
+                  onChange={(event) => {
+                    updateField("name", event.target.value);
+                    setError("");
+                  }}
                   placeholder="Product name"
-                  className="w-full bg-black border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-amber-500/60"
+                  className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
                 />
               </div>
 
-              {/* BRAND + CATEGORY */}
-              <div className="grid md:grid-cols-2 gap-5">
+              {/* CATEGORY */}
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
+                  Category *
+                </label>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
-                    Brand
-                  </label>
+                {categoriesLoading ? (
+                  <div className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-sm text-neutral-600">
+                    Loading your categories...
+                  </div>
+                ) : categories.length === 0 ? (
+                  <div className="rounded-2xl border border-amber-400/20 bg-amber-400/5 px-5 py-4">
+                    <p className="text-sm text-amber-200">
+                      No categories exist yet.
+                    </p>
 
-                  <select
-                    value={form.brand}
-                    onChange={(e) =>
-                      handleBrandChange(e.target.value)
-                    }
-                    className="w-full bg-black border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-amber-500/60"
-                  >
-                    <option value="UTHY_LUXURY">
-                      UTHY LUXURY
-                    </option>
-
-                    <option value="ALOMZIEE_FOOTIES">
-                      ALOMZIEE FOOTIES
-                    </option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
-                    Category
-                  </label>
-
+                    <button
+                      type="button"
+                      onClick={() =>
+                        router.push("/admin/categories")
+                      }
+                      className="mt-3 text-xs font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300"
+                    >
+                      Create a category →
+                    </button>
+                  </div>
+                ) : (
                   <select
                     value={form.category}
-                    onChange={(e) =>
-                      updateField("category", e.target.value)
+                    onChange={(event) =>
+                      updateField(
+                        "category",
+                        event.target.value
+                      )
                     }
-                    className="w-full bg-black border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-amber-500/60"
+                    className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
                   >
-                    {brandCategories.map((category) => (
+                    <option value="" disabled>
+                      Select a category
+                    </option>
+
+                    {categories.map((category) => (
                       <option
-                        key={category.value}
-                        value={category.value}
+                        key={category.id}
+                        value={category.id}
                       >
-                        {category.label}
+                        {category.name}
                       </option>
                     ))}
                   </select>
-                </div>
-
+                )}
               </div>
 
               {/* PRICE + INVENTORY */}
-              <div className="grid md:grid-cols-2 gap-5">
-
+              <div className="grid gap-5 md:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
                     Price (₦) *
                   </label>
 
@@ -332,172 +361,176 @@ export default function AddProductPage() {
 
                     <input
                       value={form.price}
-                      onChange={(e) =>
-                        updateField("price", e.target.value)
+                      onChange={(event) =>
+                        updateField(
+                          "price",
+                          event.target.value
+                        )
                       }
                       type="number"
                       min="0"
                       step="1"
                       placeholder="0"
-                      className="w-full bg-black border border-white/10 rounded-2xl pl-10 pr-5 py-4 text-white outline-none focus:border-amber-500/60"
+                      className="w-full rounded-2xl border border-white/10 bg-black py-4 pl-10 pr-5 text-white outline-none transition focus:border-amber-500/60"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
                     Inventory
                   </label>
 
                   <input
                     value={form.inventory}
-                    onChange={(e) =>
-                      updateField("inventory", e.target.value)
+                    onChange={(event) =>
+                      updateField(
+                        "inventory",
+                        event.target.value
+                      )
                     }
                     type="number"
                     min="0"
                     step="1"
-                    className="w-full bg-black border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-amber-500/60"
+                    className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
                   />
                 </div>
-
               </div>
 
               {/* DESCRIPTION */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
                   Description
                 </label>
 
                 <textarea
                   value={form.description}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     updateField(
                       "description",
-                      e.target.value
+                      event.target.value
                     )
                   }
                   rows={5}
                   placeholder="Describe the product..."
-                  className="w-full bg-black border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-amber-500/60 resize-none"
+                  className="w-full resize-none rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
                 />
 
-                <p className="text-[11px] text-neutral-600 mt-2">
+                <p className="mt-2 text-[11px] text-neutral-600">
                   {form.description.length} characters
                 </p>
               </div>
 
               {/* STYLE + OCCASION */}
-              <div className="grid md:grid-cols-2 gap-5">
-
+              <div className="grid gap-5 md:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
                     Style
                   </label>
 
                   <input
                     value={form.style}
-                    onChange={(e) =>
-                      updateField("style", e.target.value)
+                    onChange={(event) =>
+                      updateField(
+                        "style",
+                        event.target.value
+                      )
                     }
                     placeholder="Minimal, Classic, Streetwear..."
-                    className="w-full bg-black border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-amber-500/60"
+                    className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
                     Occasion
                   </label>
 
                   <input
                     value={form.occasion}
-                    onChange={(e) =>
+                    onChange={(event) =>
                       updateField(
                         "occasion",
-                        e.target.value
+                        event.target.value
                       )
                     }
                     placeholder="Wedding, Casual, Formal..."
-                    className="w-full bg-black border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-amber-500/60"
+                    className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
                   />
                 </div>
-
               </div>
 
               {/* COLORS */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
                   Colors
                 </label>
 
                 <input
                   value={form.colors}
-                  onChange={(e) =>
-                    updateField("colors", e.target.value)
+                  onChange={(event) =>
+                    updateField(
+                      "colors",
+                      event.target.value
+                    )
                   }
                   placeholder="Black, White, Gold"
-                  className="w-full bg-black border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-amber-500/60"
+                  className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
                 />
 
-                <p className="text-[11px] text-neutral-600 mt-2">
+                <p className="mt-2 text-[11px] text-neutral-600">
                   Separate multiple colors with commas.
                 </p>
               </div>
-
             </div>
           </section>
 
           {/* IMAGES */}
           <section className="rounded-3xl border border-white/10 bg-neutral-950 p-6 md:p-8">
-
             <div className="mb-7">
-              <p className="text-amber-400 text-[10px] font-bold uppercase tracking-[0.25em]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">
                 02
               </p>
 
-              <h2 className="text-xl font-bold mt-1">
+              <h2 className="mt-1 text-xl font-bold">
                 Product Images
               </h2>
 
-              <p className="text-sm text-neutral-500 mt-1">
+              <p className="mt-1 text-sm text-neutral-500">
                 Add the image URLs for this product.
               </p>
             </div>
 
             <div className="flex gap-3">
-
               <input
                 value={imageInput}
-                onChange={(e) =>
-                  setImageInput(e.target.value)
+                onChange={(event) =>
+                  setImageInput(event.target.value)
                 }
                 placeholder="https://..."
-                className="flex-1 bg-black border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-amber-500/60"
+                className="flex-1 rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
               />
 
               <button
                 type="button"
                 onClick={addImage}
-                className="px-6 rounded-2xl bg-white text-black text-sm font-black hover:bg-neutral-200 transition"
+                className="rounded-2xl bg-white px-6 text-sm font-black text-black transition hover:bg-neutral-200"
               >
                 Add
               </button>
-
             </div>
 
             {form.images.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-5">
-
+              <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
                 {form.images.map((image, index) => (
                   <div
                     key={`${image}-${index}`}
-                    className="relative aspect-square rounded-2xl overflow-hidden border border-white/10 bg-black"
+                    className="relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black"
                   >
                     <img
                       src={image}
                       alt={`Product image ${index + 1}`}
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
 
                     <button
@@ -505,63 +538,58 @@ export default function AddProductPage() {
                       onClick={() =>
                         removeImage(index)
                       }
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/80 text-white text-xs"
+                      className="absolute right-2 top-2 h-8 w-8 rounded-full bg-black/80 text-xs text-white"
                     >
                       ×
                     </button>
                   </div>
                 ))}
-
               </div>
             ) : (
-              <div className="mt-5 border border-dashed border-white/10 rounded-2xl p-10 text-center">
+              <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-10 text-center">
                 <p className="text-sm text-neutral-500">
                   No images added yet.
                 </p>
               </div>
             )}
-
           </section>
 
           {/* OUTFIT BUILDER */}
           <section className="rounded-3xl border border-white/10 bg-neutral-950 p-6 md:p-8">
-
             <div className="mb-7">
-              <p className="text-amber-400 text-[10px] font-bold uppercase tracking-[0.25em]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">
                 03
               </p>
 
-              <h2 className="text-xl font-bold mt-1">
+              <h2 className="mt-1 text-xl font-bold">
                 Outfit Builder
               </h2>
 
-              <p className="text-sm text-neutral-500 mt-1">
+              <p className="mt-1 text-sm text-neutral-500">
                 Decide whether customers can use this product
                 inside the Outfit Builder.
               </p>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-black p-5">
-
-              <label className="flex items-start gap-4 cursor-pointer">
-
+              <label className="flex cursor-pointer items-start gap-4">
                 <input
                   type="checkbox"
                   checked={form.outfitCompatible}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
                       outfitCompatible:
-                        e.target.checked,
+                        event.target.checked,
                       outfitLayer:
-                        e.target.checked
-                          ? prev.outfitLayer === "none"
+                        event.target.checked
+                          ? current.outfitLayer === "none"
                             ? "top"
-                            : prev.outfitLayer
+                            : current.outfitLayer
                           : "none",
                     }))
                   }
-                  className="mt-1 w-4 h-4 accent-amber-500"
+                  className="mt-1 h-4 w-4 accent-amber-500"
                 />
 
                 <div>
@@ -569,30 +597,28 @@ export default function AddProductPage() {
                     Make this product Outfit Builder compatible
                   </p>
 
-                  <p className="text-xs text-neutral-500 mt-1">
+                  <p className="mt-1 text-xs text-neutral-500">
                     Customers can use this piece when creating
                     a complete look.
                   </p>
                 </div>
-
               </label>
 
               {form.outfitCompatible && (
-                <div className="mt-6 pt-6 border-t border-white/10">
-
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                <div className="mt-6 border-t border-white/10 pt-6">
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
                     Outfit Layer
                   </label>
 
                   <select
                     value={form.outfitLayer}
-                    onChange={(e) =>
+                    onChange={(event) =>
                       updateField(
                         "outfitLayer",
-                        e.target.value
+                        event.target.value
                       )
                     }
-                    className="w-full bg-neutral-950 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-amber-500/60"
+                    className="w-full rounded-2xl border border-white/10 bg-neutral-950 px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
                   >
                     {outfitLayers.map((layer) => (
                       <option
@@ -603,22 +629,19 @@ export default function AddProductPage() {
                       </option>
                     ))}
                   </select>
-
                 </div>
               )}
-
             </div>
           </section>
 
           {/* ACTIONS */}
-          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={() =>
                 router.push("/admin/products")
               }
-              className="px-7 py-4 rounded-full border border-white/10 text-sm font-bold hover:bg-white/5 transition"
+              className="rounded-full border border-white/10 px-7 py-4 text-sm font-bold transition hover:bg-white/5"
             >
               Cancel
             </button>
@@ -626,16 +649,18 @@ export default function AddProductPage() {
             <button
               type="button"
               onClick={save}
-              disabled={saving}
-              className="px-8 py-4 rounded-full bg-amber-500 text-black text-sm font-black hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              disabled={
+                saving ||
+                categoriesLoading ||
+                categories.length === 0
+              }
+              className="rounded-full bg-amber-500 px-8 py-4 text-sm font-black text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving
                 ? "Creating Product..."
                 : "Create Product →"}
             </button>
-
           </div>
-
         </div>
       </div>
     </main>

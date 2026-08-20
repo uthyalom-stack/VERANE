@@ -5,18 +5,22 @@ import { useRouter } from "next/navigation";
 export default function AdminDashboard({ admin }) {
   const router = useRouter();
 
-  const isSuperAdmin = admin?.brand === "ALL";
+  const isSuperAdmin = admin?.role === "SUPERADMIN";
+  const isUthy = admin?.role === "UTHY";
+  const isAlomziee = admin?.role === "ALOMZIEE";
+  const isStoreAdmin = isUthy || isAlomziee;
 
-  const isUthy =
-    admin?.brand === "UTHY_LUXURY" || isSuperAdmin;
-
-  const isAlomziee =
-    admin?.brand === "ALOMZIEE_FOOTIES" || isSuperAdmin;
+  const storeName = isUthy
+    ? "UTHY LUXURY"
+    : isAlomziee
+    ? "ALOMZIEE FOOTIES"
+    : "VÉRANE";
 
   const logout = async () => {
     try {
       await fetch("/api/admin/logout", {
         method: "POST",
+        credentials: "include",
       });
     } catch (error) {
       console.error("Logout error:", error);
@@ -28,211 +32,151 @@ export default function AdminDashboard({ admin }) {
 
   return (
     <main className="min-h-screen bg-black text-white">
-
-      {/* HEADER */}
       <header className="border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
-
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           <div>
             <p className="text-[10px] uppercase tracking-[0.4em] text-neutral-600">
-              VÉRANE
+              {isSuperAdmin ? "VÉRANE" : storeName}
             </p>
 
-            <h1 className="text-2xl font-black mt-1">
-              Control Center
+            <h1 className="mt-1 text-2xl font-black">
+              {isSuperAdmin
+                ? "Platform Control"
+                : "Store Control Center"}
             </h1>
           </div>
 
           <button
+            type="button"
             onClick={logout}
-            className="px-4 py-2 rounded-xl border border-white/10 text-xs font-bold text-neutral-400 hover:text-white hover:border-white/20 transition"
+            className="rounded-xl border border-white/10 px-4 py-2 text-xs font-bold text-neutral-400 transition hover:border-white/20 hover:text-white"
           >
             Logout
           </button>
-
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-10">
-
-        {/* WELCOME */}
+      <div className="mx-auto max-w-7xl px-6 py-10">
         <section className="mb-12">
-
           <p className="text-xs uppercase tracking-[0.25em] text-neutral-600">
-            Administrator
+            {isSuperAdmin
+              ? "Super Administrator"
+              : "Store Administrator"}
           </p>
 
-          <h2 className="text-4xl md:text-5xl font-black mt-2">
+          <h2 className="mt-2 text-4xl font-black md:text-5xl">
             Welcome back
             {admin?.name ? `, ${admin.name}` : ""}
           </h2>
 
-          <p className="text-sm text-neutral-500 mt-3">
-            Manage your authorized brand systems from one place.
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-neutral-500">
+            {isSuperAdmin
+              ? "Control the VÉRANE website, brand systems and platform infrastructure."
+              : `Manage ${storeName} products, categories, collections, orders and store operations.`}
           </p>
-
         </section>
 
-        {/* BRAND SYSTEMS */}
-        <section>
+        {isStoreAdmin && (
+          <section>
+            <div className="mb-6">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-neutral-600">
+                Your Store
+              </p>
 
-          <div className="mb-6">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-neutral-600">
-              Authorized Systems
-            </p>
+              <h3 className="mt-1 text-2xl font-black">
+                {storeName}
+              </h3>
+            </div>
 
-            <h3 className="text-2xl font-black mt-1">
-              Brand Management
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-            {/* UTHY */}
-            {isUthy && (
-              <BrandCard
-                title="UTHY"
-                subtitle="LUXURY"
-                description="Manage UTHY LUXURY products, collections, orders and brand content."
-                onClick={() =>
-                  router.push(
-                    isSuperAdmin
-                      ? "/admin/brands?brand=UTHY_LUXURY"
-                      : "/admin/products?brand=UTHY_LUXURY"
-                  )
-                }
-              />
-            )}
-
-            {/* ALOMZIEE */}
-            {isAlomziee && (
-              <BrandCard
-                title="ALOMZIEE"
-                subtitle="FOOTIES"
-                description="Manage ALOMZIEE FOOTIES products, collections, orders and brand content."
-                onClick={() =>
-                  router.push(
-                    isSuperAdmin
-                      ? "/admin/brands?brand=ALOMZIEE_FOOTIES"
-                      : "/admin/products?brand=ALOMZIEE_FOOTIES"
-                  )
-                }
-              />
-            )}
-
-            {/* VÉRANE */}
-            {isSuperAdmin && (
-              <BrandCard
-                title="VÉRANE"
-                subtitle="ALL ACCESS"
-                description="Full access to both brands, storefront content and administration."
-                premium
-                onClick={() =>
-                  router.push("/admin/homepage")
-                }
-              />
-            )}
-
-          </div>
-
-        </section>
-
-        {/* MANAGEMENT */}
-        <section className="mt-14">
-
-          <div className="mb-6">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-neutral-600">
-              Control Center
-            </p>
-
-            <h3 className="text-2xl font-black mt-1">
-              Management
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-
-            {/* PRODUCTS */}
-            {(isUthy || isAlomziee) && (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <AdminLink
                 title="Products"
-                description="Manage catalog"
+                description="Manage your catalog"
                 onClick={() =>
-                  router.push(
-                    isSuperAdmin
-                      ? "/admin/products"
-                      : `/admin/products?brand=${admin.brand}`
-                  )
+                  router.push("/admin/products")
                 }
               />
-            )}
 
-            {/* COLLECTIONS */}
-            {(isUthy || isAlomziee) && (
+              <AdminLink
+                title="Categories"
+                description="Create and manage categories"
+                onClick={() =>
+                  router.push("/admin/categories")
+                }
+              />
+
               <AdminLink
                 title="Collections"
-                description="Manage collections"
+                description="Curate your collections"
                 onClick={() =>
                   router.push("/admin/collections")
                 }
               />
-            )}
 
-            {/* ORDERS */}
-            <AdminLink
-              title="Orders"
-              description="View customer orders"
-              onClick={() =>
-                router.push("/admin/orders")
-              }
-            />
+              <AdminLink
+                title="Orders"
+                description="Manage store orders"
+                onClick={() =>
+                  router.push("/admin/orders")
+                }
+              />
 
-            {/* HOMEPAGE */}
-            {isSuperAdmin && (
+              <AdminLink
+                title="Discounts"
+                description="Manage store promotions"
+                onClick={() =>
+                  router.push("/admin/discounts")
+                }
+              />
+
+              <AdminLink
+                title="Subscribers"
+                description="Manage store subscribers"
+                onClick={() =>
+                  router.push("/admin/subscribers")
+                }
+              />
+            </div>
+          </section>
+        )}
+
+        {isSuperAdmin && (
+          <section>
+            <div className="mb-6">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-neutral-600">
+                Platform Control
+              </p>
+
+              <h3 className="mt-1 text-2xl font-black">
+                VÉRANE Website
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <AdminLink
                 title="Homepage"
-                description="Edit storefront"
+                description="Control storefront content"
                 onClick={() =>
                   router.push("/admin/homepage")
                 }
               />
-            )}
 
-            {/* NAVIGATION */}
-            {isSuperAdmin && (
               <AdminLink
                 title="Navigation"
-                description="Manage site navigation"
+                description="Manage website navigation"
                 onClick={() =>
                   router.push("/admin/navigation")
                 }
               />
-            )}
 
-            {/* MEDIA */}
-            {isSuperAdmin && (
               <AdminLink
-                title="Media"
-                description="Manage website images"
+                title="Footer"
+                description="Manage site footer"
                 onClick={() =>
-                  router.push("/admin/media")
+                  router.push("/admin/footer")
                 }
               />
-            )}
 
-            {/* BRANDS */}
-            {isSuperAdmin && (
-              <AdminLink
-                title="Brands"
-                description="Manage brand systems"
-                onClick={() =>
-                  router.push("/admin/brands")
-                }
-              />
-            )}
-
-            {/* PAGES */}
-            {isSuperAdmin && (
               <AdminLink
                 title="Pages"
                 description="Manage website pages"
@@ -240,120 +184,70 @@ export default function AdminDashboard({ admin }) {
                   router.push("/admin/pages")
                 }
               />
-            )}
 
-            {/* FOOTER */}
-            {isSuperAdmin && (
               <AdminLink
-                title="Footer"
-                description="Edit site footer"
+                title="Media"
+                description="Manage website media"
                 onClick={() =>
-                  router.push("/admin/footer")
+                  router.push("/admin/media")
                 }
               />
-            )}
 
-            {/* DISCOUNTS */}
-            {isSuperAdmin && (
               <AdminLink
-                title="Discounts"
-                description="Manage promotions"
+                title="Brands"
+                description="Manage brand systems"
                 onClick={() =>
-                  router.push("/admin/discounts")
+                  router.push("/admin/brands")
                 }
               />
-            )}
 
-            {/* SUBSCRIBERS */}
-            {isSuperAdmin && (
               <AdminLink
                 title="Subscribers"
-                description="Manage subscribers"
+                description="Manage platform subscribers"
                 onClick={() =>
                   router.push("/admin/subscribers")
                 }
               />
-            )}
 
-            {/* SETTINGS */}
-            {isSuperAdmin && (
               <AdminLink
                 title="Settings"
-                description="Global site settings"
+                description="Manage global site settings"
                 onClick={() =>
                   router.push("/admin/settings")
                 }
               />
-            )}
 
-          </div>
+              <AdminLink
+                title="Analytics"
+                description="View platform analytics"
+                onClick={() =>
+                  router.push("/admin")
+                }
+              />
+            </div>
 
-        </section>
+            <div className="mt-10 rounded-3xl border border-amber-400/10 bg-amber-400/[0.03] p-6">
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">
+                Store Access
+              </p>
 
+              <h3 className="mt-2 text-xl font-black">
+                Store inventory is isolated
+              </h3>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-500">
+                UTHY and ALOMZIEE manage their own products,
+                categories, collections, orders and discounts.
+                Super Admin controls the platform rather than
+                their store inventory.
+              </p>
+            </div>
+          </section>
+        )}
       </div>
-
     </main>
   );
 }
-
-
-/* -------------------------------- */
-/* BRAND CARD */
-/* -------------------------------- */
-
-function BrandCard({
-  title,
-  subtitle,
-  description,
-  onClick,
-  premium = false,
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-left rounded-3xl border p-7 transition ${
-        premium
-          ? "border-amber-400/20 bg-amber-400/[0.04] hover:border-amber-400/40"
-          : "border-white/10 bg-white/[0.03] hover:border-amber-400/30 hover:bg-white/[0.05]"
-      }`}
-    >
-
-      <div className="flex items-center justify-between">
-
-        <div>
-
-          <p
-            className={`text-xl font-black ${
-              premium ? "text-amber-400" : ""
-            }`}
-          >
-            {title}
-          </p>
-
-          <p className="text-[10px] uppercase tracking-[0.3em] text-neutral-600 mt-1">
-            {subtitle}
-          </p>
-
-        </div>
-
-        <span className="text-amber-400 text-xl">
-          →
-        </span>
-
-      </div>
-
-      <p className="text-xs text-neutral-500 mt-7 leading-relaxed">
-        {description}
-      </p>
-
-    </button>
-  );
-}
-
-
-/* -------------------------------- */
-/* MANAGEMENT LINK */
-/* -------------------------------- */
 
 function AdminLink({
   title,
@@ -362,18 +256,17 @@ function AdminLink({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="text-left rounded-2xl border border-white/10 bg-white/[0.02] p-5 hover:bg-white/[0.04] hover:border-white/20 transition"
+      className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-left transition hover:border-amber-400/20 hover:bg-white/[0.04]"
     >
-
       <p className="text-sm font-black">
         {title}
       </p>
 
-      <p className="text-[10px] text-neutral-600 mt-1">
+      <p className="mt-1 text-[10px] leading-5 text-neutral-600">
         {description}
       </p>
-
     </button>
   );
 }

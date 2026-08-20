@@ -2,16 +2,13 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
-export async function PUT(request, { params }) {
+export async function GET() {
   try {
     const admin = await getAdminSession();
 
     if (!admin) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized.",
-        },
+        { success: false, error: "Unauthorized." },
         { status: 401 }
       );
     }
@@ -26,30 +23,60 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const { id } = await params;
-    const body = await request.json();
-
-    const existingProduct = await prisma.product.findFirst({
+    const products = await prisma.product.findMany({
       where: {
-        id,
         brand: admin.brand,
+      },
+      include: {
+        categoryRef: true,
+        collection: true,
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 
-    if (!existingProduct) {
+    return NextResponse.json(products);
+  } catch (error) {
+    console.error("GET /api/admin/products error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to load products.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request) {
+  try {
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    if (admin.isSuperAdmin) {
       return NextResponse.json(
         {
           success: false,
-          error: "Product not found.",
+          error: "Super Admin cannot create store products.",
         },
-        { status: 404 }
+        { status: 403 }
       );
     }
+
+    const body = await request.json();
 
     const name =
       typeof body.name === "string"
         ? body.name.trim()
-        : existingProduct.name;
+        : "";
 
     const categoryInput =
       typeof body.category === "string"
@@ -98,10 +125,7 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const product = await prisma.product.update({
-      where: {
-        id,
-      },
+    const product = await prisma.product.create({
       data: {
         name,
         brand: admin.brand,
@@ -112,10 +136,10 @@ export async function PUT(request, { params }) {
           typeof body.description === "string"
             ? body.description.trim()
             : "",
-        inventory: Number(body.inventory) || 0,
         images: JSON.stringify(
           Array.isArray(body.images) ? body.images : []
         ),
+        inventory: Number(body.inventory) || 0,
         colors: Array.isArray(body.colors)
           ? JSON.stringify(body.colors)
           : null,
@@ -137,81 +161,15 @@ export async function PUT(request, { params }) {
       },
     });
 
-    return NextResponse.json(product);
+    return NextResponse.json(product, { status: 201 });
   } catch (error) {
-    console.error("PUT /api/products/[id] error:", error);
+    console.error("POST /api/admin/products error:", error);
 
     return NextResponse.json(
       {
         success: false,
         error:
-          error?.message || "Failed to update product.",
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(request, { params }) {
-  try {
-    const admin = await getAdminSession();
-
-    if (!admin) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized.",
-        },
-        { status: 401 }
-      );
-    }
-
-    if (admin.isSuperAdmin) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Super Admin does not manage store products.",
-        },
-        { status: 403 }
-      );
-    }
-
-    const { id } = await params;
-
-    const existingProduct = await prisma.product.findFirst({
-      where: {
-        id,
-        brand: admin.brand,
-      },
-    });
-
-    if (!existingProduct) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Product not found.",
-        },
-        { status: 404 }
-      );
-    }
-
-    await prisma.product.delete({
-      where: {
-        id,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-    });
-  } catch (error) {
-    console.error("DELETE /api/products/[id] error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error?.message || "Failed to delete product.",
+          error?.message || "Failed to create product.",
       },
       { status: 500 }
     );

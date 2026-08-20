@@ -1,68 +1,47 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAdminSession } from "@/lib/admin-auth";
 
-/**
- * GET /api/admin/discounts
- *
- * Returns all discount codes stored in site settings.
- */
 export async function GET() {
   try {
-    const rows = await prisma.siteSetting.findMany({
-      where: {
-        key: {
-          startsWith: "discount_",
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized.",
         },
-      },
+        { status: 401 }
+      );
+    }
+
+    const discounts = await prisma.discount.findMany({
+      where: admin.isSuperAdmin
+        ? {}
+        : {
+            brand: admin.brand,
+          },
       orderBy: {
-        key: "desc",
+        createdAt: "desc",
       },
     });
 
-    const discounts = [];
-
-    for (const row of rows) {
-      try {
-        const parsed = JSON.parse(row.value);
-
-        discounts.push({
-          id: row.key,
-          ...parsed,
-        });
-      } catch (error) {
-        console.error(
-          `Invalid discount data for ${row.key}:`,
-          error
-        );
-      }
-    }
-
-    // Calculate live status from dates.
     const now = new Date();
 
     const formattedDiscounts = discounts.map((discount) => {
-      const startsAt = discount.startsAt
-        ? new Date(discount.startsAt)
-        : null;
-
-      const expiresAt = discount.expiresAt
-        ? new Date(discount.expiresAt)
-        : null;
-
       const hasStarted =
-        !startsAt || now >= startsAt;
+        !discount.startsAt || now >= discount.startsAt;
 
       const hasExpired =
-        expiresAt && now > expiresAt;
-
-      const active =
-        discount.enabled !== false &&
-        hasStarted &&
-        !hasExpired;
+        discount.endsAt && now > discount.endsAt;
 
       return {
         ...discount,
-        active,
+        active:
+          discount.enabled &&
+          hasStarted &&
+          !hasExpired,
         expired: Boolean(hasExpired),
       };
     });
@@ -72,7 +51,10 @@ export async function GET() {
       discounts: formattedDiscounts,
     });
   } catch (error) {
-    console.error("GET DISCOUNTS ERROR:", error);
+    console.error(
+      "GET /api/admin/discounts error:",
+      error
+    );
 
     return NextResponse.json(
       {
@@ -80,20 +62,36 @@ export async function GET() {
         discounts: [],
         error: "Unable to load discounts.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
 
-/**
- * POST /api/admin/discounts
- *
- * Creates a new discount.
- */
 export async function POST(request) {
   try {
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized.",
+        },
+        { status: 401 }
+      );
+    }
+
+    if (admin.isSuperAdmin) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Super Admin does not create store discounts.",
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     if (!body || typeof body !== "object") {
@@ -102,9 +100,7 @@ export async function POST(request) {
           success: false,
           error: "Invalid discount data.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
@@ -112,15 +108,19 @@ export async function POST(request) {
       .trim()
       .toUpperCase();
 
+    const name = String(body.name || code).trim();
+
+    const description = String(
+      body.description || ""
+    ).trim();
+
     if (!code) {
       return NextResponse.json(
         {
           success: false,
           error: "Discount code is required.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
@@ -128,11 +128,10 @@ export async function POST(request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Discount code must be between 3 and 40 characters.",
+          error:
+            "Discount code must be between 3 and 40 characters.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
@@ -148,11 +147,10 @@ export async function POST(request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Discount value must be greater than zero.",
+          error:
+            "Discount value must be greater than zero.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
@@ -160,15 +158,36 @@ export async function POST(request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Percentage discount cannot exceed 100%.",
+          error:
+            "Percentage discount cannot exceed 100%.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
-    const maxUses =
+    const minOrderValue =
+      body.minimumOrder === null ||
+      body.minimumOrder === undefined ||
+      body.minimumOrder === ""
+        ? null
+        : Number(body.minimumOrder);
+
+    if (
+      minOrderValue !== null &&
+      (!Number.isFinite(minOrderValue) ||
+        minOrderValue < 0)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Minimum order value is invalid.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const usageLimit =
       body.maxUses === null ||
       body.maxUses === undefined ||
       body.maxUses === ""
@@ -176,36 +195,17 @@ export async function POST(request) {
         : Number(body.maxUses);
 
     if (
-      maxUses !== null &&
-      (!Number.isInteger(maxUses) || maxUses < 1)
+      usageLimit !== null &&
+      (!Number.isInteger(usageLimit) ||
+        usageLimit < 1)
     ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Maximum uses must be a positive whole number.",
+          error:
+            "Maximum uses must be a positive whole number.",
         },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const minimumOrder =
-      body.minimumOrder === null ||
-      body.minimumOrder === undefined ||
-      body.minimumOrder === ""
-        ? 0
-        : Number(body.minimumOrder);
-
-    if (!Number.isFinite(minimumOrder) || minimumOrder < 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Minimum order value is invalid.",
-        },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
@@ -213,106 +213,50 @@ export async function POST(request) {
       ? new Date(body.startsAt)
       : null;
 
-    const expiresAt = body.expiresAt
+    const endsAt = body.expiresAt
       ? new Date(body.expiresAt)
       : null;
 
-    if (startsAt && Number.isNaN(startsAt.getTime())) {
+    if (
+      startsAt &&
+      Number.isNaN(startsAt.getTime())
+    ) {
       return NextResponse.json(
         {
           success: false,
           error: "Invalid start date.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
-    if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+    if (
+      endsAt &&
+      Number.isNaN(endsAt.getTime())
+    ) {
       return NextResponse.json(
         {
           success: false,
           error: "Invalid expiry date.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
-    if (
-      startsAt &&
-      expiresAt &&
-      expiresAt <= startsAt
-    ) {
+    if (startsAt && endsAt && endsAt <= startsAt) {
       return NextResponse.json(
         {
           success: false,
-          error: "Expiry date must be after the start date.",
+          error:
+            "Expiry date must be after the start date.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
-    const normalizedDiscount = {
-      code,
-
-      name: String(
-        body.name || code
-      ).trim(),
-
-      description: String(
-        body.description || ""
-      ).trim(),
-
-      type,
-
-      value,
-
-      enabled: body.enabled !== false,
-
-      startsAt: startsAt
-        ? startsAt.toISOString()
-        : null,
-
-      expiresAt: expiresAt
-        ? expiresAt.toISOString()
-        : null,
-
-      minimumOrder,
-
-      maxUses,
-
-      usedCount: 0,
-
-      // Optional product/collection targeting.
-      productIds: Array.isArray(body.productIds)
-        ? body.productIds
-        : [],
-
-      collectionIds: Array.isArray(body.collectionIds)
-        ? body.collectionIds
-        : [],
-
-      // Whether the discount can be combined with others.
-      stackable: Boolean(body.stackable),
-
-      createdAt: new Date().toISOString(),
-
-      updatedAt: new Date().toISOString(),
-    };
-
-    const existing = await prisma.siteSetting.findFirst({
+    const existing = await prisma.discount.findUnique({
       where: {
-        key: {
-          startsWith: "discount_",
-        },
-        value: {
-          contains: `"code":"${code}"`,
-        },
+        code,
       },
     });
 
@@ -320,48 +264,51 @@ export async function POST(request) {
       return NextResponse.json(
         {
           success: false,
-          error: "A discount with this code already exists.",
+          error:
+            "A discount with this code already exists.",
         },
-        {
-          status: 409,
-        }
+        { status: 409 }
       );
     }
 
-    const id = `discount_${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
-
-    await prisma.siteSetting.create({
+    const discount = await prisma.discount.create({
       data: {
-        key: id,
-        value: JSON.stringify(normalizedDiscount),
+        brand: admin.brand,
+        code,
+        name,
+        description: description || null,
+        type,
+        value,
+        enabled: body.enabled !== false,
+        minOrderValue,
+        usageLimit,
+        usageCount: 0,
+        startsAt,
+        endsAt,
       },
     });
 
     return NextResponse.json(
       {
         success: true,
-        discount: {
-          id,
-          ...normalizedDiscount,
-        },
+        discount,
       },
-      {
-        status: 201,
-      }
+      { status: 201 }
     );
   } catch (error) {
-    console.error("POST DISCOUNT ERROR:", error);
+    console.error(
+      "POST /api/admin/discounts error:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Unable to create discount.",
+        error:
+          error?.message ||
+          "Unable to create discount.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }

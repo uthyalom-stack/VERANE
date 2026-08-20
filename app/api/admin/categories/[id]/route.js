@@ -21,7 +21,7 @@ export async function PUT(request, { params }) {
         {
           success: false,
           error:
-            "Super Admin does not manage store orders.",
+            "Super Admin does not manage store categories.",
         },
         { status: 403 }
       );
@@ -30,84 +30,112 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const body = await request.json();
 
-    if (!id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order ID is required.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!body.status) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order status is required.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const existingOrder = await prisma.order.findFirst({
+    const existing = await prisma.category.findFirst({
       where: {
         id,
-        items: {
-          some: {
-            product: {
-              brand: admin.brand,
-            },
-          },
-        },
-      },
-      include: {
-        items: {
-          include: {
-            product: true,
-          },
-        },
+        brand: admin.brand,
       },
     });
 
-    if (!existingOrder) {
+    if (!existing) {
       return NextResponse.json(
         {
           success: false,
-          error: "Order not found.",
+          error: "Category not found.",
         },
         { status: 404 }
       );
     }
 
-    const order = await prisma.order.update({
+    const name =
+      typeof body.name === "string"
+        ? body.name.trim()
+        : existing.name;
+
+    const description =
+      typeof body.description === "string"
+        ? body.description.trim()
+        : existing.description || "";
+
+    const slug =
+      typeof body.slug === "string" && body.slug.trim()
+        ? body.slug
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+        : name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+
+    const enabled =
+      typeof body.enabled === "boolean"
+        ? body.enabled
+        : existing.enabled;
+
+    const sortOrder = Number.isFinite(
+      Number(body.sortOrder)
+    )
+      ? Number(body.sortOrder)
+      : existing.sortOrder;
+
+    if (!name || !slug) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "A valid category name is required.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const duplicate = await prisma.category.findFirst({
       where: {
-        id,
-      },
-      data: {
-        status: body.status,
-      },
-      include: {
-        user: true,
-        items: {
-          include: {
-            product: true,
-          },
+        brand: admin.brand,
+        slug,
+        NOT: {
+          id,
         },
       },
     });
 
-    return NextResponse.json(order);
+    if (duplicate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Another category with this name already exists.",
+        },
+        { status: 409 }
+      );
+    }
+
+    const category = await prisma.category.update({
+      where: {
+        id,
+      },
+      data: {
+        name,
+        slug,
+        description: description || null,
+        enabled,
+        sortOrder,
+      },
+    });
+
+    return NextResponse.json(category);
   } catch (error) {
     console.error(
-      "PUT /api/admin/orders/[id] error:",
+      "PUT /api/admin/categories/[id] error:",
       error
     );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to update order.",
+        error:
+          error?.message || "Failed to update category.",
       },
       { status: 500 }
     );
@@ -133,7 +161,7 @@ export async function DELETE(request, { params }) {
         {
           success: false,
           error:
-            "Super Admin does not manage store orders.",
+            "Super Admin does not manage store categories.",
         },
         { status: 403 }
       );
@@ -141,43 +169,24 @@ export async function DELETE(request, { params }) {
 
     const { id } = await params;
 
-    if (!id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order ID is required.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const existingOrder = await prisma.order.findFirst({
+    const existing = await prisma.category.findFirst({
       where: {
         id,
-        items: {
-          some: {
-            product: {
-              brand: admin.brand,
-            },
-          },
-        },
-      },
-      select: {
-        id: true,
+        brand: admin.brand,
       },
     });
 
-    if (!existingOrder) {
+    if (!existing) {
       return NextResponse.json(
         {
           success: false,
-          error: "Order not found.",
+          error: "Category not found.",
         },
         { status: 404 }
       );
     }
 
-    await prisma.order.delete({
+    await prisma.category.delete({
       where: {
         id,
       },
@@ -188,14 +197,15 @@ export async function DELETE(request, { params }) {
     });
   } catch (error) {
     console.error(
-      "DELETE /api/admin/orders/[id] error:",
+      "DELETE /api/admin/categories/[id] error:",
       error
     );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to delete order.",
+        error:
+          error?.message || "Failed to delete category.",
       },
       { status: 500 }
     );

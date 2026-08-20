@@ -1,39 +1,279 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
+
   const [menuOpen, setMenuOpen] = useState(false);
+  const [admin, setAdmin] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] =
+    useState(false);
 
   useEffect(() => {
-    const auth = localStorage.getItem("adminAuth");
+    let cancelled = false;
 
-    if (auth !== "true") {
-      router.replace("/admin/login");
+    async function loadSession() {
+      try {
+        const response = await fetch(
+          "/api/admin/session",
+          {
+            cache: "no-store",
+            credentials: "include",
+          }
+        );
+
+        const data = await response
+          .json()
+          .catch(() => null);
+
+        if (
+          !response.ok ||
+          !data?.authenticated ||
+          !data?.admin
+        ) {
+          router.replace("/admin/login");
+          return;
+        }
+
+        if (!cancelled) {
+          setAdmin(data.admin);
+        }
+      } catch (error) {
+        console.error(
+          "Admin session loading error:",
+          error
+        );
+
+        if (!cancelled) {
+          router.replace("/admin/login");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
+
+    loadSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
+
+  const isSuperAdmin =
+    admin?.role === "SUPERADMIN";
+
+  const isStoreAdmin =
+    admin?.role === "UTHY" ||
+    admin?.role === "ALOMZIEE";
 
   useEffect(() => {
     setMenuOpen(false);
+    setNotificationsOpen(false);
   }, [pathname]);
 
+  async function loadNotifications() {
+    if (!isStoreAdmin) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "/api/admin/notifications",
+        {
+          cache: "no-store",
+          credentials: "include",
+        }
+      );
+
+      const data = await response
+        .json()
+        .catch(() => null);
+
+      if (!response.ok) {
+        return;
+      }
+
+      setNotifications(
+        Array.isArray(data?.notifications)
+          ? data.notifications
+          : []
+      );
+
+      setUnreadCount(
+        Number(data?.unreadCount || 0)
+      );
+    } catch (error) {
+      console.error(
+        "Notifications loading error:",
+        error
+      );
+    }
+  }
+
+  useEffect(() => {
+    if (!admin || !isStoreAdmin) {
+      return;
+    }
+
+    loadNotifications();
+
+    const interval = setInterval(
+      loadNotifications,
+      15000
+    );
+
+    return () => clearInterval(interval);
+  }, [admin, isStoreAdmin]);
+
+  async function markAllNotificationsRead() {
+    try {
+      await fetch("/api/admin/notifications", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          action: "readAll",
+        }),
+      });
+
+      await loadNotifications();
+    } catch (error) {
+      console.error(
+        "Mark notifications read error:",
+        error
+      );
+    }
+  }
+
+  async function openNotifications() {
+    const nextOpen = !notificationsOpen;
+
+    setNotificationsOpen(nextOpen);
+
+    if (nextOpen && unreadCount > 0) {
+      await markAllNotificationsRead();
+    }
+  }
+
+  async function logout() {
+    try {
+      await fetch("/api/admin/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+
+    router.replace("/admin/login");
+    router.refresh();
+  }
+
   const links = [
-    { href: "/admin", label: "Dashboard" },
-    { href: "/admin/products", label: "Products" },
-    { href: "/admin/collections", label: "Collections" },
-    { href: "/admin/orders", label: "Orders" },
-    { href: "/admin/homepage", label: "Homepage" },
-    { href: "/admin/navigation", label: "Navigation" },
-    { href: "/admin/footer", label: "Footer" },
-    { href: "/admin/pages", label: "Pages" },
-    { href: "/admin/brands", label: "Brands" },
-    { href: "/admin/settings", label: "Settings" },
-    { href: "/admin/subscribers", label: "Subscribers" },
-  ];
+    {
+      href: "/admin",
+      label: "Dashboard",
+      show: true,
+    },
+
+    {
+      href: "/admin/products",
+      label: "Products",
+      show: isStoreAdmin,
+    },
+
+    {
+      href: "/admin/categories",
+      label: "Categories",
+      show: isStoreAdmin,
+    },
+
+    {
+      href: "/admin/collections",
+      label: "Collections",
+      show: isStoreAdmin,
+    },
+
+    {
+      href: "/admin/orders",
+      label: "Orders",
+      show: isStoreAdmin,
+    },
+
+    {
+      href: "/admin/discounts",
+      label: "Discounts",
+      show: isStoreAdmin,
+    },
+
+    {
+      href: "/admin/subscribers",
+      label: "Subscribers",
+      show: true,
+    },
+
+    {
+      href: "/admin/collaborations",
+      label: "Collaborations",
+      show: isStoreAdmin,
+    },
+
+    {
+      href: "/admin/homepage",
+      label: "Homepage",
+      show: isSuperAdmin,
+    },
+
+    {
+      href: "/admin/navigation",
+      label: "Navigation",
+      show: isSuperAdmin,
+    },
+
+    {
+      href: "/admin/footer",
+      label: "Footer",
+      show: isSuperAdmin,
+    },
+
+    {
+      href: "/admin/pages",
+      label: "Pages",
+      show: isSuperAdmin,
+    },
+
+    {
+      href: "/admin/media",
+      label: "Media",
+      show: isSuperAdmin,
+    },
+
+    {
+      href: "/admin/brands",
+      label: "Brands",
+      show: isSuperAdmin,
+    },
+
+    {
+      href: "/admin/settings",
+      label: "Settings",
+      show: isSuperAdmin,
+    },
+  ].filter((link) => link.show);
 
   const isActive = (href) => {
     if (href === "/admin") {
@@ -46,23 +286,27 @@ export default function AdminLayout({ children }) {
     );
   };
 
-  function logout() {
-    localStorage.removeItem("adminAuth");
-    setMenuOpen(false);
-    router.replace("/admin/login");
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-amber-400 text-[10px] uppercase tracking-[0.35em]">
+            VÉRANE
+          </p>
+
+          <p className="mt-3 text-sm text-neutral-600">
+            Loading administration...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-black text-white">
-
-      {/* ADMIN NAVIGATION */}
       <nav className="sticky top-0 z-50 border-b border-white/5 bg-black/80 backdrop-blur-xl">
-
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
-
-          {/* LEFT */}
           <div className="flex items-center gap-3">
-
             <button
               type="button"
               onClick={() =>
@@ -85,17 +329,126 @@ export default function AdminLayout({ children }) {
             >
               VÉRANE ADMIN
             </Link>
-
           </div>
 
-          {/* DESKTOP ACTIONS */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {isStoreAdmin && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={openNotifications}
+                  aria-label="Open notifications"
+                  className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-neutral-900 text-white transition hover:bg-neutral-800"
+                >
+                  <span className="text-base">
+                    🔔
+                  </span>
+
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black text-white">
+                      {unreadCount > 9
+                        ? "9+"
+                        : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {notificationsOpen && (
+                  <div className="absolute right-0 top-12 w-[330px] overflow-hidden rounded-2xl border border-white/10 bg-neutral-950 shadow-2xl">
+                    <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
+                      <div>
+                        <p className="text-xs font-black">
+                          Notifications
+                        </p>
+
+                        <p className="mt-1 text-[9px] uppercase tracking-wider text-neutral-600">
+                          Collaboration activity
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(
+                            "/admin/collaborations"
+                          )
+                        }
+                        className="text-[9px] uppercase tracking-wider text-amber-400 hover:text-amber-300"
+                      >
+                        View all
+                      </button>
+                    </div>
+
+                    <div className="max-h-[380px] overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="px-5 py-10 text-center">
+                          <p className="text-xs font-semibold text-neutral-500">
+                            No notifications
+                          </p>
+
+                          <p className="mt-2 text-[10px] text-neutral-700">
+                            You're all caught up.
+                          </p>
+                        </div>
+                      ) : (
+                        notifications
+                          .slice(0, 10)
+                          .map((notification) => (
+                            <button
+                              type="button"
+                              key={notification.id}
+                              onClick={() =>
+                                router.push(
+                                  "/admin/collaborations"
+                                )
+                              }
+                              className="w-full border-b border-white/[0.05] px-4 py-4 text-left transition hover:bg-white/[0.03]"
+                            >
+                              <div className="flex gap-3">
+                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold">
+                                    {notification.title}
+                                  </p>
+
+                                  <p className="mt-1 text-[10px] leading-5 text-neutral-500">
+                                    {notification.message}
+                                  </p>
+
+                                  <p className="mt-2 text-[9px] text-neutral-700">
+                                    {new Date(
+                                      notification.createdAt
+                                    ).toLocaleString()}
+                                  </p>
+                                </div>
+                              </div>
+                            </button>
+                          ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="hidden text-right sm:block">
+              <p className="text-[9px] uppercase tracking-[0.2em] text-neutral-600">
+                {isSuperAdmin
+                  ? "Platform Administration"
+                  : "Store Administration"}
+              </p>
+
+              <p className="text-xs font-bold text-neutral-300">
+                {admin?.name}
+              </p>
+            </div>
 
             <a
               href="/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-neutral-400 transition hover:text-white"
+              className="hidden text-sm text-neutral-400 transition hover:text-white sm:block"
             >
               View Site
             </a>
@@ -107,16 +460,11 @@ export default function AdminLayout({ children }) {
             >
               Logout
             </button>
-
           </div>
-
         </div>
 
-        {/* DESKTOP NAV */}
         <div className="mx-auto hidden max-w-7xl overflow-x-auto px-4 pb-3 lg:block md:px-6">
-
           <div className="flex min-w-max items-center gap-1">
-
             {links.map((link) => {
               const active = isActive(link.href);
 
@@ -134,24 +482,18 @@ export default function AdminLayout({ children }) {
                 </Link>
               );
             })}
-
           </div>
-
         </div>
 
-        {/* MOBILE NAV */}
         <div
           className={`overflow-hidden border-t border-white/5 transition-all duration-300 lg:hidden ${
             menuOpen
-              ? "max-h-[700px] opacity-100"
+              ? "max-h-[1000px] opacity-100"
               : "max-h-0 opacity-0"
           }`}
         >
-
           <div className="px-4 pb-4 pt-3">
-
             <div className="space-y-1 rounded-2xl border border-white/10 bg-neutral-950 p-2">
-
               {links.map((link) => {
                 const active = isActive(link.href);
 
@@ -172,7 +514,6 @@ export default function AdminLayout({ children }) {
                   </Link>
                 );
               })}
-
             </div>
 
             <button
@@ -182,18 +523,13 @@ export default function AdminLayout({ children }) {
             >
               Logout
             </button>
-
           </div>
-
         </div>
-
       </nav>
 
-      {/* PAGE CONTENT */}
       <main className="p-4 md:p-6">
         {children}
       </main>
-
     </div>
   );
 }
