@@ -22,64 +22,87 @@ const ADMINS = {
 
 export async function POST(request) {
   try {
-    const { password } = await request.json();
+    const body = await request.json();
+
+    const role = body?.role;
+    const password = body?.password;
+
+    if (!role) {
+      return NextResponse.json(
+        {
+          error: "Choose an administration.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
 
     if (!password) {
       return NextResponse.json(
-        { error: "Password is required." },
-        { status: 400 }
+        {
+          error: "Password is required.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    const admin = Object.entries(ADMINS).find(
-      ([, account]) => account.password === password
-    );
+    const account = ADMINS[role];
 
-    if (!admin) {
+    if (!account) {
       return NextResponse.json(
-        { error: "Incorrect password." },
-        { status: 401 }
+        {
+          error: "Invalid administration.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    const [role, account] = admin;
+    if (account.password !== password) {
+      return NextResponse.json(
+        {
+          error: "Incorrect password.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const session = {
+      role,
+      name: account.name,
+      brand: account.brand,
+    };
 
     const response = NextResponse.json({
       success: true,
-      admin: {
-        role,
-        name: account.name,
-        brand: account.brand,
-      },
+      admin: session,
     });
 
-    /*
-     * IMPORTANT:
-     * The proxy also looks for "adminAuth".
-     */
-    response.cookies.set(
-      "adminAuth",
-      JSON.stringify({
-        role,
-        name: account.name,
-        brand: account.brand,
-      }),
-      {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7,
-      }
-    );
+    response.cookies.set("adminAuth", JSON.stringify(session), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
 
     return response;
   } catch (error) {
     console.error("Admin login error:", error);
 
     return NextResponse.json(
-      { error: "Unable to log in." },
-      { status: 500 }
+      {
+        error: "Unable to log in.",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }

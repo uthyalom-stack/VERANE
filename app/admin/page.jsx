@@ -1,327 +1,228 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
   const router = useRouter();
 
   const [admin, setAdmin] = useState(null);
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [time, setTime] = useState("");
-
-  /* -----------------------------------------
-     AUTH / ADMIN
-  ----------------------------------------- */
 
   useEffect(() => {
-    try {
-      const cookies = document.cookie.split(";");
-
-      const authCookie = cookies.find((cookie) =>
-        cookie.trim().startsWith("adminAuth=")
-      );
-
-      if (authCookie) {
-        const value = authCookie
-          .split("=")
-          .slice(1)
-          .join("=");
-
-        try {
-          setAdmin(JSON.parse(decodeURIComponent(value)));
-        } catch {
-          setAdmin(null);
-        }
-      }
-    } catch {
-      setAdmin(null);
-    }
-  }, []);
-
-  /* -----------------------------------------
-     CLOCK
-  ----------------------------------------- */
-
-  useEffect(() => {
-    const updateClock = () => {
-      setTime(
-        new Intl.DateTimeFormat("en-NG", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        }).format(new Date())
-      );
-    };
-
-    updateClock();
-
-    const interval = setInterval(updateClock, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  /* -----------------------------------------
-     LOAD DASHBOARD DATA
-  ----------------------------------------- */
-
-  useEffect(() => {
-    const loadDashboard = async () => {
+    const loadSession = async () => {
       try {
-        setLoading(true);
+        const response = await fetch("/api/admin/session", {
+          cache: "no-store",
+          credentials: "include",
+        });
 
-        const [productsResponse, ordersResponse] =
-          await Promise.allSettled([
-            fetch("/api/products", {
-              cache: "no-store",
-            }),
-            fetch("/api/admin/orders", {
-              cache: "no-store",
-            }),
-          ]);
-
-        if (
-          productsResponse.status === "fulfilled" &&
-          productsResponse.value.ok
-        ) {
-          const productData =
-            await productsResponse.value.json();
-
-          setProducts(
-            Array.isArray(productData)
-              ? productData
-              : productData?.products || []
-          );
+        if (!response.ok) {
+          router.replace("/admin/login");
+          return;
         }
 
-        if (
-          ordersResponse.status === "fulfilled" &&
-          ordersResponse.value.ok
-        ) {
-          const orderData =
-            await ordersResponse.value.json();
+        const data = await response.json();
 
-          setOrders(
-            Array.isArray(orderData)
-              ? orderData
-              : orderData?.orders || []
-          );
+        if (!data?.admin) {
+          router.replace("/admin/login");
+          return;
         }
+
+        setAdmin(data.admin);
       } catch (error) {
-        console.error(
-          "Dashboard loading error:",
-          error
-        );
+        console.error("Admin session error:", error);
+        router.replace("/admin/login");
       } finally {
         setLoading(false);
       }
     };
 
-    loadDashboard();
-  }, []);
-
-  /* -----------------------------------------
-     LOGOUT
-  ----------------------------------------- */
+    loadSession();
+  }, [router]);
 
   const logout = async () => {
     try {
       await fetch("/api/admin/logout", {
         method: "POST",
       });
-    } catch {}
-
-    document.cookie =
-      "adminAuth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
 
     router.replace("/admin/login");
+    router.refresh();
   };
 
-  /* -----------------------------------------
-     ADMIN ACCESS
-  ----------------------------------------- */
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
-  const isSuperAdmin = admin?.brand === "ALL";
+  if (!admin) {
+    return null;
+  }
 
-  const isUthy =
-    admin?.brand === "UTHY_LUXURY" ||
-    isSuperAdmin;
+  const isUthy = admin.role === "UTHY";
+  const isAlomziee = admin.role === "ALOMZIEE";
+  const isSuperAdmin = admin.role === "SUPERADMIN";
 
-  const isAlomziee =
-    admin?.brand === "ALOMZIEE_FOOTIES" ||
-    isSuperAdmin;
-
-  /* -----------------------------------------
-     DASHBOARD STATS
-  ----------------------------------------- */
-
-  const totalProducts = products.length;
-
-  const lowStockProducts = useMemo(() => {
-    return products.filter((product) => {
-      const stock = Number(product.inventory ?? 0);
-      return stock > 0 && stock <= 5;
-    });
-  }, [products]);
-
-  const outOfStockProducts = useMemo(() => {
-    return products.filter(
-      (product) =>
-        Number(product.inventory ?? 0) <= 0
+  if (isUthy) {
+    return (
+      <BrandDashboard
+        admin={admin}
+        brand="UTHY"
+        brandName="UTHY LUXURY"
+        subtitle="Fashion House"
+        accent="amber"
+        onLogout={logout}
+        router={router}
+      />
     );
-  }, [products]);
+  }
 
-  const pendingOrders = useMemo(() => {
-    return orders.filter((order) => {
-      const status = String(
-        order.status || ""
-      ).toLowerCase();
+  if (isAlomziee) {
+    return (
+      <BrandDashboard
+        admin={admin}
+        brand="ALOMZIEE"
+        brandName="ALOMZIEE FOOTIES"
+        subtitle="Footwear House"
+        accent="violet"
+        onLogout={logout}
+        router={router}
+      />
+    );
+  }
 
-      return [
-        "pending",
-        "processing",
-        "confirmed",
-        "paid",
-      ].includes(status);
-    });
-  }, [orders]);
+  if (isSuperAdmin) {
+    return (
+      <SuperAdminDashboard
+        admin={admin}
+        onLogout={logout}
+        router={router}
+      />
+    );
+  }
 
-  const revenue = useMemo(() => {
-    return orders.reduce((total, order) => {
-      const status = String(
-        order.status || ""
-      ).toLowerCase();
+  return null;
+}
 
-      if (
-        ["cancelled", "canceled", "failed"].includes(
-          status
-        )
-      ) {
-        return total;
+
+/* ============================================================
+   BRAND ADMIN DASHBOARD
+============================================================ */
+
+function BrandDashboard({
+  admin,
+  brand,
+  brandName,
+  subtitle,
+  accent,
+  onLogout,
+  router,
+}) {
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadAnalytics = async () => {
+      try {
+        const response = await fetch(
+          `/api/admin/analytics?brand=${brand}`,
+          {
+            cache: "no-store",
+            credentials: "include",
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setAnalytics(data);
+        }
+      } catch (error) {
+        console.error("Analytics error:", error);
+      } finally {
+        setAnalyticsLoading(false);
       }
+    };
 
-      const amount =
-        Number(
-          order.total ??
-            order.amount ??
-            order.totalAmount ??
-            0
-        ) || 0;
+    loadAnalytics();
+  }, [brand]);
 
-      return total + amount;
-    }, 0);
-  }, [orders]);
-
-  const formatMoney = (amount) => {
-    return `₦${Number(amount || 0).toLocaleString(
-      "en-NG"
-    )}`;
-  };
-
-  /* -----------------------------------------
-     QUICK NAV
-  ----------------------------------------- */
-
-  const go = (path) => {
-    router.push(path);
-  };
+  const isUthy = accent === "amber";
 
   return (
-    <main className="min-h-screen bg-[#050505] text-white overflow-hidden">
+    <main className="min-h-screen bg-[#070707] text-white">
 
-      {/* -----------------------------------------
-          BACKGROUND
-      ----------------------------------------- */}
+      {/* BACKGROUND */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div
+          className={`absolute -top-40 ${
+            isUthy
+              ? "right-[-100px] bg-amber-400/[0.045]"
+              : "left-[-100px] bg-violet-500/[0.045]"
+          } w-[500px] h-[500px] rounded-full blur-[140px]`}
+        />
 
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-amber-500/[0.035] blur-[120px]" />
-        <div className="absolute top-[45%] -left-40 w-[400px] h-[400px] rounded-full bg-white/[0.02] blur-[120px]" />
+        <div className="absolute bottom-[-200px] right-[20%] w-[450px] h-[450px] rounded-full bg-white/[0.015] blur-[130px]" />
       </div>
 
-      {/* -----------------------------------------
-          HEADER
-      ----------------------------------------- */}
+      {/* HEADER */}
+      <header className="relative z-10 border-b border-white/[0.07] bg-black/60 backdrop-blur-xl">
 
-      <header className="relative z-10 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl sticky top-0">
+        <div className="max-w-[1500px] mx-auto px-5 sm:px-8 py-5">
 
-        <div className="max-w-[1500px] mx-auto px-5 sm:px-8 lg:px-10">
-
-          <div className="h-[76px] flex items-center justify-between">
+          <div className="flex items-center justify-between">
 
             {/* BRAND */}
+            <div className="flex items-center gap-4">
 
-            <button
-              onClick={() => go("/admin")}
-              className="text-left group"
-            >
-              <p className="text-[9px] uppercase tracking-[0.55em] text-neutral-600 group-hover:text-neutral-400 transition">
-                VÉRANE
-              </p>
-
-              <div className="flex items-center gap-3 mt-1">
-
-                <h1 className="text-lg font-black tracking-[0.08em]">
-                  CONTROL CENTER
-                </h1>
-
-                <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-2.5 py-1 text-[8px] uppercase tracking-[0.18em] text-emerald-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Live
+              <div
+                className={`w-11 h-11 rounded-2xl border flex items-center justify-center ${
+                  isUthy
+                    ? "border-amber-400/20 bg-amber-400/[0.06]"
+                    : "border-violet-400/20 bg-violet-400/[0.06]"
+                }`}
+              >
+                <span
+                  className={`font-black ${
+                    isUthy
+                      ? "text-amber-400"
+                      : "text-violet-300"
+                  }`}
+                >
+                  {isUthy ? "U" : "A"}
                 </span>
-
               </div>
-            </button>
+
+              <div>
+                <p className="text-sm font-black tracking-tight">
+                  {brandName}
+                </p>
+
+                <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600 mt-0.5">
+                  {subtitle} · Admin
+                </p>
+              </div>
+
+            </div>
 
             {/* RIGHT */}
-
             <div className="flex items-center gap-3">
 
               <div className="hidden sm:block text-right mr-2">
-                <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600">
-                  Local Time
+                <p className="text-xs font-bold">
+                  {admin.name}
                 </p>
 
-                <p className="text-xs font-bold text-neutral-300 mt-1">
-                  {time || "--:--"}
+                <p className="text-[9px] uppercase tracking-wider text-neutral-600">
+                  Administrator
                 </p>
-              </div>
-
-              {/* ADMIN */}
-
-              <div className="hidden md:flex items-center gap-3 border-l border-white/[0.07] pl-4">
-
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-300/20 to-white/[0.04] border border-white/10 flex items-center justify-center">
-                  <span className="text-xs font-black text-amber-400">
-                    {admin?.name
-                      ? admin.name
-                          .charAt(0)
-                          .toUpperCase()
-                      : "A"}
-                  </span>
-                </div>
-
-                <div>
-                  <p className="text-xs font-bold">
-                    {admin?.name || "Administrator"}
-                  </p>
-
-                  <p className="text-[9px] uppercase tracking-[0.15em] text-neutral-600 mt-0.5">
-                    {isSuperAdmin
-                      ? "Super Admin"
-                      : admin?.brand ===
-                        "UTHY_LUXURY"
-                      ? "UTHY LUXURY"
-                      : "ALOMZIEE FOOTIES"}
-                  </p>
-                </div>
-
               </div>
 
               <button
-                onClick={logout}
-                className="rounded-xl border border-white/[0.08] px-3.5 py-2.5 text-[10px] font-bold uppercase tracking-[0.15em] text-neutral-500 hover:text-white hover:border-white/20 hover:bg-white/[0.03] transition"
+                onClick={onLogout}
+                className="rounded-xl border border-white/10 px-4 py-2.5 text-[10px] uppercase tracking-wider font-bold text-neutral-500 hover:text-white hover:border-white/20 transition"
               >
                 Logout
               </button>
@@ -334,660 +235,341 @@ export default function AdminDashboard() {
 
       </header>
 
-      {/* -----------------------------------------
-          CONTENT
-      ----------------------------------------- */}
 
-      <div className="relative z-10 max-w-[1500px] mx-auto px-5 sm:px-8 lg:px-10 py-8 lg:py-12">
+      {/* CONTENT */}
+      <div className="relative z-10 max-w-[1500px] mx-auto px-5 sm:px-8 py-8 md:py-10">
 
-        {/* -----------------------------------------
-            HERO
-        ----------------------------------------- */}
+        {/* TOP */}
+        <section className="mb-9">
 
-        <section className="mb-10">
-
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
 
             <div>
 
-              <p className="text-[9px] uppercase tracking-[0.45em] text-amber-400 mb-3">
-                Administration
+              <p
+                className={`text-[9px] uppercase tracking-[0.35em] font-bold ${
+                  isUthy
+                    ? "text-amber-400"
+                    : "text-violet-300"
+                }`}
+              >
+                {brandName} / Overview
               </p>
 
-              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-[-0.04em]">
-                Welcome back
-                {admin?.name
-                  ? `, ${admin.name.split(" ")[0]}`
-                  : ""}
-                .
-              </h2>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-[-0.04em] mt-2">
+                Good morning,{" "}
+                {admin.name?.split(" ")[0] || "Admin"}.
+              </h1>
 
-              <p className="text-sm text-neutral-500 max-w-xl mt-4 leading-relaxed">
-                Your VÉRANE storefront command center.
-                Manage products, orders, content, brands,
-                collections and the entire customer
-                experience from one place.
+              <p className="text-sm text-neutral-500 mt-3">
+                Here's what's happening with {brandName} today.
               </p>
 
             </div>
 
-            {/* QUICK ACTIONS */}
-
-            <div className="flex flex-wrap gap-2">
-
-              <button
-                onClick={() =>
-                  go("/admin/products/add")
-                }
-                className="rounded-full bg-amber-500 text-black px-5 py-3 text-[10px] font-black uppercase tracking-[0.12em] hover:bg-amber-400 transition"
-              >
-                + Add Product
-              </button>
-
-              <button
-                onClick={() => go("/")}
-                className="rounded-full border border-white/10 px-5 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-400 hover:text-white hover:bg-white/[0.03] transition"
-              >
-                View Store ↗
-              </button>
-
-            </div>
+            <button
+              onClick={() => router.push("/admin/products")}
+              className={`rounded-2xl px-5 py-3 text-xs font-black transition ${
+                isUthy
+                  ? "bg-amber-500 text-black hover:bg-amber-400"
+                  : "bg-violet-300 text-black hover:bg-violet-200"
+              }`}
+            >
+              Manage Products →
+            </button>
 
           </div>
 
         </section>
 
-        {/* -----------------------------------------
-            STAT CARDS
-        ----------------------------------------- */}
 
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
-
-          <StatCard
-            label="Products"
-            value={
-              loading ? "—" : totalProducts
-            }
-            description="Catalog inventory"
-            icon="◇"
-            onClick={() => go("/admin/products")}
-          />
-
-          <StatCard
-            label="Orders"
-            value={loading ? "—" : orders.length}
-            description={
-              pendingOrders.length
-                ? `${pendingOrders.length} require attention`
-                : "All orders"
-            }
-            icon="◎"
-            accent={
-              pendingOrders.length > 0
-            }
-            onClick={() => go("/admin/orders")}
-          />
+        {/* KPI CARDS */}
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
 
           <StatCard
             label="Revenue"
             value={
-              loading
+              analyticsLoading
                 ? "—"
-                : formatMoney(revenue)
+                : formatMoney(
+                    analytics?.revenue ??
+                    analytics?.totalRevenue ??
+                    0
+                  )
             }
-            description="Recorded order value"
-            icon="₦"
-            onClick={() => go("/admin/orders")}
+            change={
+              analytics?.revenueChange ??
+              analytics?.revenueGrowth
+            }
+            accent={accent}
           />
 
           <StatCard
-            label="Stock Alerts"
+            label="Orders"
             value={
-              loading
+              analyticsLoading
                 ? "—"
-                : lowStockProducts.length +
-                  outOfStockProducts.length
+                : formatNumber(
+                    analytics?.orders ??
+                    analytics?.totalOrders ??
+                    0
+                  )
             }
-            description={
-              outOfStockProducts.length
-                ? `${outOfStockProducts.length} out of stock`
-                : "Inventory healthy"
+            change={
+              analytics?.ordersChange ??
+              analytics?.ordersGrowth
             }
-            icon="!"
-            alert={
-              lowStockProducts.length +
-                outOfStockProducts.length >
-              0
+            accent={accent}
+          />
+
+          <StatCard
+            label="Products"
+            value={
+              analyticsLoading
+                ? "—"
+                : formatNumber(
+                    analytics?.products ??
+                    analytics?.totalProducts ??
+                    0
+                  )
             }
-            onClick={() => go("/admin/products")}
+            accent={accent}
+          />
+
+          <StatCard
+            label="Low Stock"
+            value={
+              analyticsLoading
+                ? "—"
+                : formatNumber(
+                    analytics?.lowStock ??
+                    analytics?.lowStockProducts ??
+                    0
+                  )
+            }
+            warning
           />
 
         </section>
 
-        {/* -----------------------------------------
-            MAIN GRID
-        ----------------------------------------- */}
 
-        <div className="grid lg:grid-cols-[1.4fr_0.6fr] gap-5 mb-10">
+        {/* MAIN GRID */}
+        <section className="grid lg:grid-cols-3 gap-4 mb-8">
 
-          {/* QUICK COMMANDS */}
+          {/* SALES CHART */}
+          <div className="lg:col-span-2 rounded-[1.75rem] border border-white/[0.08] bg-white/[0.025] overflow-hidden">
 
-          <section className="rounded-[28px] border border-white/[0.08] bg-white/[0.018] overflow-hidden">
+            <div className="p-6 border-b border-white/[0.06]">
 
-            <div className="px-6 py-6 border-b border-white/[0.07] flex items-center justify-between">
+              <div className="flex items-center justify-between">
 
-              <div>
-                <p className="text-[9px] uppercase tracking-[0.35em] text-amber-400">
-                  Command Center
-                </p>
+                <div>
+                  <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600">
+                    Performance
+                  </p>
 
-                <h3 className="text-xl font-black mt-1">
-                  Quick Management
-                </h3>
+                  <h2 className="text-lg font-black mt-1">
+                    Sales Overview
+                  </h2>
+                </div>
+
+                <span className="text-[9px] uppercase tracking-wider text-neutral-600 border border-white/10 rounded-full px-3 py-1.5">
+                  Last 30 days
+                </span>
+
               </div>
 
-              <span className="text-[9px] uppercase tracking-[0.2em] text-neutral-700">
-                {isSuperAdmin
-                  ? "Full Access"
-                  : "Brand Access"}
-              </span>
+            </div>
+
+            <SalesChart
+              data={
+                analytics?.sales ||
+                analytics?.salesByDay ||
+                analytics?.dailySales ||
+                []
+              }
+              accent={accent}
+            />
+
+          </div>
+
+
+          {/* QUICK ACTIONS */}
+          <div className="rounded-[1.75rem] border border-white/[0.08] bg-white/[0.025] p-6">
+
+            <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600">
+              Workspace
+            </p>
+
+            <h2 className="text-lg font-black mt-1">
+              Quick Actions
+            </h2>
+
+            <div className="space-y-2 mt-6">
+
+              <QuickAction
+                title="Products"
+                description="Manage your catalog"
+                onClick={() =>
+                  router.push(
+                    `/admin/products?brand=${
+                      brand === "UTHY"
+                        ? "UTHY_LUXURY"
+                        : "ALOMZIEE_FOOTIES"
+                    }`
+                  )
+                }
+              />
+
+              <QuickAction
+                title="Orders"
+                description="View customer orders"
+                onClick={() => router.push("/admin/orders")}
+              />
+
+              <QuickAction
+                title="Collections"
+                description="Organize your catalog"
+                onClick={() =>
+                  router.push("/admin/collections")
+                }
+              />
+
+              <QuickAction
+                title="Add Product"
+                description="Create a new product"
+                onClick={() =>
+                  router.push("/admin/products/add")
+                }
+              />
 
             </div>
 
-            <div className="grid sm:grid-cols-2">
+          </div>
 
-              <CommandCard
-                title="Products"
-                description="Add, edit, remove and organize your catalog."
-                icon="◇"
-                onClick={() =>
-                  go("/admin/products")
-                }
-              />
+        </section>
 
-              <CommandCard
-                title="Orders"
-                description="Monitor purchases and manage customer orders."
-                icon="◎"
-                onClick={() =>
-                  go("/admin/orders")
-                }
-              />
 
-              {isSuperAdmin && (
-                <>
-                  <CommandCard
-                    title="Homepage"
-                    description="Control the storefront's most important sections."
-                    icon="⌂"
-                    onClick={() =>
-                      go("/admin/homepage")
-                    }
-                  />
+        {/* LOWER GRID */}
+        <section className="grid lg:grid-cols-2 gap-4">
 
-                  <CommandCard
-                    title="Collections"
-                    description="Build and organize curated product collections."
-                    icon="▦"
-                    onClick={() =>
-                      go("/admin/collections")
-                    }
-                  />
+          {/* BEST SELLERS */}
+          <div className="rounded-[1.75rem] border border-white/[0.08] bg-white/[0.025]">
 
-                  <CommandCard
-                    title="Media"
-                    description="Manage the visual assets used throughout VÉRANE."
-                    icon="▧"
-                    onClick={() =>
-                      go("/admin/media")
-                    }
-                  />
+            <div className="p-6 border-b border-white/[0.06]">
 
-                  <CommandCard
-                    title="Discounts"
-                    description="Create and manage promotional offers."
-                    icon="%"
-                    onClick={() =>
-                      go("/admin/discounts")
-                    }
-                  />
-                </>
+              <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600">
+                Products
+              </p>
+
+              <h2 className="text-lg font-black mt-1">
+                Best Sellers
+              </h2>
+
+            </div>
+
+            <div className="p-4">
+
+              {analytics?.bestSellers?.length > 0 ? (
+
+                analytics.bestSellers
+                  .slice(0, 5)
+                  .map((product, index) => (
+                    <ProductRow
+                      key={product.id || index}
+                      product={product}
+                      index={index}
+                      accent={accent}
+                    />
+                  ))
+
+              ) : (
+
+                <EmptyState
+                  title="Sales data will appear here"
+                  description="Once products start selling, your best performers will show up here."
+                />
+
               )}
 
-              <CommandCard
-                title="Brands"
-                description="Manage the identities operating inside VÉRANE."
-                icon="✦"
-                onClick={() =>
-                  go("/admin/brands")
-                }
-              />
-
-              <CommandCard
-                title="Settings"
-                description="Configure the global storefront experience."
-                icon="⚙"
-                onClick={() =>
-                  go("/admin/settings")
-                }
-              />
-
             </div>
 
-          </section>
+          </div>
 
-          {/* ATTENTION */}
 
-          <section className="rounded-[28px] border border-white/[0.08] bg-white/[0.018] overflow-hidden">
+          {/* RECENT ORDERS */}
+          <div className="rounded-[1.75rem] border border-white/[0.08] bg-white/[0.025]">
 
-            <div className="px-6 py-6 border-b border-white/[0.07]">
+            <div className="p-6 border-b border-white/[0.06] flex items-center justify-between">
 
-              <p className="text-[9px] uppercase tracking-[0.35em] text-amber-400">
-                Attention
-              </p>
+              <div>
 
-              <h3 className="text-xl font-black mt-1">
-                Store Health
-              </h3>
+                <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600">
+                  Commerce
+                </p>
 
-            </div>
+                <h2 className="text-lg font-black mt-1">
+                  Recent Orders
+                </h2>
 
-            <div className="p-5 space-y-2">
-
-              <HealthItem
-                label="Catalog"
-                value={`${totalProducts} products`}
-                good={totalProducts > 0}
-                onClick={() =>
-                  go("/admin/products")
-                }
-              />
-
-              <HealthItem
-                label="Orders"
-                value={
-                  pendingOrders.length
-                    ? `${pendingOrders.length} pending`
-                    : "No pending orders"
-                }
-                good={pendingOrders.length === 0}
-                warning={
-                  pendingOrders.length > 0
-                }
-                onClick={() =>
-                  go("/admin/orders")
-                }
-              />
-
-              <HealthItem
-                label="Inventory"
-                value={
-                  outOfStockProducts.length
-                    ? `${outOfStockProducts.length} unavailable`
-                    : lowStockProducts.length
-                    ? `${lowStockProducts.length} low stock`
-                    : "Healthy"
-                }
-                good={
-                  outOfStockProducts.length ===
-                    0 &&
-                  lowStockProducts.length === 0
-                }
-                warning={
-                  lowStockProducts.length > 0
-                }
-                onClick={() =>
-                  go("/admin/products")
-                }
-              />
-
-              <HealthItem
-                label="Storefront"
-                value="Online"
-                good
-                onClick={() => go("/")}
-              />
-
-            </div>
-
-            <div className="px-5 pb-5">
+              </div>
 
               <button
-                onClick={() =>
-                  go("/admin/settings")
-                }
-                className="w-full rounded-xl border border-white/[0.07] py-3 text-[9px] uppercase tracking-[0.2em] font-bold text-neutral-500 hover:text-white hover:bg-white/[0.03] transition"
+                onClick={() => router.push("/admin/orders")}
+                className="text-[9px] uppercase tracking-wider text-neutral-600 hover:text-white transition"
               >
-                Open System Settings →
+                View all →
               </button>
 
             </div>
 
-          </section>
+            <div className="p-4">
+
+              {analytics?.recentOrders?.length > 0 ? (
+
+                analytics.recentOrders
+                  .slice(0, 5)
+                  .map((order, index) => (
+                    <OrderRow
+                      key={order.id || index}
+                      order={order}
+                    />
+                  ))
+
+              ) : (
+
+                <EmptyState
+                  title="No recent orders"
+                  description="New customer orders will appear here."
+                />
+
+              )}
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* FOOTER STATUS */}
+        <div className="mt-8 flex items-center justify-between">
+
+          <div className="flex items-center gap-2">
+
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+
+            <span className="text-[9px] uppercase tracking-[0.25em] text-neutral-700">
+              System operational
+            </span>
+
+          </div>
+
+          <p className="text-[9px] text-neutral-800 uppercase tracking-wider">
+            VÉRANE Commerce Platform
+          </p>
 
         </div>
-
-        {/* -----------------------------------------
-            BRAND MANAGEMENT
-        ----------------------------------------- */}
-
-        <section className="mb-10">
-
-          <div className="mb-5">
-
-            <p className="text-[9px] uppercase tracking-[0.4em] text-amber-400">
-              Brand Architecture
-            </p>
-
-            <h3 className="text-2xl font-black mt-1">
-              Your Brands
-            </h3>
-
-            <p className="text-xs text-neutral-600 mt-2">
-              Two distinct identities. One unified
-              VÉRANE experience.
-            </p>
-
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-
-            {isUthy && (
-              <BrandCard
-                name="UTHY"
-                fullName="UTHY LUXURY"
-                type="Clothing & Apparel"
-                description="Custom shirts, trousers, hoodies, traditional wear and elevated everyday pieces."
-                number="01"
-                onClick={() =>
-                  go(
-                    "/admin/products?brand=UTHY_LUXURY"
-                  )
-                }
-              />
-            )}
-
-            {isAlomziee && (
-              <BrandCard
-                name="ALOMZIEE"
-                fullName="ALOMZIEE FOOTIES"
-                type="Footwear & Accessories"
-                description="Shoes, sandals, slides, boots, belts, bags and accessories."
-                number="02"
-                onClick={() =>
-                  go(
-                    "/admin/products?brand=ALOMZIEE_FOOTIES"
-                  )
-                }
-              />
-            )}
-
-          </div>
-
-        </section>
-
-        {/* -----------------------------------------
-            CONTENT MANAGEMENT
-        ----------------------------------------- */}
-
-        {isSuperAdmin && (
-          <section className="mb-10">
-
-            <div className="mb-5">
-
-              <p className="text-[9px] uppercase tracking-[0.4em] text-amber-400">
-                Experience
-              </p>
-
-              <h3 className="text-2xl font-black mt-1">
-                Storefront Control
-              </h3>
-
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-
-              <MiniLink
-                title="Homepage"
-                icon="⌂"
-                onClick={() =>
-                  go("/admin/homepage")
-                }
-              />
-
-              <MiniLink
-                title="Navigation"
-                icon="☰"
-                onClick={() =>
-                  go("/admin/navigation")
-                }
-              />
-
-              <MiniLink
-                title="Footer"
-                icon="↓"
-                onClick={() =>
-                  go("/admin/footer")
-                }
-              />
-
-              <MiniLink
-                title="Pages"
-                icon="▤"
-                onClick={() =>
-                  go("/admin/pages")
-                }
-              />
-
-              <MiniLink
-                title="Media"
-                icon="▧"
-                onClick={() =>
-                  go("/admin/media")
-                }
-              />
-
-              <MiniLink
-                title="Subscribers"
-                icon="✉"
-                onClick={() =>
-                  go("/admin/subscribers")
-                }
-              />
-
-            </div>
-
-          </section>
-        )}
-
-        {/* -----------------------------------------
-            PRODUCT SNAPSHOT
-        ----------------------------------------- */}
-
-        <section className="rounded-[28px] border border-white/[0.08] bg-white/[0.018] overflow-hidden mb-10">
-
-          <div className="px-6 py-6 border-b border-white/[0.07] flex items-center justify-between">
-
-            <div>
-              <p className="text-[9px] uppercase tracking-[0.35em] text-amber-400">
-                Catalog
-              </p>
-
-              <h3 className="text-xl font-black mt-1">
-                Inventory Snapshot
-              </h3>
-            </div>
-
-            <button
-              onClick={() =>
-                go("/admin/products")
-              }
-              className="text-[9px] uppercase tracking-[0.2em] font-bold text-neutral-500 hover:text-white transition"
-            >
-              View Catalog →
-            </button>
-
-          </div>
-
-          {loading ? (
-            <div className="p-10 text-center text-xs text-neutral-600">
-              Loading catalog...
-            </div>
-          ) : products.length === 0 ? (
-            <div className="p-10 text-center">
-
-              <p className="text-sm font-bold">
-                Your catalog is empty.
-              </p>
-
-              <p className="text-xs text-neutral-600 mt-2">
-                Add your first product to begin building
-                the VÉRANE storefront.
-              </p>
-
-              <button
-                onClick={() =>
-                  go("/admin/products/add")
-                }
-                className="mt-5 rounded-full bg-amber-500 text-black px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.12em]"
-              >
-                Add Product
-              </button>
-
-            </div>
-          ) : (
-            <div className="divide-y divide-white/[0.05]">
-
-              {products.slice(0, 5).map((product) => {
-
-                const image =
-                  Array.isArray(product.images) &&
-                  product.images.length
-                    ? product.images[0]
-                    : null;
-
-                const stock =
-                  Number(product.inventory ?? 0);
-
-                return (
-                  <button
-                    key={product.id}
-                    onClick={() =>
-                      go(
-                        `/admin/products/${product.id}/edit`
-                      )
-                    }
-                    className="w-full px-5 sm:px-6 py-4 flex items-center gap-4 text-left hover:bg-white/[0.025] transition"
-                  >
-
-                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-neutral-950 border border-white/[0.07] shrink-0">
-
-                      {image ? (
-                        <img
-                          src={image}
-                          alt={product.name || "Product"}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[8px] text-neutral-700">
-                          NO IMAGE
-                        </div>
-                      )}
-
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-
-                      <p className="text-sm font-bold truncate">
-                        {product.name ||
-                          "Unnamed Product"}
-                      </p>
-
-                      <p className="text-[9px] uppercase tracking-[0.15em] text-neutral-600 mt-1">
-                        {product.brand ||
-                          "VÉRANE"}
-                      </p>
-
-                    </div>
-
-                    <div className="text-right">
-
-                      <p className="text-xs font-bold text-amber-400">
-                        {formatMoney(
-                          product.price
-                        )}
-                      </p>
-
-                      <p
-                        className={`text-[9px] uppercase tracking-[0.12em] mt-1 ${
-                          stock <= 0
-                            ? "text-red-400"
-                            : stock <= 5
-                            ? "text-amber-400"
-                            : "text-neutral-600"
-                        }`}
-                      >
-                        {stock <= 0
-                          ? "Out of stock"
-                          : `${stock} in stock`}
-                      </p>
-
-                    </div>
-
-                    <span className="text-neutral-700 ml-2">
-                      →
-                    </span>
-
-                  </button>
-                );
-              })}
-
-            </div>
-          )}
-
-        </section>
-
-        {/* -----------------------------------------
-            FOOTER
-        ----------------------------------------- */}
-
-        <footer className="pt-8 border-t border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-
-          <div>
-
-            <p className="text-[9px] uppercase tracking-[0.45em] text-neutral-700">
-              VÉRANE
-            </p>
-
-            <p className="text-[10px] text-neutral-700 mt-1">
-              Unified luxury commerce platform.
-            </p>
-
-          </div>
-
-          <div className="flex items-center gap-4">
-
-            {isSuperAdmin && (
-              <button
-                onClick={() =>
-                  go("/admin/settings")
-                }
-                className="text-[9px] uppercase tracking-[0.15em] text-neutral-600 hover:text-white transition"
-              >
-                Settings
-              </button>
-            )}
-
-            <button
-              onClick={() => go("/")}
-              className="text-[9px] uppercase tracking-[0.15em] text-neutral-600 hover:text-white transition"
-            >
-              Storefront ↗
-            </button>
-
-          </div>
-
-        </footer>
 
       </div>
 
@@ -996,141 +578,327 @@ export default function AdminDashboard() {
 }
 
 
-/* =====================================================
-   STAT CARD
-===================================================== */
+/* ============================================================
+   SUPER ADMIN DASHBOARD
+============================================================ */
+
+function SuperAdminDashboard({
+  admin,
+  onLogout,
+  router,
+}) {
+  return (
+    <main className="min-h-screen bg-[#070707] text-white">
+
+      {/* BACKGROUND */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+
+        <div className="absolute -top-60 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full bg-amber-400/[0.035] blur-[160px]" />
+
+        <div className="absolute bottom-[-250px] left-[-100px] w-[600px] h-[600px] rounded-full bg-white/[0.015] blur-[150px]" />
+
+      </div>
+
+
+      {/* HEADER */}
+      <header className="relative z-10 border-b border-white/[0.07] bg-black/60 backdrop-blur-xl">
+
+        <div className="max-w-[1500px] mx-auto px-5 sm:px-8 py-5 flex items-center justify-between">
+
+          <div className="flex items-center gap-4">
+
+            <div className="w-11 h-11 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] flex items-center justify-center">
+
+              <span className="text-amber-400 font-black">
+                V
+              </span>
+
+            </div>
+
+            <div>
+
+              <p className="text-sm font-black">
+                VÉRANE
+              </p>
+
+              <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600 mt-0.5">
+                Platform Control
+              </p>
+
+            </div>
+
+          </div>
+
+          <button
+            onClick={onLogout}
+            className="rounded-xl border border-white/10 px-4 py-2.5 text-[10px] uppercase tracking-wider font-bold text-neutral-500 hover:text-white hover:border-white/20 transition"
+          >
+            Logout
+          </button>
+
+        </div>
+
+      </header>
+
+
+      {/* CONTENT */}
+      <div className="relative z-10 max-w-[1500px] mx-auto px-5 sm:px-8 py-10">
+
+        <section className="mb-10">
+
+          <p className="text-[9px] uppercase tracking-[0.35em] text-amber-400 font-bold">
+            Super Administration
+          </p>
+
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-[-0.05em] mt-2">
+            Control the experience.
+          </h1>
+
+          <p className="text-sm text-neutral-500 mt-4 max-w-xl leading-relaxed">
+            Manage the VÉRANE storefront, content, navigation,
+            branding and platform systems from one place.
+          </p>
+
+        </section>
+
+
+        {/* SITE CONTROLS */}
+        <section className="mb-10">
+
+          <div className="flex items-end justify-between mb-5">
+
+            <div>
+
+              <p className="text-[9px] uppercase tracking-[0.3em] text-neutral-600">
+                Storefront
+              </p>
+
+              <h2 className="text-xl font-black mt-1">
+                Website Management
+              </h2>
+
+            </div>
+
+          </div>
+
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+
+            <ControlCard
+              title="Homepage"
+              description="Hero, sections & featured content"
+              icon="⌂"
+              featured
+              onClick={() =>
+                router.push("/admin/homepage")
+              }
+            />
+
+            <ControlCard
+              title="Navigation"
+              description="Menus, links & structure"
+              icon="≡"
+              onClick={() =>
+                router.push("/admin/navigation")
+              }
+            />
+
+            <ControlCard
+              title="Pages"
+              description="About, FAQ & custom pages"
+              icon="▤"
+              onClick={() =>
+                router.push("/admin/pages")
+              }
+            />
+
+            <ControlCard
+              title="Footer"
+              description="Footer content & links"
+              icon="⌄"
+              onClick={() =>
+                router.push("/admin/footer")
+              }
+            />
+
+            <ControlCard
+              title="Media"
+              description="Website imagery & assets"
+              icon="◈"
+              onClick={() =>
+                router.push("/admin/media")
+              }
+            />
+
+            <ControlCard
+              title="Brands"
+              description="Brand identity & configuration"
+              icon="◇"
+              onClick={() =>
+                router.push("/admin/brands")
+              }
+            />
+
+            <ControlCard
+              title="Collections"
+              description="Storefront collections"
+              icon="□"
+              onClick={() =>
+                router.push("/admin/collections")
+              }
+            />
+
+            <ControlCard
+              title="Settings"
+              description="Global website settings"
+              icon="⚙"
+              onClick={() =>
+                router.push("/admin/settings")
+              }
+            />
+
+          </div>
+
+        </section>
+
+
+        {/* SECONDARY SYSTEMS */}
+        <section>
+
+          <p className="text-[9px] uppercase tracking-[0.3em] text-neutral-600 mb-5">
+            Platform Systems
+          </p>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+
+            <ControlCard
+              title="Discounts"
+              description="Promotions & discount rules"
+              icon="%"
+              onClick={() =>
+                router.push("/admin/discounts")
+              }
+            />
+
+            <ControlCard
+              title="Subscribers"
+              description="Email subscribers"
+              icon="✉"
+              onClick={() =>
+                router.push("/admin/subscribers")
+              }
+            />
+
+            <ControlCard
+              title="Orders"
+              description="Platform order management"
+              icon="◌"
+              onClick={() =>
+                router.push("/admin/orders")
+              }
+            />
+
+          </div>
+
+        </section>
+
+
+        <div className="mt-10 pt-6 border-t border-white/[0.06] flex items-center justify-between">
+
+          <div className="flex items-center gap-2">
+
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+
+            <span className="text-[9px] uppercase tracking-[0.25em] text-neutral-700">
+              Platform operational
+            </span>
+
+          </div>
+
+          <p className="text-[9px] text-neutral-800 uppercase tracking-wider">
+            VÉRANE Super Admin
+          </p>
+
+        </div>
+
+      </div>
+
+    </main>
+  );
+}
+
+
+/* ============================================================
+   COMPONENTS
+============================================================ */
 
 function StatCard({
   label,
   value,
-  description,
-  icon,
+  change,
   accent,
-  alert,
-  onClick,
+  warning,
 }) {
+  const isUthy = accent === "amber";
+
   return (
-    <button
-      onClick={onClick}
-      className="group text-left rounded-[24px] border border-white/[0.08] bg-white/[0.018] p-5 sm:p-6 hover:bg-white/[0.035] hover:border-white/[0.14] transition"
-    >
+    <div className="rounded-[1.5rem] border border-white/[0.08] bg-white/[0.025] p-5">
 
-      <div className="flex items-start justify-between">
-
-        <span className="text-lg text-neutral-600 group-hover:text-amber-400 transition">
-          {icon}
-        </span>
-
-        <span
-          className={`w-1.5 h-1.5 rounded-full ${
-            alert
-              ? "bg-red-400"
-              : accent
-              ? "bg-amber-400"
-              : "bg-emerald-400"
-          }`}
-        />
-
-      </div>
-
-      <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600 mt-6">
+      <p className="text-[9px] uppercase tracking-[0.22em] text-neutral-600">
         {label}
       </p>
 
-      <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight truncate">
+      <p
+        className={`text-2xl md:text-3xl font-black tracking-tight mt-3 ${
+          warning
+            ? "text-orange-300"
+            : isUthy
+            ? "text-amber-400"
+            : "text-violet-300"
+        }`}
+      >
         {value}
       </p>
 
-      <p className="text-[10px] text-neutral-600 mt-2 truncate">
-        {description}
-      </p>
+      {change !== undefined &&
+        change !== null &&
+        change !== "" && (
+          <p className="text-[9px] text-emerald-400 mt-2">
+            {String(change).includes("%")
+              ? change
+              : `${change}%`}
+          </p>
+        )}
 
-    </button>
+    </div>
   );
 }
 
 
-/* =====================================================
-   COMMAND CARD
-===================================================== */
-
-function CommandCard({
+function QuickAction({
   title,
   description,
-  icon,
   onClick,
 }) {
   return (
     <button
       onClick={onClick}
-      className="group text-left p-6 border-b border-white/[0.06] sm:nth-[2n]:border-l border-white/[0.06] hover:bg-white/[0.025] transition"
+      className="w-full flex items-center justify-between rounded-2xl border border-white/[0.06] bg-black/30 px-4 py-4 text-left hover:bg-white/[0.035] hover:border-white/10 transition"
     >
 
-      <div className="flex items-start justify-between">
+      <div>
 
-        <div className="w-10 h-10 rounded-xl border border-white/[0.08] bg-black flex items-center justify-center text-sm text-neutral-500 group-hover:text-amber-400 group-hover:border-amber-400/20 transition">
-          {icon}
-        </div>
-
-        <span className="text-neutral-700 group-hover:text-amber-400 transition">
-          ↗
-        </span>
-
-      </div>
-
-      <h4 className="font-black mt-6">
-        {title}
-      </h4>
-
-      <p className="text-xs text-neutral-600 leading-relaxed mt-2 max-w-xs">
-        {description}
-      </p>
-
-    </button>
-  );
-}
-
-
-/* =====================================================
-   HEALTH ITEM
-===================================================== */
-
-function HealthItem({
-  label,
-  value,
-  good,
-  warning,
-  onClick,
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-3 rounded-xl p-3 hover:bg-white/[0.025] transition text-left"
-    >
-
-      <span
-        className={`w-2 h-2 rounded-full shrink-0 ${
-          good
-            ? "bg-emerald-400"
-            : warning
-            ? "bg-amber-400"
-            : "bg-red-400"
-        }`}
-      />
-
-      <div className="flex-1 min-w-0">
-
-        <p className="text-xs font-bold">
-          {label}
+        <p className="text-xs font-black">
+          {title}
         </p>
 
-        <p className="text-[9px] text-neutral-600 mt-0.5 truncate">
-          {value}
+        <p className="text-[9px] text-neutral-600 mt-1">
+          {description}
         </p>
 
       </div>
 
-      <span className="text-neutral-700 text-xs">
+      <span className="text-neutral-700">
         →
       </span>
 
@@ -1139,108 +907,313 @@ function HealthItem({
 }
 
 
-/* =====================================================
-   BRAND CARD
-===================================================== */
+function ProductRow({
+  product,
+  index,
+  accent,
+}) {
+  const image =
+    Array.isArray(product.images) &&
+    product.images.length > 0
+      ? product.images[0]
+      : null;
 
-function BrandCard({
-  name,
-  fullName,
-  type,
+  return (
+    <div className="flex items-center gap-4 px-2 py-3 border-b border-white/[0.05] last:border-0">
+
+      <span className="w-6 text-[9px] text-neutral-700 font-bold">
+        {String(index + 1).padStart(2, "0")}
+      </span>
+
+      <div className="w-11 h-11 rounded-xl overflow-hidden bg-black border border-white/[0.06] flex-shrink-0">
+
+        {image ? (
+          <img
+            src={image}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[7px] text-neutral-700">
+            NO IMAGE
+          </div>
+        )}
+
+      </div>
+
+      <div className="min-w-0 flex-1">
+
+        <p className="text-xs font-bold truncate">
+          {product.name || "Product"}
+        </p>
+
+        <p className="text-[9px] text-neutral-600 mt-1">
+          {product.unitsSold ??
+            product.quantitySold ??
+            product.sales ??
+            0}{" "}
+          sold
+        </p>
+
+      </div>
+
+      <p
+        className={`text-xs font-black ${
+          accent === "amber"
+            ? "text-amber-400"
+            : "text-violet-300"
+        }`}
+      >
+        {formatMoney(
+          product.revenue ??
+          product.totalRevenue ??
+          product.price ??
+          0
+        )}
+      </p>
+
+    </div>
+  );
+}
+
+
+function OrderRow({ order }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-2 py-3 border-b border-white/[0.05] last:border-0">
+
+      <div className="min-w-0">
+
+        <p className="text-xs font-bold truncate">
+          {order.customerName ||
+            order.customer ||
+            order.email ||
+            "Customer"}
+        </p>
+
+        <p className="text-[9px] text-neutral-600 mt-1">
+          #{String(order.id || "").slice(-8)}
+        </p>
+
+      </div>
+
+      <div className="text-right">
+
+        <p className="text-xs font-black">
+          {formatMoney(
+            order.total ??
+            order.amount ??
+            0
+          )}
+        </p>
+
+        <p className="text-[9px] text-neutral-600 mt-1 uppercase">
+          {order.status || "Pending"}
+        </p>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+function SalesChart({
+  data,
+  accent,
+}) {
+  if (!Array.isArray(data) || data.length === 0) {
+    return (
+      <div className="h-[280px] flex items-center justify-center">
+
+        <div className="text-center">
+
+          <div className="w-12 h-12 rounded-2xl border border-white/[0.06] bg-white/[0.02] flex items-center justify-center mx-auto">
+            <span className="text-neutral-700">
+              ↗
+            </span>
+          </div>
+
+          <p className="text-xs font-bold text-neutral-500 mt-4">
+            Your sales chart will appear here
+          </p>
+
+          <p className="text-[9px] text-neutral-700 mt-2">
+            Sales activity will populate automatically.
+          </p>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  const values = data.map((item) =>
+    Number(
+      item.value ??
+      item.revenue ??
+      item.sales ??
+      item.amount ??
+      0
+    )
+  );
+
+  const max = Math.max(...values, 1);
+
+  return (
+    <div className="h-[280px] px-6 py-7 flex items-end gap-1">
+
+      {values.map((value, index) => {
+
+        const height = Math.max(
+          5,
+          (value / max) * 100
+        );
+
+        return (
+          <div
+            key={index}
+            className="flex-1 h-full flex items-end group"
+          >
+            <div
+              title={formatMoney(value)}
+              style={{
+                height: `${height}%`,
+              }}
+              className={`w-full rounded-t-md transition-all group-hover:opacity-80 ${
+                accent === "amber"
+                  ? "bg-amber-400/70"
+                  : "bg-violet-300/70"
+              }`}
+            />
+          </div>
+        );
+      })}
+
+    </div>
+  );
+}
+
+
+function ControlCard({
+  title,
   description,
-  number,
+  icon,
   onClick,
+  featured,
 }) {
   return (
     <button
       onClick={onClick}
-      className="group relative overflow-hidden rounded-[28px] border border-white/[0.08] bg-gradient-to-br from-white/[0.035] to-transparent p-7 text-left hover:border-amber-400/20 transition"
+      className={`group text-left rounded-[1.5rem] border p-5 transition-all duration-300 ${
+        featured
+          ? "border-amber-400/20 bg-amber-400/[0.035] hover:bg-amber-400/[0.06]"
+          : "border-white/[0.08] bg-white/[0.025] hover:bg-white/[0.045] hover:border-white/[0.15]"
+      }`}
     >
 
-      <div className="absolute right-6 top-5 text-[60px] font-black text-white/[0.025] leading-none pointer-events-none">
-        {number}
-      </div>
+      <div className="flex items-start justify-between">
 
-      <div className="relative">
+        <span
+          className={`text-lg ${
+            featured
+              ? "text-amber-400"
+              : "text-neutral-500 group-hover:text-white"
+          } transition`}
+        >
+          {icon}
+        </span>
 
-        <div className="flex items-center justify-between">
-
-          <div>
-
-            <p className="text-[9px] uppercase tracking-[0.3em] text-amber-400">
-              {type}
-            </p>
-
-            <h4 className="text-3xl font-black tracking-[-0.03em] mt-2">
-              {name}
-            </h4>
-
-            <p className="text-[10px] uppercase tracking-[0.2em] text-neutral-600 mt-1">
-              {fullName}
-            </p>
-
-          </div>
-
-          <span className="w-10 h-10 rounded-full border border-white/[0.08] flex items-center justify-center text-neutral-500 group-hover:text-amber-400 group-hover:border-amber-400/30 transition">
-            →
-          </span>
-
-        </div>
-
-        <p className="text-xs text-neutral-500 leading-relaxed mt-8 max-w-md">
-          {description}
-        </p>
-
-        <div className="mt-6 flex items-center gap-2">
-
-          <span className="text-[9px] uppercase tracking-[0.2em] text-neutral-600 group-hover:text-neutral-400 transition">
-            Manage Brand
-          </span>
-
-          <span className="text-amber-400 text-xs">
-            →
-          </span>
-
-        </div>
+        <span className="text-neutral-700 group-hover:text-neutral-400 transition">
+          ↗
+        </span>
 
       </div>
+
+      <p className="text-sm font-black mt-7">
+        {title}
+      </p>
+
+      <p className="text-[9px] leading-relaxed text-neutral-600 mt-1">
+        {description}
+      </p>
 
     </button>
   );
 }
 
 
-/* =====================================================
-   MINI LINK
-===================================================== */
-
-function MiniLink({
+function EmptyState({
   title,
-  icon,
-  onClick,
+  description,
 }) {
   return (
-    <button
-      onClick={onClick}
-      className="group rounded-2xl border border-white/[0.08] bg-white/[0.018] p-5 text-left hover:bg-white/[0.04] hover:border-white/[0.14] transition"
-    >
+    <div className="py-10 text-center">
 
-      <div className="flex items-center justify-between">
-
-        <span className="text-sm text-neutral-600 group-hover:text-amber-400 transition">
-          {icon}
-        </span>
-
-        <span className="text-[10px] text-neutral-700 group-hover:text-white transition">
-          →
-        </span>
-
-      </div>
-
-      <p className="text-xs font-bold mt-5">
+      <p className="text-xs font-bold text-neutral-500">
         {title}
       </p>
 
-    </button>
+      <p className="text-[9px] text-neutral-700 mt-2 max-w-xs mx-auto">
+        {description}
+      </p>
+
+    </div>
   );
+}
+
+
+function LoadingScreen() {
+  return (
+    <main className="min-h-screen bg-[#070707] text-white flex items-center justify-center">
+
+      <div className="text-center">
+
+        <div className="w-12 h-12 rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] flex items-center justify-center mx-auto">
+
+          <span className="text-amber-400 font-black">
+            V
+          </span>
+
+        </div>
+
+        <p className="text-[9px] uppercase tracking-[0.35em] text-neutral-600 mt-5">
+          VÉRANE
+        </p>
+
+        <p className="text-xs text-neutral-700 mt-2">
+          Loading administration...
+        </p>
+
+      </div>
+
+    </main>
+  );
+}
+
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
+function formatMoney(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "₦0";
+  }
+
+  return `₦${number.toLocaleString("en-NG", {
+    maximumFractionDigits: 0,
+  })}`;
+}
+
+
+function formatNumber(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "0";
+  }
+
+  return number.toLocaleString("en-NG");
 }
