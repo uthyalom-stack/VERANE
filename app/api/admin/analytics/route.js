@@ -6,6 +6,10 @@ export const revalidate = 0;
 
 const VALID_BRANDS = ["UTHY", "ALOMZIEE"];
 
+/* ============================================================
+   BRAND NORMALIZATION
+============================================================ */
+
 function normalizeBrand(value) {
   if (!value) return "";
 
@@ -29,6 +33,78 @@ function normalizeBrand(value) {
 
   return brand;
 }
+
+/* ============================================================
+   MONEY NORMALIZATION
+
+   Analytics must NEVER arbitrarily multiply monetary values.
+
+   Product prices are read directly as stored.
+
+   We also protect against the common situation where a
+   monetary value arrives as a Decimal/string/object.
+============================================================ */
+
+function money(value) {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+
+  if (typeof value === "object") {
+    if (
+      typeof value.toNumber === "function"
+    ) {
+      const number = value.toNumber();
+
+      return Number.isFinite(number)
+        ? number
+        : 0;
+    }
+
+    if (
+      typeof value.toString === "function"
+    ) {
+      value = value.toString();
+    }
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : 0;
+}
+
+/*
+ * Product price is the authoritative price for product
+ * analytics and inventory valuation.
+ */
+function getProductPrice(product) {
+  return money(product?.price);
+}
+
+/*
+ * Order item price:
+ *
+ * Prefer the stored order-item price because an order may
+ * have been placed at a historical/sale price.
+ *
+ * If that value is missing or invalid, fall back to the
+ * product price.
+ */
+function getItemPrice(item) {
+  const itemPrice = money(item?.price);
+
+  if (itemPrice > 0) {
+    return itemPrice;
+  }
+
+  return getProductPrice(item?.product);
+}
+
+/* ============================================================
+   DATE HELPERS
+============================================================ */
 
 function getDateRange(range) {
   const now = new Date();
@@ -54,7 +130,9 @@ function getDateRange(range) {
       break;
 
     case "1y":
-      start.setFullYear(start.getFullYear() - 1);
+      start.setFullYear(
+        start.getFullYear() - 1
+      );
       break;
 
     default:
@@ -62,7 +140,10 @@ function getDateRange(range) {
       break;
   }
 
-  return { start, end };
+  return {
+    start,
+    end,
+  };
 }
 
 function isCancelledStatus(status) {
@@ -96,25 +177,15 @@ function formatDay(date) {
   );
 }
 
-function getItemPrice(item) {
-  const orderItemPrice =
-    Number(item?.price) || 0;
-
-  const productPrice =
-    Number(item?.product?.price) || 0;
-
-  return orderItemPrice > 0
-    ? orderItemPrice
-    : productPrice;
-}
+/* ============================================================
+   GET ANALYTICS
+============================================================ */
 
 export async function GET(request) {
   try {
-    /*
-     * ========================================================
-     * 1. ADMIN SESSION
-     * ========================================================
-     */
+    /* ========================================================
+       1. SESSION
+    ======================================================== */
 
     const sessionResponse = await fetch(
       `${request.nextUrl.origin}/api/admin/session`,
@@ -153,11 +224,9 @@ export async function GET(request) {
 
     const admin = sessionData.admin;
 
-    /*
-     * ========================================================
-     * 2. DETERMINE ADMIN BRAND
-     * ========================================================
-     */
+    /* ========================================================
+       2. ADMIN BRAND
+    ======================================================== */
 
     const adminBrand = normalizeBrand(
       admin.brand || admin.role
@@ -180,11 +249,9 @@ export async function GET(request) {
       );
     }
 
-    /*
-     * ========================================================
-     * 3. REQUESTED BRAND
-     * ========================================================
-     */
+    /* ========================================================
+       3. REQUESTED BRAND
+    ======================================================== */
 
     const { searchParams } =
       new URL(request.url);
@@ -192,8 +259,11 @@ export async function GET(request) {
     const requestedBrand =
       searchParams.get("brand");
 
+    const normalizedRequestedBrand =
+      normalizeBrand(requestedBrand);
+
     const brand =
-      normalizeBrand(requestedBrand) ||
+      normalizedRequestedBrand ||
       adminBrand;
 
     if (brand !== adminBrand) {
@@ -214,11 +284,9 @@ export async function GET(request) {
       );
     }
 
-    /*
-     * ========================================================
-     * 4. DATE RANGE
-     * ========================================================
-     */
+    /* ========================================================
+       4. DATE RANGE
+    ======================================================== */
 
     const range =
       searchParams.get("range") || "30d";
@@ -226,16 +294,9 @@ export async function GET(request) {
     const { start, end } =
       getDateRange(range);
 
-    /*
-     * ========================================================
-     * 5. GET PRODUCTS DIRECTLY FROM DATABASE
-     *
-     * IMPORTANT:
-     * NO Prisma brand filter here.
-     *
-     * We get everything and normalize in JS.
-     * ========================================================
-     */
+    /* ========================================================
+       5. LOAD PRODUCTS
+    ======================================================== */
 
     const allProducts =
       await prisma.product.findMany({
@@ -249,11 +310,9 @@ export async function GET(request) {
         },
       });
 
-    /*
-     * ========================================================
-     * 6. FILTER PRODUCTS
-     * ========================================================
-     */
+    /* ========================================================
+       6. NORMALIZE/FILTER PRODUCTS
+    ======================================================== */
 
     const products =
       allProducts.filter((product) => {
@@ -263,11 +322,9 @@ export async function GET(request) {
         );
       });
 
-    /*
-     * ========================================================
-     * 7. PRODUCT COUNTS
-     * ========================================================
-     */
+    /* ========================================================
+       7. PRODUCT COUNTS
+    ======================================================== */
 
     const totalProducts =
       products.length;
@@ -275,13 +332,13 @@ export async function GET(request) {
     const activeProducts =
       products.filter(
         (product) =>
-          Number(product.inventory) > 0
+          money(product.inventory) > 0
       ).length;
 
     const outOfStockProducts =
       products.filter(
         (product) =>
-          Number(product.inventory) <= 0
+          money(product.inventory) <= 0
       );
 
     const outOfStock =
@@ -290,7 +347,7 @@ export async function GET(request) {
     const lowStockProducts =
       products.filter((product) => {
         const inventory =
-          Number(product.inventory) || 0;
+          money(product.inventory);
 
         return (
           inventory > 0 &&
@@ -298,28 +355,32 @@ export async function GET(request) {
         );
       });
 
-    /*
-     * ========================================================
-     * 8. INVENTORY
-     * ========================================================
-     */
+    /* ========================================================
+       8. INVENTORY
+    ======================================================== */
 
     const totalInventoryUnits =
       products.reduce(
         (total, product) =>
           total +
-          (Number(product.inventory) || 0),
+          money(product.inventory),
         0
       );
 
+    /*
+     * IMPORTANT:
+     * Product price is used directly.
+     *
+     * There is NO ×10 multiplication here.
+     */
     const inventoryValue =
       products.reduce(
         (total, product) => {
           const inventory =
-            Number(product.inventory) || 0;
+            money(product.inventory);
 
           const price =
-            Number(product.price) || 0;
+            getProductPrice(product);
 
           return (
             total +
@@ -329,11 +390,9 @@ export async function GET(request) {
         0
       );
 
-    /*
-     * ========================================================
-     * 9. STOCK HEALTH
-     * ========================================================
-     */
+    /* ========================================================
+       9. STOCK HEALTH
+    ======================================================== */
 
     const stockHealth =
       totalProducts > 0
@@ -344,11 +403,9 @@ export async function GET(request) {
           )
         : 0;
 
-    /*
-     * ========================================================
-     * 10. PRODUCT PERFORMANCE
-     * ========================================================
-     */
+    /* ========================================================
+       10. PRODUCT PERFORMANCE MAP
+    ======================================================== */
 
     const productStats =
       new Map();
@@ -358,7 +415,8 @@ export async function GET(request) {
         id: product.id,
 
         name:
-          product.name || "Unnamed Product",
+          product.name ||
+          "Unnamed Product",
 
         brand:
           normalizeBrand(product.brand),
@@ -366,11 +424,14 @@ export async function GET(request) {
         databaseBrand:
           product.brand,
 
+        /*
+         * ALWAYS expose the actual product price.
+         */
         price:
-          Number(product.price) || 0,
+          getProductPrice(product),
 
         inventory:
-          Number(product.inventory) || 0,
+          money(product.inventory),
 
         category:
           product.categoryRef?.name ||
@@ -388,9 +449,9 @@ export async function GET(request) {
         orders: 0,
 
         status:
-          Number(product.inventory) <= 0
+          money(product.inventory) <= 0
             ? "out_of_stock"
-            : Number(product.inventory) <= 5
+            : money(product.inventory) <= 5
               ? "low_stock"
               : "in_stock",
 
@@ -399,11 +460,9 @@ export async function GET(request) {
       });
     }
 
-    /*
-     * ========================================================
-     * 11. ORDERS
-     * ========================================================
-     */
+    /* ========================================================
+       11. ORDERS
+    ======================================================== */
 
     const productIds =
       products.map(
@@ -451,11 +510,9 @@ export async function GET(request) {
         });
     }
 
-    /*
-     * ========================================================
-     * 12. BRAND ORDER ITEMS
-     * ========================================================
-     */
+    /* ========================================================
+       12. BRAND ORDER ITEMS
+    ======================================================== */
 
     const brandOrders = [];
     const brandOrderItems = [];
@@ -496,11 +553,9 @@ export async function GET(request) {
       }
     }
 
-    /*
-     * ========================================================
-     * 13. VALID ORDERS
-     * ========================================================
-     */
+    /* ========================================================
+       13. VALID ORDERS
+    ======================================================== */
 
     const validOrders =
       brandOrders.filter(
@@ -518,26 +573,26 @@ export async function GET(request) {
           )
       );
 
-    /*
-     * ========================================================
-     * 14. REVENUE
-     * ========================================================
-     */
+    /* ========================================================
+       14. REVENUE
+    ======================================================== */
 
     let revenue = 0;
     let unitsSold = 0;
 
     for (const item of validOrderItems) {
       const quantity =
-        Number(item.quantity) || 0;
+        money(item.quantity);
 
       const price =
         getItemPrice(item);
 
+      const itemRevenue =
+        price * quantity;
+
       unitsSold += quantity;
 
-      revenue +=
-        price * quantity;
+      revenue += itemRevenue;
 
       const existing =
         productStats.get(
@@ -549,7 +604,7 @@ export async function GET(request) {
           quantity;
 
         existing.revenue +=
-          price * quantity;
+          itemRevenue;
 
         existing.orders += 1;
       }
@@ -563,11 +618,9 @@ export async function GET(request) {
         ? revenue / orderCount
         : 0;
 
-    /*
-     * ========================================================
-     * 15. CUSTOMERS
-     * ========================================================
-     */
+    /* ========================================================
+       15. CUSTOMERS
+    ======================================================== */
 
     const customerIds =
       new Set(
@@ -582,11 +635,9 @@ export async function GET(request) {
     const customerCount =
       customerIds.size;
 
-    /*
-     * ========================================================
-     * 16. PRODUCT PERFORMANCE
-     * ========================================================
-     */
+    /* ========================================================
+       16. PRODUCT PERFORMANCE
+    ======================================================== */
 
     const productPerformance =
       Array.from(
@@ -608,11 +659,9 @@ export async function GET(request) {
         );
       });
 
-    /*
-     * ========================================================
-     * 17. BEST SELLERS
-     * ========================================================
-     */
+    /* ========================================================
+       17. BEST SELLERS
+    ======================================================== */
 
     const bestSellers =
       productPerformance
@@ -622,11 +671,9 @@ export async function GET(request) {
         )
         .slice(0, 10);
 
-    /*
-     * ========================================================
-     * 18. DAILY ANALYTICS
-     * ========================================================
-     */
+    /* ========================================================
+       18. DAILY ANALYTICS
+    ======================================================== */
 
     const dailyMap =
       new Map();
@@ -683,7 +730,7 @@ export async function GET(request) {
       }
 
       const quantity =
-        Number(item.quantity) || 0;
+        money(item.quantity);
 
       const price =
         getItemPrice(item);
@@ -699,11 +746,9 @@ export async function GET(request) {
         dailyMap.values()
       );
 
-    /*
-     * ========================================================
-     * 19. CATEGORIES
-     * ========================================================
-     */
+    /* ========================================================
+       19. CATEGORIES
+    ======================================================== */
 
     const categoryMap =
       new Map();
@@ -716,7 +761,7 @@ export async function GET(request) {
         "Uncategorized";
 
       const quantity =
-        Number(item.quantity) || 0;
+        money(item.quantity);
 
       const price =
         getItemPrice(item);
@@ -753,11 +798,9 @@ export async function GET(request) {
         )
         .slice(0, 10);
 
-    /*
-     * ========================================================
-     * 20. COLLECTIONS
-     * ========================================================
-     */
+    /* ========================================================
+       20. COLLECTIONS
+    ======================================================== */
 
     const collectionMap =
       new Map();
@@ -769,7 +812,7 @@ export async function GET(request) {
         "No Collection";
 
       const quantity =
-        Number(item.quantity) || 0;
+        money(item.quantity);
 
       const price =
         getItemPrice(item);
@@ -806,11 +849,9 @@ export async function GET(request) {
         )
         .slice(0, 10);
 
-    /*
-     * ========================================================
-     * 21. ORDER STATUSES
-     * ========================================================
-     */
+    /* ========================================================
+       21. ORDER STATUSES
+    ======================================================== */
 
     const statusMap =
       new Map();
@@ -839,11 +880,9 @@ export async function GET(request) {
         })
       );
 
-    /*
-     * ========================================================
-     * 22. RECENT ORDERS
-     * ========================================================
-     */
+    /* ========================================================
+       22. RECENT ORDERS
+    ======================================================== */
 
     const recentOrders =
       brandOrders
@@ -854,7 +893,7 @@ export async function GET(request) {
 
           for (const item of order.items) {
             const quantity =
-              Number(item.quantity) || 0;
+              money(item.quantity);
 
             const price =
               getItemPrice(item);
@@ -894,11 +933,9 @@ export async function GET(request) {
           };
         });
 
-    /*
-     * ========================================================
-     * 23. FINAL RESPONSE
-     * ========================================================
-     */
+    /* ========================================================
+       23. RESPONSE
+    ======================================================== */
 
     return NextResponse.json(
       {
@@ -913,6 +950,9 @@ export async function GET(request) {
           end,
         },
 
+        /*
+         * THIS IS THE STRUCTURE USED BY THE DASHBOARD.
+         */
         overview: {
           revenue,
 
@@ -966,14 +1006,14 @@ export async function GET(request) {
                   product.name,
 
                 inventory:
-                  Number(
+                  money(
                     product.inventory
-                  ) || 0,
+                  ),
 
                 price:
-                  Number(
-                    product.price
-                  ) || 0,
+                  getProductPrice(
+                    product
+                  ),
 
                 image:
                   product.images || "",
@@ -991,14 +1031,14 @@ export async function GET(request) {
                   product.name,
 
                 inventory:
-                  Number(
+                  money(
                     product.inventory
-                  ) || 0,
+                  ),
 
                 price:
-                  Number(
-                    product.price
-                  ) || 0,
+                  getProductPrice(
+                    product
+                  ),
 
                 image:
                   product.images || "",
@@ -1014,8 +1054,6 @@ export async function GET(request) {
         /*
          * ======================================================
          * DEBUG
-         *
-         * KEEP THIS FOR NOW.
          * ======================================================
          */
 
@@ -1031,6 +1069,8 @@ export async function GET(request) {
 
           normalizedBrand:
             brand,
+
+          adminBrand,
 
           databaseBrandsFound:
             [
@@ -1061,15 +1101,27 @@ export async function GET(request) {
                     product.brand
                   ),
 
+                /*
+                 * THIS SHOULD NOW MATCH THE
+                 * ACTUAL PRODUCT PRICE.
+                 */
                 price:
-                  Number(
-                    product.price
-                  ) || 0,
+                  getProductPrice(
+                    product
+                  ),
 
                 inventory:
-                  Number(
+                  money(
                     product.inventory
-                  ) || 0,
+                  ),
+
+                inventoryValue:
+                  money(
+                    product.inventory
+                  ) *
+                  getProductPrice(
+                    product
+                  ),
               })
             ),
         },
