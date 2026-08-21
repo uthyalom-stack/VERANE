@@ -1,5 +1,6 @@
 import "./globals.css";
 import { getSiteSettings } from "@/lib/site-settings";
+import StorefrontHeader from "@/components/StorefrontHeader";
 
 export async function generateMetadata() {
   const settings = await getSiteSettings();
@@ -77,6 +78,7 @@ export default async function RootLayout({ children }) {
           "--primary-color": primaryColor,
         }}
       >
+        <StorefrontHeader />
         {children}
       </body>
     </html>

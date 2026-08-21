@@ -1,6 +1,7 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { PrismaClient } from "@prisma/client";
-import SiteNav from "@/components/SiteNav";
+
+
 import SiteFooter from "@/components/SiteFooter";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +63,7 @@ const FALLBACK_SECTIONS = [
     title: "FROM THE GROUND UP.",
     subtitle: "ALOMZIEE FOOTIES",
     description:
-      "Handmade footwear and accessories built with character — shoes, sandals, slides, boots, belts and bags.",
+      "Handmade footwear and accessories built with character Ã¢â‚¬â€ shoes, sandals, slides, boots, belts and bags.",
     image:
       "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=1800&q=85",
     mobileImage: "",
@@ -204,13 +205,13 @@ function getBrandName(brand) {
     return "ALOMZIEE FOOTIES";
   }
 
-  return brand || "VÉRANE";
+  return brand || "VÃƒâ€°RANE";
 }
 
 function formatPrice(price) {
   const number = Number(price || 0);
 
-  return `₦${number.toLocaleString("en-NG")}`;
+  return `Ã¢â€šÂ¦${number.toLocaleString("en-NG")}`;
 }
 
 /* =========================================================
@@ -231,7 +232,7 @@ function SectionImage({ section, className = "" }) {
 
       <img
         src={section.image}
-        alt={section.title || "VÉRANE"}
+        alt={section.title || "VÃƒâ€°RANE"}
         className={className}
       />
     </picture>
@@ -343,7 +344,7 @@ function ProductRail({
       <div className="mt-2 flex items-center gap-3 text-[9px] uppercase tracking-[0.25em] text-white/20">
         <span className="h-px w-8 bg-white/10" />
         <span>Swipe to explore</span>
-        <span className="text-white/10">→</span>
+        <span className="text-white/10">Ã¢â€ â€™</span>
       </div>
     </div>
   );
@@ -386,7 +387,9 @@ export default async function HomePage() {
   return (
     <main className="bg-black text-white overflow-hidden">
 
-      <SiteNav />
+
+
+
 
       {/* =====================================================
           HERO
@@ -499,7 +502,7 @@ export default async function HomePage() {
                 href={selected.buttonLink || "/catalog"}
                 className="text-sm font-bold uppercase tracking-wider text-neutral-400 hover:text-white transition"
               >
-                {selected.buttonText} →
+                {selected.buttonText} Ã¢â€ â€™
               </Link>
             )}
 
@@ -589,7 +592,7 @@ export default async function HomePage() {
                 href="/catalog?brand=UTHY_LUXURY"
                 className="text-xs uppercase tracking-wider text-neutral-400 hover:text-white"
               >
-                Shop all →
+                Shop all Ã¢â€ â€™
               </Link>
 
             </div>
@@ -680,7 +683,7 @@ export default async function HomePage() {
                 href="/catalog?brand=ALOMZIEE_FOOTIES"
                 className="text-xs uppercase tracking-wider text-neutral-400 hover:text-white"
               >
-                Shop all →
+                Shop all Ã¢â€ â€™
               </Link>
 
             </div>
@@ -773,7 +776,7 @@ export default async function HomePage() {
                     }
                     className="mt-8 inline-block px-7 py-4 rounded-full font-bold text-xs uppercase tracking-wider text-center bg-amber-500 text-black hover:bg-amber-400 transition"
                   >
-                    {outfit.buttonText} →
+                    {outfit.buttonText} Ã¢â€ â€™
                   </Link>
                 )}
 
@@ -811,7 +814,7 @@ export default async function HomePage() {
                 href={arrivals.buttonLink || "/catalog"}
                 className="mt-5 md:mt-0 text-xs uppercase tracking-wider text-neutral-400 hover:text-white"
               >
-                {arrivals.buttonText} →
+                {arrivals.buttonText} Ã¢â€ â€™
               </Link>
             )}
 
@@ -911,3 +914,6 @@ export default async function HomePage() {
     </main>
   );
 }
+
+
+

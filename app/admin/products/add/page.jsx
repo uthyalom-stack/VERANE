@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 const outfitLayers = [
   { value: "top", label: "Top" },
   { value: "bottom", label: "Bottom" },
-  { value: "footwear", label: "Footwear" },
-  { value: "belt", label: "Belt" },
-  { value: "bag", label: "Bag" },
+  { value: "feet", label: "Feet" },
+  { value: "waist", label: "Waist" },
+  { value: "hand", label: "Hand" },
 ];
 
 export default function AddProductPage() {
@@ -29,9 +29,11 @@ export default function AddProductPage() {
     images: [],
     outfitCompatible: false,
     outfitLayer: "none",
+    mannequinAsset: "",
   });
 
   const [imageInput, setImageInput] = useState("");
+  const [assetInput, setAssetInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -72,7 +74,6 @@ export default function AddProductPage() {
       }));
     } catch (err) {
       console.error("Category loading error:", err);
-
       setError(
         err?.message || "Unable to load categories."
       );
@@ -123,11 +124,7 @@ export default function AddProductPage() {
 
     const price = Number(form.price);
 
-    if (
-      !form.price ||
-      Number.isNaN(price) ||
-      price <= 0
-    ) {
+    if (!form.price || Number.isNaN(price) || price <= 0) {
       return "Enter a valid product price.";
     }
 
@@ -146,6 +143,13 @@ export default function AddProductPage() {
       form.outfitLayer === "none"
     ) {
       return "Choose an Outfit Builder layer.";
+    }
+
+    if (
+      form.outfitCompatible &&
+      !form.mannequinAsset.trim()
+    ) {
+      return "Add a transparent PNG asset URL for the Outfit Builder.";
     }
 
     return "";
@@ -177,19 +181,27 @@ export default function AddProductPage() {
           price: Number(form.price),
           description: form.description.trim(),
           inventory: Number(form.inventory),
+
           colors: form.colors
             ? form.colors
                 .split(",")
                 .map((color) => color.trim())
                 .filter(Boolean)
             : [],
+
           style: form.style.trim(),
           occasion: form.occasion.trim(),
           images: form.images,
+
           outfitCompatible: form.outfitCompatible,
+
           outfitLayer: form.outfitCompatible
             ? form.outfitLayer
             : "none",
+
+          mannequinAsset: form.outfitCompatible
+            ? form.mannequinAsset.trim()
+            : "",
         }),
       });
 
@@ -224,6 +236,7 @@ export default function AddProductPage() {
   return (
     <main className="min-h-screen bg-black text-white">
       <div className="mx-auto max-w-5xl px-5 py-10 sm:px-8 md:py-16">
+
         <div className="mb-10">
           <button
             type="button"
@@ -243,7 +256,8 @@ export default function AddProductPage() {
 
           <p className="mt-3 max-w-xl text-neutral-500">
             Create a product for your authorized store.
-            The store brand is assigned automatically.
+            Products marked as Outfit Builder compatible can
+            appear inside the digital styling experience.
           </p>
         </div>
 
@@ -260,8 +274,10 @@ export default function AddProductPage() {
         )}
 
         <div className="space-y-8">
+
           {/* PRODUCT INFORMATION */}
           <section className="rounded-3xl border border-white/10 bg-neutral-950 p-6 md:p-8">
+
             <div className="mb-7">
               <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">
                 01
@@ -277,6 +293,7 @@ export default function AddProductPage() {
             </div>
 
             <div className="space-y-5">
+
               {/* NAME */}
               <div>
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
@@ -349,31 +366,26 @@ export default function AddProductPage() {
 
               {/* PRICE + INVENTORY */}
               <div className="grid gap-5 md:grid-cols-2">
+
                 <div>
                   <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
                     Price (₦) *
                   </label>
 
-                  <div className="relative">
-                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-neutral-500">
-                      ₦
-                    </span>
-
-                    <input
-                      value={form.price}
-                      onChange={(event) =>
-                        updateField(
-                          "price",
-                          event.target.value
-                        )
-                      }
-                      type="number"
-                      min="0"
-                      step="1"
-                      placeholder="0"
-                      className="w-full rounded-2xl border border-white/10 bg-black py-4 pl-10 pr-5 text-white outline-none transition focus:border-amber-500/60"
-                    />
-                  </div>
+                  <input
+                    value={form.price}
+                    onChange={(event) =>
+                      updateField(
+                        "price",
+                        event.target.value
+                      )
+                    }
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                    className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
+                  />
                 </div>
 
                 <div>
@@ -395,6 +407,7 @@ export default function AddProductPage() {
                     className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
                   />
                 </div>
+
               </div>
 
               {/* DESCRIPTION */}
@@ -423,6 +436,7 @@ export default function AddProductPage() {
 
               {/* STYLE + OCCASION */}
               <div className="grid gap-5 md:grid-cols-2">
+
                 <div>
                   <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
                     Style
@@ -458,6 +472,7 @@ export default function AddProductPage() {
                     className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
                   />
                 </div>
+
               </div>
 
               {/* COLORS */}
@@ -482,11 +497,13 @@ export default function AddProductPage() {
                   Separate multiple colors with commas.
                 </p>
               </div>
+
             </div>
           </section>
 
           {/* IMAGES */}
           <section className="rounded-3xl border border-white/10 bg-neutral-950 p-6 md:p-8">
+
             <div className="mb-7">
               <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">
                 02
@@ -497,11 +514,12 @@ export default function AddProductPage() {
               </h2>
 
               <p className="mt-1 text-sm text-neutral-500">
-                Add the image URLs for this product.
+                Add the product image URLs customers will see.
               </p>
             </div>
 
             <div className="flex gap-3">
+
               <input
                 value={imageInput}
                 onChange={(event) =>
@@ -518,10 +536,12 @@ export default function AddProductPage() {
               >
                 Add
               </button>
+
             </div>
 
             {form.images.length > 0 ? (
               <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
+
                 {form.images.map((image, index) => (
                   <div
                     key={`${image}-${index}`}
@@ -544,6 +564,7 @@ export default function AddProductPage() {
                     </button>
                   </div>
                 ))}
+
               </div>
             ) : (
               <div className="mt-5 rounded-2xl border border-dashed border-white/10 p-10 text-center">
@@ -552,10 +573,12 @@ export default function AddProductPage() {
                 </p>
               </div>
             )}
+
           </section>
 
           {/* OUTFIT BUILDER */}
           <section className="rounded-3xl border border-white/10 bg-neutral-950 p-6 md:p-8">
+
             <div className="mb-7">
               <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">
                 03
@@ -566,13 +589,15 @@ export default function AddProductPage() {
               </h2>
 
               <p className="mt-1 text-sm text-neutral-500">
-                Decide whether customers can use this product
-                inside the Outfit Builder.
+                Make this product available inside the
+                Outfit Builder.
               </p>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-black p-5">
+
               <label className="flex cursor-pointer items-start gap-4">
+
                 <input
                   type="checkbox"
                   checked={form.outfitCompatible}
@@ -602,40 +627,104 @@ export default function AddProductPage() {
                     a complete look.
                   </p>
                 </div>
+
               </label>
 
               {form.outfitCompatible && (
-                <div className="mt-6 border-t border-white/10 pt-6">
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
-                    Outfit Layer
-                  </label>
+                <div className="mt-6 space-y-6 border-t border-white/10 pt-6">
 
-                  <select
-                    value={form.outfitLayer}
-                    onChange={(event) =>
-                      updateField(
-                        "outfitLayer",
-                        event.target.value
-                      )
-                    }
-                    className="w-full rounded-2xl border border-white/10 bg-neutral-950 px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
-                  >
-                    {outfitLayers.map((layer) => (
-                      <option
-                        key={layer.value}
-                        value={layer.value}
-                      >
-                        {layer.label}
+                  {/* LAYER */}
+                  <div>
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
+                      Outfit Layer *
+                    </label>
+
+                    <select
+                      value={form.outfitLayer}
+                      onChange={(event) =>
+                        updateField(
+                          "outfitLayer",
+                          event.target.value
+                        )
+                      }
+                      className="w-full rounded-2xl border border-white/10 bg-neutral-950 px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
+                    >
+                      <option value="none">
+                        Select layer
                       </option>
-                    ))}
-                  </select>
+
+                      {outfitLayers.map((layer) => (
+                        <option
+                          key={layer.value}
+                          value={layer.value}
+                        >
+                          {layer.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* PNG ASSET */}
+                  <div>
+
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
+                      Transparent PNG Asset URL *
+                    </label>
+
+                    <input
+                      value={assetInput}
+                      onChange={(event) => {
+                        setAssetInput(event.target.value);
+                        updateField(
+                          "mannequinAsset",
+                          event.target.value
+                        );
+                      }}
+                      placeholder="https://your-image-host.com/product.png"
+                      className="w-full rounded-2xl border border-white/10 bg-neutral-950 px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
+                    />
+
+                    <p className="mt-2 text-[11px] leading-5 text-neutral-600">
+                      Use a transparent PNG of the actual
+                      clothing, footwear, belt or bag. This
+                      image will be layered onto the mannequin.
+                    </p>
+
+                    {form.mannequinAsset && (
+                      <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-neutral-900 p-5">
+
+                        <p className="mb-3 text-[9px] font-bold uppercase tracking-[0.25em] text-white/30">
+                          Asset Preview
+                        </p>
+
+                        <div className="flex min-h-[220px] items-center justify-center rounded-xl bg-[radial-gradient(circle_at_center,_#262626_0%,_#0a0a0a_60%,_#000_100%)] p-6">
+
+                          <img
+                            src={form.mannequinAsset}
+                            alt="Outfit Builder asset preview"
+                            className="max-h-[200px] max-w-full object-contain"
+                            onError={(event) => {
+                              event.currentTarget.style.display =
+                                "none";
+                            }}
+                          />
+
+                        </div>
+
+                      </div>
+                    )}
+
+                  </div>
+
                 </div>
               )}
+
             </div>
           </section>
 
           {/* ACTIONS */}
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+
             <button
               type="button"
               onClick={() =>
@@ -660,7 +749,9 @@ export default function AddProductPage() {
                 ? "Creating Product..."
                 : "Create Product →"}
             </button>
+
           </div>
+
         </div>
       </div>
     </main>
