@@ -124,6 +124,9 @@ function BrandDashboard({
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
+  const [storeProducts, setStoreProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] =
     useState(true);
@@ -198,6 +201,67 @@ function BrandDashboard({
   useEffect(() => {
     loadAnalytics();
   }, [loadAnalytics]);
+
+  /*
+   * ==========================================================
+   * LOAD REAL STORE PRODUCTS
+   *
+   * The dashboard product KPI should come from the actual
+   * authorized product endpoint, not depend entirely on the
+   * analytics aggregation.
+   * ==========================================================
+   */
+
+  const loadStoreProducts = useCallback(async () => {
+    try {
+      setProductsLoading(true);
+
+      const response = await fetch(
+        "/api/admin/products",
+        {
+          cache: "no-store",
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Products request failed: ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+
+      const products = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.products)
+        ? data.products
+        : [];
+
+      setStoreProducts(products);
+    } catch (error) {
+      console.error(
+        "Dashboard products error:",
+        error
+      );
+
+      setStoreProducts([]);
+    } finally {
+      setProductsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStoreProducts();
+
+    const interval = setInterval(() => {
+      loadStoreProducts();
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [loadStoreProducts]);
 
 
   /*
@@ -545,18 +609,46 @@ function BrandDashboard({
     analyticsData.orders ??
     0;
 
+   /*
+   * ==========================================================
+   * DASHBOARD INVENTORY COUNTS
+   *
+   * Products are taken from the real authorized store-product
+   * endpoint so the dashboard cannot incorrectly display 0
+   * while the product manager contains products.
+   * ==========================================================
+   */
+
   const dashboardProducts =
-    overview.products ??
-    analytics?.products ??
-    analyticsData.products ??
-    0;
+    storeProducts.length > 0
+      ? storeProducts.length
+      : Number(
+          overview.products ??
+            analytics?.products ??
+            analyticsData.products ??
+            0
+        );
 
   const dashboardLowStock =
-    overview.lowStock ??
-    analytics?.lowStock ??
-    analyticsData.lowStock ??
-    0;
+    storeProducts.length > 0
+      ? storeProducts.filter((product) => {
+          const inventory = Number(
+            product.inventory ??
+              product.stock ??
+              0
+          );
 
+          return (
+            inventory > 0 &&
+            inventory <= 5
+          );
+        }).length
+      : Number(
+          overview.lowStock ??
+            analytics?.lowStock ??
+            analyticsData.lowStock ??
+            0
+        );
   const salesData =
     analyticsData.daily ||
     analytics?.daily ||
@@ -1148,7 +1240,7 @@ function BrandDashboard({
             value={
               analyticsLoading
                 ? "—"
-                : formatMoney(
+                : formatNumber(
                     dashboardRevenue
                   )
             }
@@ -1178,7 +1270,7 @@ function BrandDashboard({
           <StatCard
             label="Products"
             value={
-              analyticsLoading
+              productsLoading && storeProducts.length === 0
                 ? "—"
                 : formatNumber(
                     dashboardProducts
@@ -1190,7 +1282,7 @@ function BrandDashboard({
           <StatCard
             label="Low Stock"
             value={
-              analyticsLoading
+              productsLoading && storeProducts.length === 0
                 ? "—"
                 : formatNumber(
                     dashboardLowStock
