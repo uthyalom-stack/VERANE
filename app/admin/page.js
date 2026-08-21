@@ -138,42 +138,66 @@ function BrandDashboard({
 
   /*
    * ==========================================================
+   * REAL BRAND IDENTIFIERS
+   *
+   * The analytics API/database uses the actual brand slugs.
+   * ==========================================================
+   */
+
+  const analyticsBrand =
+    brand === "UTHY"
+      ? "UTHY_LUXURY"
+      : "ALOMZIEE_FOOTIES";
+
+  /*
+   * ==========================================================
    * LOAD ANALYTICS
    * ==========================================================
    */
 
-  useEffect(() => {
-    const loadAnalytics = async () => {
-      try {
-        setAnalyticsLoading(true);
+  const loadAnalytics = useCallback(async () => {
+    try {
+      setAnalyticsLoading(true);
 
-        const response = await fetch(
-          `/api/admin/analytics?brand=${brand}&range=30d`,
-          {
-            cache: "no-store",
-            credentials: "include",
-          }
-        );
+      /*
+       * Use the actual brand identifier.
+       *
+       * We also send the simple brand identifier so the API
+       * can support either format if necessary.
+       */
 
-        if (!response.ok) {
-          throw new Error(
-            `Analytics request failed: ${response.status}`
-          );
+      const response = await fetch(
+        `/api/admin/analytics?brand=${encodeURIComponent(
+          analyticsBrand
+        )}&range=30d`,
+        {
+          cache: "no-store",
+          credentials: "include",
         }
+      );
 
-        const data = await response.json();
-
-        setAnalytics(data);
-      } catch (error) {
-        console.error("Analytics error:", error);
-        setAnalytics(null);
-      } finally {
-        setAnalyticsLoading(false);
+      if (!response.ok) {
+        throw new Error(
+          `Analytics request failed: ${response.status}`
+        );
       }
-    };
 
+      const data = await response.json();
+
+      console.log("Dashboard analytics:", data);
+
+      setAnalytics(data);
+    } catch (error) {
+      console.error("Analytics error:", error);
+      setAnalytics(null);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [analyticsBrand]);
+
+  useEffect(() => {
     loadAnalytics();
-  }, [brand]);
+  }, [loadAnalytics]);
 
 
   /*
@@ -242,8 +266,16 @@ function BrandDashboard({
 
           const currentBrand =
             brand === "UTHY"
-              ? ["UTHY", "UTHY_LUXURY"]
-              : ["ALOMZIEE", "ALOMZIEE_FOOTIES"];
+              ? [
+                  "UTHY",
+                  "UTHY_LUXURY",
+                  "UTHY LUXURY",
+                ]
+              : [
+                  "ALOMZIEE",
+                  "ALOMZIEE_FOOTIES",
+                  "ALOMZIEE FOOTIES",
+                ];
 
           return currentBrand.includes(normalized);
         });
@@ -485,20 +517,16 @@ function BrandDashboard({
 
   /*
    * ==========================================================
-   * IMPORTANT:
-   * THE ANALYTICS API RETURNS DATA IN:
+   * NORMALIZE ANALYTICS RESPONSE
+   *
+   * Supports both:
    *
    * overview.products
    * overview.revenue
    * overview.orders
    * overview.lowStock
    *
-   * AND:
-   *
-   * analytics.daily
-   * analytics.bestSellers
-   *
-   * These aliases make the dashboard read the correct data.
+   * AND alternate structures returned by analytics.
    * ==========================================================
    */
 
@@ -506,25 +534,44 @@ function BrandDashboard({
   const analyticsData = analytics?.analytics || {};
 
   const dashboardRevenue =
-    overview.revenue ?? 0;
+    overview.revenue ??
+    analytics?.revenue ??
+    analyticsData.revenue ??
+    0;
 
   const dashboardOrders =
-    overview.orders ?? 0;
+    overview.orders ??
+    analytics?.orders ??
+    analyticsData.orders ??
+    0;
 
   const dashboardProducts =
-    overview.products ?? 0;
+    overview.products ??
+    analytics?.products ??
+    analyticsData.products ??
+    0;
 
   const dashboardLowStock =
-    overview.lowStock ?? 0;
+    overview.lowStock ??
+    analytics?.lowStock ??
+    analyticsData.lowStock ??
+    0;
 
   const salesData =
-    analyticsData.daily || [];
+    analyticsData.daily ||
+    analytics?.daily ||
+    analytics?.revenueOverTime ||
+    [];
 
   const bestSellers =
-    analyticsData.bestSellers || [];
+    analyticsData.bestSellers ||
+    analytics?.bestSellers ||
+    [];
 
   const recentOrders =
-    analytics?.recentOrders || [];
+    analytics?.recentOrders ||
+    analyticsData.recentOrders ||
+    [];
 
 
   return (
@@ -1046,7 +1093,18 @@ function BrandDashboard({
 
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+
+              <button
+                onClick={() =>
+                  router.push(
+                    `/admin/analytics?brand=${analyticsBrand}`
+                  )
+                }
+                className="rounded-2xl border border-white/10 bg-white/[0.025] px-5 py-3 text-xs font-black hover:bg-white/[0.05] hover:border-white/20 transition"
+              >
+                Analytics →
+              </button>
 
               <button
                 onClick={() =>
@@ -1062,11 +1120,7 @@ function BrandDashboard({
               <button
                 onClick={() =>
                   router.push(
-                    `/admin/products?brand=${
-                      brand === "UTHY"
-                        ? "UTHY_LUXURY"
-                        : "ALOMZIEE_FOOTIES"
-                    }`
+                    `/admin/products?brand=${analyticsBrand}`
                   )
                 }
                 className={`rounded-2xl px-5 py-3 text-xs font-black transition ${
@@ -1244,9 +1298,16 @@ function BrandDashboard({
 
                 </div>
 
-                <span className="text-[9px] uppercase tracking-wider text-neutral-600 border border-white/10 rounded-full px-3 py-1.5">
-                  Last 30 days
-                </span>
+                <button
+                  onClick={() =>
+                    router.push(
+                      `/admin/analytics?brand=${analyticsBrand}`
+                    )
+                  }
+                  className="text-[9px] uppercase tracking-wider text-neutral-600 border border-white/10 rounded-full px-3 py-1.5 hover:text-white hover:border-white/20 transition"
+                >
+                  View Analytics →
+                </button>
 
               </div>
 
@@ -1275,17 +1336,25 @@ function BrandDashboard({
             <div className="space-y-2 mt-6">
 
               <QuickAction
+                title="Analytics"
+                description="Track sales, revenue & performance"
+                onClick={() =>
+                  router.push(
+                    `/admin/analytics?brand=${analyticsBrand}`
+                  )
+                }
+                accent={accent}
+              />
+
+              <QuickAction
                 title="Products"
                 description="Manage your catalog"
                 onClick={() =>
                   router.push(
-                    `/admin/products?brand=${
-                      brand === "UTHY"
-                        ? "UTHY_LUXURY"
-                        : "ALOMZIEE_FOOTIES"
-                    }`
+                    `/admin/products?brand=${analyticsBrand}`
                   )
                 }
+                accent={accent}
               />
 
               <QuickAction
@@ -1296,6 +1365,7 @@ function BrandDashboard({
                     "/admin/orders"
                   )
                 }
+                accent={accent}
               />
 
               <QuickAction
@@ -1306,6 +1376,7 @@ function BrandDashboard({
                     "/admin/collections"
                   )
                 }
+                accent={accent}
               />
 
               <QuickAction
@@ -1316,6 +1387,7 @@ function BrandDashboard({
                     "/admin/collaborations"
                   )
                 }
+                accent={accent}
               />
 
               <QuickAction
@@ -1326,6 +1398,7 @@ function BrandDashboard({
                     "/admin/products/add"
                   )
                 }
+                accent={accent}
               />
 
             </div>
@@ -1673,6 +1746,18 @@ function SuperAdminDashboard({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
             <ControlCard
+              title="Analytics"
+              description="Platform-wide sales & performance"
+              icon="↗"
+              featured
+              onClick={() =>
+                router.push(
+                  "/admin/analytics"
+                )
+              }
+            />
+
+            <ControlCard
               title="Discounts"
               description="Promotions & discount rules"
               icon="%"
@@ -1798,7 +1883,10 @@ function QuickAction({
   title,
   description,
   onClick,
+  accent,
 }) {
+  const isUthy = accent === "amber";
+
   return (
     <button
       onClick={onClick}
@@ -1807,7 +1895,15 @@ function QuickAction({
 
       <div>
 
-        <p className="text-xs font-black">
+        <p
+          className={`text-xs font-black ${
+            title === "Analytics"
+              ? isUthy
+                ? "text-amber-400"
+                : "text-violet-300"
+              : ""
+          }`}
+        >
           {title}
         </p>
 
@@ -1817,7 +1913,15 @@ function QuickAction({
 
       </div>
 
-      <span className="text-neutral-700">
+      <span
+        className={
+          title === "Analytics"
+            ? isUthy
+              ? "text-amber-400"
+              : "text-violet-300"
+            : "text-neutral-700"
+        }
+      >
         →
       </span>
 
