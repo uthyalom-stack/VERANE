@@ -19,25 +19,22 @@ const EMPTY_ITEMS = {
   hand: [],
 };
 
+const EMPTY_OUTFIT = {
+  top: null,
+  bottom: null,
+  feet: null,
+  waist: null,
+  hand: null,
+};
+
 function Mannequin({ outfit }) {
   return (
     <div className="relative h-[560px] w-[300px] sm:h-[650px] sm:w-[350px]">
-
       {/* HEAD */}
       <div className="absolute left-1/2 top-2 h-[86px] w-[86px] -translate-x-1/2 rounded-full border border-white/10 bg-[#c7a27d]" />
 
-      {/* TOP */}
-      <div className="absolute left-1/2 top-[78px] h-[250px] w-[150px] -translate-x-1/2 overflow-hidden rounded-[45%_45%_30%_30%] border border-white/10">
-        {outfit.top?.assetUrl ? (
-          <img
-            src={outfit.top.assetUrl}
-            alt={outfit.top.name}
-            className="h-full w-full object-contain"
-          />
-        ) : (
-          <div className="h-full w-full bg-[#262626]" />
-        )}
-      </div>
+      {/* BODY */}
+      <div className="absolute left-1/2 top-[78px] h-[250px] w-[150px] -translate-x-1/2 rounded-[45%_45%_30%_30%] border border-white/10 bg-[#262626]" />
 
       {/* LEFT ARM */}
       <div className="absolute left-[50px] top-[105px] h-[210px] w-[48px] rotate-[5deg] rounded-full border border-white/10 bg-[#262626]" />
@@ -45,40 +42,78 @@ function Mannequin({ outfit }) {
       {/* RIGHT ARM */}
       <div className="absolute right-[50px] top-[105px] h-[210px] w-[48px] -rotate-[5deg] rounded-full border border-white/10 bg-[#262626]" />
 
+      {/* LEFT LEG */}
+      <div className="absolute left-1/2 top-[300px] h-[220px] w-[70px] -translate-x-[92%] rounded-b-[30px] border border-white/10 bg-[#262626]" />
+
+      {/* RIGHT LEG */}
+      <div className="absolute left-1/2 top-[300px] h-[220px] w-[70px] translate-x-[-8%] rounded-b-[30px] border border-white/10 bg-[#262626]" />
+
+      {/* TOP */}
+      {outfit.top?.assetUrl && (
+        <img
+          src={outfit.top.assetUrl}
+          alt={outfit.top.name}
+          className="pointer-events-none absolute left-1/2 top-[65px] z-20 h-auto w-[190px] -translate-x-1/2 object-contain"
+          style={{
+            transform: `translateX(calc(-50% + ${
+              outfit.top.positionX || 0
+            }px)) translateY(${
+              outfit.top.positionY || 0
+            }px) scale(${outfit.top.scale || 1})`,
+            transformOrigin: "center center",
+          }}
+        />
+      )}
+
       {/* BOTTOM */}
-      <div className="absolute left-1/2 top-[300px] h-[220px] w-[145px] -translate-x-1/2 overflow-hidden border border-white/10">
-        {outfit.bottom?.assetUrl ? (
-          <img
-            src={outfit.bottom.assetUrl}
-            alt={outfit.bottom.name}
-            className="h-full w-full object-contain"
-          />
-        ) : (
-          <div className="h-full w-full bg-[#262626]" />
-        )}
-      </div>
+      {outfit.bottom?.assetUrl && (
+        <img
+          src={outfit.bottom.assetUrl}
+          alt={outfit.bottom.name}
+          className="pointer-events-none absolute left-1/2 top-[285px] z-20 h-auto w-[145px] -translate-x-1/2 object-contain"
+          style={{
+            transform: `translateX(calc(-50% + ${
+              outfit.bottom.positionX || 0
+            }px)) translateY(${
+              outfit.bottom.positionY || 0
+            }px) scale(${outfit.bottom.scale || 1})`,
+            transformOrigin: "center center",
+          }}
+        />
+      )}
+
+      {/* FEET */}
+      {outfit.feet?.assetUrl && (
+        <img
+          src={outfit.feet.assetUrl}
+          alt={outfit.feet.name}
+          className="pointer-events-none absolute bottom-[5px] left-1/2 z-30 h-auto w-[190px] -translate-x-1/2 object-contain"
+          style={{
+            transform: `translateX(calc(-50% + ${
+              outfit.feet.positionX || 0
+            }px)) translateY(${
+              outfit.feet.positionY || 0
+            }px) scale(${outfit.feet.scale || 1})`,
+            transformOrigin: "center center",
+          }}
+        />
+      )}
 
       {/* WAIST */}
       {outfit.waist?.assetUrl && (
         <img
           src={outfit.waist.assetUrl}
           alt={outfit.waist.name}
-          className="absolute left-1/2 top-[278px] h-[35px] w-[160px] -translate-x-1/2 object-contain"
+          className="pointer-events-none absolute left-1/2 top-[270px] z-40 h-auto w-[165px] -translate-x-1/2 object-contain"
+          style={{
+            transform: `translateX(calc(-50% + ${
+              outfit.waist.positionX || 0
+            }px)) translateY(${
+              outfit.waist.positionY || 0
+            }px) scale(${outfit.waist.scale || 1})`,
+            transformOrigin: "center center",
+          }}
         />
-      )}
-
-      {/* FEET */}
-      {outfit.feet?.assetUrl ? (
-        <img
-          src={outfit.feet.assetUrl}
-          alt={outfit.feet.name}
-          className="absolute bottom-[5px] left-1/2 h-[70px] w-[220px] -translate-x-1/2 object-contain"
-        />
-      ) : (
-        <>
-          <div className="absolute bottom-[12px] left-[42px] h-[42px] w-[92px] rounded-[60%_40%_35%_35%] border border-white/10 bg-[#171717]" />
-          <div className="absolute bottom-[12px] right-[42px] h-[42px] w-[92px] rounded-[40%_60%_35%_35%] border border-white/10 bg-[#171717]" />
-        </>
       )}
 
       {/* HAND / BAG */}
@@ -86,13 +121,21 @@ function Mannequin({ outfit }) {
         <img
           src={outfit.hand.assetUrl}
           alt={outfit.hand.name}
-          className="absolute right-[5px] top-[270px] h-[130px] w-[80px] object-contain"
+          className="pointer-events-none absolute right-[5px] top-[255px] z-50 h-auto w-[95px] object-contain"
+          style={{
+            transform: `translate(${
+              outfit.hand.positionX || 0
+            }px, ${
+              outfit.hand.positionY || 0
+            }px) scale(${outfit.hand.scale || 1})`,
+            transformOrigin: "center center",
+          }}
         />
       )}
 
       {/* BRAND MARK */}
       {outfit.top && (
-        <div className="absolute left-1/2 top-[150px] -translate-x-1/2 text-[8px] font-bold uppercase tracking-[0.25em] text-black/40">
+        <div className="absolute left-1/2 top-[150px] z-50 -translate-x-1/2 text-[8px] font-bold uppercase tracking-[0.25em] text-black/40">
           UTHY
         </div>
       )}
@@ -100,23 +143,74 @@ function Mannequin({ outfit }) {
   );
 }
 
+function ProductCard({ item, selected, onSelect }) {
+  const image =
+    item.assetUrl ||
+    (Array.isArray(item.images) ? item.images[0] : null);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item)}
+      className={[
+        "group overflow-hidden rounded-2xl border text-left transition",
+        selected
+          ? "border-amber-400"
+          : "border-white/10 hover:border-white/30",
+      ].join(" ")}
+    >
+      <div className="aspect-square overflow-hidden bg-neutral-900">
+        {image ? (
+          <img
+            src={image}
+            alt={item.name}
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-neutral-800">
+            <span className="text-[9px] uppercase tracking-[0.2em] text-white/20">
+              No Image
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-neutral-950 p-3">
+        <p className="truncate text-[10px] font-bold uppercase tracking-wider">
+          {item.name}
+        </p>
+
+        {item.brand && (
+          <p className="mt-1 truncate text-[8px] uppercase tracking-wider text-amber-400/60">
+            {item.brand}
+          </p>
+        )}
+
+        <p className="mt-1 text-[8px] uppercase tracking-wider text-white/30">
+          {selected ? "Selected" : "Add to look"}
+        </p>
+      </div>
+    </button>
+  );
+}
+
 export default function OutfitBuilderPage() {
   const [activeCategory, setActiveCategory] = useState("top");
 
   const [items, setItems] = useState(EMPTY_ITEMS);
+
+  const [outfit, setOutfit] = useState(EMPTY_OUTFIT);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
 
-  const [outfit, setOutfit] = useState({
-    top: null,
-    bottom: null,
-    feet: null,
-    waist: null,
-    hand: null,
-  });
+  const [addingToCart, setAddingToCart] = useState(false);
+
+  const [cartMessage, setCartMessage] = useState("");
 
   useEffect(() => {
-    async function loadBuilderProducts() {
+    async function loadProducts() {
       try {
         setLoading(true);
         setError("");
@@ -125,32 +219,42 @@ export default function OutfitBuilderPage() {
           cache: "no-store",
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => null);
 
         if (!response.ok) {
           throw new Error(
-            data?.error || "Failed to load Outfit Builder products."
+            data?.error ||
+              "Unable to load Outfit Builder products."
           );
         }
 
         setItems({
           top: Array.isArray(data?.top) ? data.top : [],
-          bottom: Array.isArray(data?.bottom) ? data.bottom : [],
+          bottom: Array.isArray(data?.bottom)
+            ? data.bottom
+            : [],
           feet: Array.isArray(data?.feet) ? data.feet : [],
-          waist: Array.isArray(data?.waist) ? data.waist : [],
+          waist: Array.isArray(data?.waist)
+            ? data.waist
+            : [],
           hand: Array.isArray(data?.hand) ? data.hand : [],
         });
       } catch (err) {
-        console.error("Builder products error:", err);
+        console.error(
+          "Outfit Builder loading error:",
+          err
+        );
+
         setError(
-          err?.message || "Unable to load Outfit Builder products."
+          err?.message ||
+            "Unable to load Outfit Builder products."
         );
       } finally {
         setLoading(false);
       }
     }
 
-    loadBuilderProducts();
+    loadProducts();
   }, []);
 
   const currentItems = useMemo(() => {
@@ -158,6 +262,8 @@ export default function OutfitBuilderPage() {
   }, [items, activeCategory]);
 
   function selectItem(item) {
+    setCartMessage("");
+
     setOutfit((current) => ({
       ...current,
       [activeCategory]: item,
@@ -165,6 +271,8 @@ export default function OutfitBuilderPage() {
   }
 
   function removeItem() {
+    setCartMessage("");
+
     setOutfit((current) => ({
       ...current,
       [activeCategory]: null,
@@ -172,19 +280,160 @@ export default function OutfitBuilderPage() {
   }
 
   function clearLook() {
-    setOutfit({
-      top: null,
-      bottom: null,
-      feet: null,
-      waist: null,
-      hand: null,
-    });
+    setCartMessage("");
+    setOutfit(EMPTY_OUTFIT);
   }
+
+  function getProductImages(item) {
+    if (Array.isArray(item.images)) {
+      return item.images;
+    }
+
+    if (typeof item.images === "string") {
+      try {
+        const parsed = JSON.parse(item.images);
+
+        return Array.isArray(parsed)
+          ? parsed
+          : [];
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
+  }
+
+  function addLookToCart() {
+    if (addingToCart) {
+      return;
+    }
+
+    const selectedItems = Object.values(outfit).filter(
+      Boolean
+    );
+
+    if (selectedItems.length === 0) {
+      setCartMessage(
+        "Select at least one piece before adding your look to the cart."
+      );
+      return;
+    }
+
+    try {
+      setAddingToCart(true);
+      setCartMessage("");
+
+      const saved = localStorage.getItem("cart");
+
+      let existingItems = [];
+
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+
+          if (Array.isArray(parsed?.items)) {
+            existingItems = parsed.items;
+          }
+        } catch {
+          existingItems = [];
+        }
+      }
+
+      const updatedItems = [...existingItems];
+
+      for (const product of selectedItems) {
+        const existingIndex = updatedItems.findIndex(
+          (item) => item.id === product.id
+        );
+
+        if (existingIndex !== -1) {
+          const existing = updatedItems[existingIndex];
+
+          const inventory = Number(
+            existing.inventory ??
+              product.inventory ??
+              0
+          );
+
+          const currentQty = Number(
+            existing.qty || 0
+          );
+
+          if (
+            inventory > 0 &&
+            currentQty >= inventory
+          ) {
+            continue;
+          }
+
+          updatedItems[existingIndex] = {
+            ...existing,
+            qty:
+              currentQty + 1,
+          };
+
+          continue;
+        }
+
+        updatedItems.push({
+          id: product.id,
+          name: product.name,
+          brand: product.brand,
+          category: product.category,
+          price: Number(product.price || 0),
+          images: getProductImages(product),
+          inventory: Number(product.inventory || 0),
+          qty: 1,
+        });
+      }
+
+      const total = updatedItems.reduce(
+        (sum, item) =>
+          sum +
+          Number(item.price || 0) *
+            Number(item.qty || 0),
+        0
+      );
+
+      const updatedCart = {
+        items: updatedItems,
+        total,
+        event: "Verane",
+      };
+
+      localStorage.setItem(
+        "cart",
+        JSON.stringify(updatedCart)
+      );
+
+      setCartMessage(
+        "Your selected look has been added to the cart."
+      );
+
+      setTimeout(() => {
+        window.location.href = "/cart";
+      }, 500);
+    } catch (err) {
+      console.error(
+        "Outfit Builder cart error:",
+        err
+      );
+
+      setCartMessage(
+        "Unable to add the look to your cart. Please try again."
+      );
+
+      setAddingToCart(false);
+    }
+  }
+
+  const selectedCount =
+    Object.values(outfit).filter(Boolean).length;
 
   return (
     <main className="min-h-screen bg-black text-white">
       <section className="mx-auto max-w-[1600px] px-5 pb-20 pt-16 sm:px-8 lg:px-12">
-
         {/* HEADER */}
         <div className="mb-10 max-w-3xl">
           <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.4em] text-amber-400">
@@ -196,18 +445,24 @@ export default function OutfitBuilderPage() {
           </h1>
 
           <p className="mt-5 max-w-xl text-sm leading-7 text-neutral-400 sm:text-base">
-            Combine UTHY LUXURY clothing with ALOMZIEE FOOTIES
-            footwear and accessories. Build the complete look before
-            you buy.
+            Combine UTHY LUXURY clothing with
+            ALOMZIEE FOOTIES footwear and
+            accessories. Build the complete look
+            before you buy.
           </p>
         </div>
 
+        {/* ERROR */}
+        {error && (
+          <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 px-5 py-4 text-sm text-red-300">
+            {error}
+          </div>
+        )}
+
         {/* BUILDER */}
         <div className="grid overflow-hidden rounded-[2rem] border border-white/10 bg-neutral-950 lg:grid-cols-[1fr_420px]">
-
           {/* MANNEQUIN */}
           <div className="relative flex min-h-[650px] items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_center,_#262626_0%,_#0a0a0a_55%,_#000_100%)] p-8 sm:min-h-[760px]">
-
             <div className="absolute left-8 top-8 text-[9px] uppercase tracking-[0.3em] text-white/20">
               Your Look
             </div>
@@ -216,14 +471,13 @@ export default function OutfitBuilderPage() {
 
             <div className="absolute bottom-7 left-1/2 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap text-[8px] uppercase tracking-[0.25em] text-white/20">
               <span className="h-px w-8 bg-white/10" />
-              2D PREVIEW
+              LIVE PREVIEW
               <span className="h-px w-8 bg-white/10" />
             </div>
           </div>
 
           {/* CONTROLS */}
           <div className="border-t border-white/10 bg-[#0d0d0d] lg:border-l lg:border-t-0">
-
             {/* CATEGORY HEADER */}
             <div className="border-b border-white/10 p-5 sm:p-7">
               <div className="flex items-center justify-between">
@@ -247,15 +501,20 @@ export default function OutfitBuilderPage() {
               </div>
 
               {/* CATEGORY TABS */}
-              <div className="mt-6 flex gap-1 overflow-x-auto rounded-xl border border-white/10 bg-black p-1">
+              <div className="mt-6 grid grid-cols-5 gap-1 rounded-xl border border-white/10 bg-black p-1">
                 {CATEGORIES.map((category) => (
                   <button
                     key={category.key}
                     type="button"
-                    onClick={() => setActiveCategory(category.key)}
+                    onClick={() =>
+                      setActiveCategory(
+                        category.key
+                      )
+                    }
                     className={[
-                      "min-w-[65px] flex-1 rounded-lg px-3 py-3 text-[8px] font-bold uppercase tracking-wider transition",
-                      activeCategory === category.key
+                      "rounded-lg px-2 py-3 text-[8px] font-bold uppercase tracking-wider transition",
+                      activeCategory ===
+                      category.key
                         ? "bg-white text-black"
                         : "text-white/35 hover:text-white",
                     ].join(" ")}
@@ -268,7 +527,6 @@ export default function OutfitBuilderPage() {
 
             {/* PRODUCTS */}
             <div className="max-h-[500px] overflow-y-auto p-5 sm:p-7">
-
               <div className="mb-5 flex items-center justify-between">
                 <div>
                   <p className="text-[9px] uppercase tracking-[0.25em] text-white/30">
@@ -276,7 +534,11 @@ export default function OutfitBuilderPage() {
                   </p>
 
                   <p className="mt-1 text-sm font-semibold">
-                    Select a piece
+                    {loading
+                      ? "Loading pieces..."
+                      : currentItems.length > 0
+                      ? "Select a piece"
+                      : "No pieces available"}
                   </p>
                 </div>
 
@@ -292,80 +554,39 @@ export default function OutfitBuilderPage() {
               </div>
 
               {loading ? (
-                <div className="rounded-2xl border border-white/10 p-10 text-center">
-                  <p className="text-sm text-neutral-500">
-                    Loading products...
-                  </p>
-                </div>
-              ) : error ? (
-                <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6 text-center">
-                  <p className="text-sm text-red-300">
-                    {error}
+                <div className="rounded-2xl border border-white/10 bg-black p-10 text-center">
+                  <div className="mx-auto mb-4 h-6 w-6 animate-spin rounded-full border-2 border-white/10 border-t-white" />
+
+                  <p className="text-[9px] uppercase tracking-[0.2em] text-white/30">
+                    Loading collection
                   </p>
                 </div>
               ) : currentItems.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center">
-                  <p className="text-sm text-neutral-500">
-                    No {activeCategory} products available yet.
+                <div className="rounded-2xl border border-dashed border-white/10 bg-black p-10 text-center">
+                  <p className="text-sm font-semibold">
+                    Nothing here yet.
                   </p>
 
-                  <p className="mt-2 text-[10px] uppercase tracking-wider text-white/20">
-                    Add compatible products from Admin
+                  <p className="mt-2 text-xs leading-5 text-neutral-600">
+                    Add an Outfit Builder
+                    compatible product from
+                    the admin panel.
                   </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  {currentItems.map((item) => {
-                    const selected =
-                      outfit[activeCategory]?.id === item.id;
-
-                    const image =
-                      item.assetUrl ||
-                      item.mannequinAsset ||
-                      (Array.isArray(item.images)
-                        ? item.images[0]
-                        : typeof item.images === "string"
-                        ? item.images.split(",")[0]
-                        : "");
-
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => selectItem(item)}
-                        className={[
-                          "group overflow-hidden rounded-2xl border text-left transition",
-                          selected
-                            ? "border-amber-400"
-                            : "border-white/10 hover:border-white/30",
-                        ].join(" ")}
-                      >
-                        <div className="aspect-square bg-neutral-900 p-3">
-                          {image ? (
-                            <img
-                              src={image}
-                              alt={item.name}
-                              className="h-full w-full object-contain transition group-hover:scale-105"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center text-[9px] uppercase tracking-widest text-white/20">
-                              No Image
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="bg-neutral-950 p-3">
-                          <p className="truncate text-[10px] font-bold uppercase tracking-wider">
-                            {item.name}
-                          </p>
-
-                          <p className="mt-1 text-[8px] uppercase tracking-wider text-white/30">
-                            {selected ? "Selected" : "Add to look"}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
+                  {currentItems.map((item) => (
+                    <ProductCard
+                      key={item.id}
+                      item={item}
+                      selected={
+                        outfit[
+                          activeCategory
+                        ]?.id === item.id
+                      }
+                      onSelect={selectItem}
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -379,7 +600,8 @@ export default function OutfitBuilderPage() {
                   </p>
 
                   <p className="mt-1 text-xs text-white/60">
-                    {Object.values(outfit).filter(Boolean).length} pieces selected
+                    {selectedCount} pieces
+                    selected
                   </p>
                 </div>
 
@@ -388,14 +610,47 @@ export default function OutfitBuilderPage() {
                 </span>
               </div>
 
+              {cartMessage && (
+                <div
+                  className={[
+                    "mb-4 rounded-xl border px-4 py-3 text-[10px] leading-5",
+                    cartMessage.includes(
+                      "unable"
+                    ) ||
+                    cartMessage.includes(
+                      "Select"
+                    )
+                      ? "border-red-500/20 bg-red-500/5 text-red-300"
+                      : "border-amber-400/20 bg-amber-400/5 text-amber-300",
+                  ].join(" ")}
+                >
+                  {cartMessage}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={addLookToCart}
+                disabled={
+                  addingToCart ||
+                  selectedCount === 0
+                }
+                className="block w-full rounded-full bg-white px-6 py-4 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {addingToCart
+                  ? "Adding look..."
+                  : selectedCount === 0
+                  ? "Select pieces first"
+                  : "Add look to cart"}
+              </button>
+
               <Link
                 href="/catalog"
-                className="block rounded-full bg-white px-6 py-4 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-black transition hover:bg-amber-400"
+                className="mt-4 block text-center text-[9px] uppercase tracking-[0.2em] text-white/30 transition hover:text-white"
               >
-                Shop the collection
+                Continue shopping
               </Link>
             </div>
-
           </div>
         </div>
       </section>

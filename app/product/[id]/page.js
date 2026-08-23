@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
@@ -13,11 +14,14 @@ export default function ProductDetail() {
   const [qty, setQty] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [wishlist, setWishlist] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
 
   useEffect(() => {
     async function loadProduct() {
       try {
-        const response = await fetch("/api/products");
+        const response = await fetch("/api/products", {
+          cache: "no-store",
+        });
 
         if (!response.ok) {
           throw new Error("Failed to fetch products");
@@ -35,8 +39,40 @@ export default function ProductDetail() {
       }
     }
 
+    async function loadWishlistStatus() {
+      try {
+        const response = await fetch("/api/wishlist", {
+          cache: "no-store",
+        });
+
+        if (response.status === 401) {
+          return;
+        }
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+
+        const isSaved = Array.isArray(data.wishlist)
+          ? data.wishlist.some(
+              (item) => item.productId === id
+            )
+          : false;
+
+        setWishlist(isSaved);
+      } catch (error) {
+        console.error(
+          "Failed to load wishlist status:",
+          error
+        );
+      }
+    }
+
     if (id) {
       loadProduct();
+      loadWishlistStatus();
     }
   }, [id]);
 
@@ -44,7 +80,11 @@ export default function ProductDetail() {
     if (!images) return [];
 
     try {
-      const parsed = typeof images === "string" ? JSON.parse(images) : images;
+      const parsed =
+        typeof images === "string"
+          ? JSON.parse(images)
+          : images;
+
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
@@ -55,7 +95,11 @@ export default function ProductDetail() {
     if (!colors) return [];
 
     try {
-      const parsed = typeof colors === "string" ? JSON.parse(colors) : colors;
+      const parsed =
+        typeof colors === "string"
+          ? JSON.parse(colors)
+          : colors;
+
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
@@ -63,9 +107,57 @@ export default function ProductDetail() {
   };
 
   const getBrandName = (brand) => {
-    if (brand === "UTHY_LUXURY") return "UTHY LUXURY";
-    if (brand === "ALOMZIEE_FOOTIES") return "ALOMZIEE FOOTIES";
+    if (brand === "UTHY_LUXURY") {
+      return "UTHY LUXURY";
+    }
+
+    if (brand === "ALOMZIEE_FOOTIES") {
+      return "ALOMZIEE FOOTIES";
+    }
+
     return brand || "VÉRANE";
+  };
+
+  const toggleWishlist = async () => {
+    if (!product || wishlistLoading) {
+      return;
+    }
+
+    setWishlistLoading(true);
+
+    try {
+      const response = await fetch("/api/wishlist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: product.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        router.push("/login");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Failed to update wishlist"
+        );
+      }
+
+      setWishlist(Boolean(data.wishlisted));
+    } catch (error) {
+      console.error(
+        "Wishlist update failed:",
+        error
+      );
+    } finally {
+      setWishlistLoading(false);
+    }
   };
 
   const addToCart = () => {
@@ -80,7 +172,9 @@ export default function ProductDetail() {
       cart.items = [];
     }
 
-    const existing = cart.items.find((item) => item.id === product.id);
+    const existing = cart.items.find(
+      (item) => item.id === product.id
+    );
 
     if (existing) {
       existing.qty += qty;
@@ -92,18 +186,33 @@ export default function ProductDetail() {
     }
 
     cart.total = cart.items.reduce(
-      (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0),
+      (sum, item) =>
+        sum +
+        Number(item.price || 0) *
+          Number(item.qty || 0),
       0
     );
 
-    localStorage.setItem("cart", JSON.stringify(cart));
+    localStorage.setItem(
+      "cart",
+      JSON.stringify(cart)
+    );
 
     router.push("/cart");
   };
 
-  const images = product ? getImages(product.images) : [];
-  const colors = product ? getColors(product.colors) : [];
-  const inventory = Number(product?.inventory ?? 0);
+  const images = product
+    ? getImages(product.images)
+    : [];
+
+  const colors = product
+    ? getColors(product.colors)
+    : [];
+
+  const inventory = Number(
+    product?.inventory ?? 0
+  );
+
   const isOutOfStock = inventory <= 0;
 
   if (loading) {
@@ -117,9 +226,13 @@ export default function ProductDetail() {
 
             <div className="space-y-5 pt-4 md:pt-10">
               <div className="h-3 w-32 bg-neutral-900 rounded animate-pulse" />
+
               <div className="h-14 md:h-20 w-4/5 bg-neutral-900 rounded-2xl animate-pulse" />
+
               <div className="h-8 w-40 bg-neutral-900 rounded animate-pulse" />
+
               <div className="h-24 w-full bg-neutral-900 rounded-2xl animate-pulse mt-8" />
+
               <div className="h-14 w-full bg-neutral-900 rounded-full animate-pulse mt-8" />
             </div>
           </div>
@@ -149,6 +262,7 @@ export default function ProductDetail() {
 
   return (
     <main className="min-h-screen bg-black text-white">
+
       {/* BACK */}
       <div className="max-w-7xl mx-auto px-5 sm:px-8 pt-8 md:pt-12">
         <Link
@@ -163,9 +277,11 @@ export default function ProductDetail() {
       {/* PRODUCT */}
       <section className="max-w-7xl mx-auto px-5 sm:px-8 py-8 md:py-12 lg:py-16">
         <div className="grid md:grid-cols-2 gap-10 lg:gap-16">
+
           {/* IMAGES */}
           <div>
             <div className="relative aspect-[4/5] bg-neutral-950 rounded-[2rem] overflow-hidden border border-white/5">
+
               {images.length > 0 ? (
                 <img
                   src={images[selectedImage]}
@@ -201,17 +317,23 @@ export default function ProductDetail() {
                 {images.map((img, index) => (
                   <button
                     key={index}
-                    onClick={() => setSelectedImage(index)}
+                    onClick={() =>
+                      setSelectedImage(index)
+                    }
                     className={`shrink-0 w-20 h-24 md:w-24 md:h-28 rounded-xl overflow-hidden border-2 transition-all ${
                       index === selectedImage
                         ? "border-amber-500"
                         : "border-white/5 hover:border-white/20"
                     }`}
-                    aria-label={`View image ${index + 1}`}
+                    aria-label={`View image ${
+                      index + 1
+                    }`}
                   >
                     <img
                       src={img}
-                      alt={`${product.name} ${index + 1}`}
+                      alt={`${product.name} ${
+                        index + 1
+                      }`}
                       className="w-full h-full object-cover"
                     />
                   </button>
@@ -222,6 +344,7 @@ export default function ProductDetail() {
 
           {/* DETAILS */}
           <div className="flex flex-col">
+
             {/* BRAND */}
             <p className="text-amber-400 text-[10px] md:text-xs font-bold tracking-[0.35em] uppercase mb-4">
               {getBrandName(product.brand)}
@@ -229,29 +352,48 @@ export default function ProductDetail() {
 
             {/* NAME + WISHLIST */}
             <div className="flex items-start justify-between gap-5">
+
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-[-0.04em] leading-[0.95]">
                 {product.name}
               </h1>
 
+              {/* WISHLIST HEART */}
               <button
-                onClick={() => setWishlist((current) => !current)}
-                aria-label="Add to wishlist"
+                type="button"
+                onClick={toggleWishlist}
+                disabled={wishlistLoading}
+                aria-label={
+                  wishlist
+                    ? "Remove from wishlist"
+                    : "Add to wishlist"
+                }
+                aria-pressed={wishlist}
                 className={`shrink-0 w-11 h-11 rounded-full border flex items-center justify-center transition-all duration-300 ${
                   wishlist
                     ? "bg-white text-black border-white"
                     : "border-white/10 text-neutral-400 hover:text-white hover:border-white/30"
+                } ${
+                  wishlistLoading
+                    ? "opacity-50 cursor-wait"
+                    : ""
                 }`}
               >
                 <svg
                   className="w-5 h-5"
-                  fill={wishlist ? "currentColor" : "none"}
+                  fill={
+                    wishlist
+                      ? "currentColor"
+                      : "none"
+                  }
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={wishlist ? 1 : 1.7}
+                    strokeWidth={
+                      wishlist ? 1 : 1.7
+                    }
                     d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"
                   />
                 </svg>
@@ -268,13 +410,17 @@ export default function ProductDetail() {
             {/* PRICE */}
             <div className="mt-7">
               <p className="text-3xl md:text-4xl font-bold">
-                ₦{Number(product.price || 0).toLocaleString()}
+                ₦
+                {Number(
+                  product.price || 0
+                ).toLocaleString()}
               </p>
 
               {!isOutOfStock && (
                 <p className="text-xs text-emerald-500 mt-2">
                   In stock
-                  {inventory > 0 && inventory < 10
+                  {inventory > 0 &&
+                  inventory < 10
                     ? ` · Only ${inventory} left`
                     : ""}
                 </p>
@@ -318,8 +464,13 @@ export default function ProductDetail() {
                 </p>
 
                 <div className="inline-flex items-center gap-5 border border-white/10 rounded-full px-2 py-2">
+
                   <button
-                    onClick={() => setQty(Math.max(1, qty - 1))}
+                    onClick={() =>
+                      setQty(
+                        Math.max(1, qty - 1)
+                      )
+                    }
                     className="w-9 h-9 rounded-full bg-neutral-900 border border-white/5 text-lg hover:bg-neutral-800 transition"
                     aria-label="Decrease quantity"
                   >
@@ -332,13 +483,19 @@ export default function ProductDetail() {
 
                   <button
                     onClick={() =>
-                      setQty(Math.min(inventory || qty + 1, qty + 1))
+                      setQty(
+                        Math.min(
+                          inventory || qty + 1,
+                          qty + 1
+                        )
+                      )
                     }
                     className="w-9 h-9 rounded-full bg-neutral-900 border border-white/5 text-lg hover:bg-neutral-800 transition"
                     aria-label="Increase quantity"
                   >
                     +
                   </button>
+
                 </div>
               </div>
             )}
@@ -356,46 +513,68 @@ export default function ProductDetail() {
               {isOutOfStock
                 ? "Sold Out"
                 : `Add to Cart — ₦${(
-                    Number(product.price || 0) * qty
+                    Number(
+                      product.price || 0
+                    ) * qty
                   ).toLocaleString()}`}
             </button>
 
             {/* BENEFITS */}
             <div className="mt-8 grid grid-cols-3 gap-2 md:gap-3">
+
               <div className="border border-white/5 rounded-2xl p-4 text-center">
-                <div className="text-lg mb-2">🚚</div>
+                <div className="text-lg mb-2">
+                  🚚
+                </div>
+
                 <p className="text-[9px] md:text-[10px] text-neutral-500 uppercase tracking-wider">
                   Worldwide shipping
                 </p>
               </div>
 
               <div className="border border-white/5 rounded-2xl p-4 text-center">
-                <div className="text-lg mb-2">🔒</div>
+                <div className="text-lg mb-2">
+                  🔒
+                </div>
+
                 <p className="text-[9px] md:text-[10px] text-neutral-500 uppercase tracking-wider">
                   Secure checkout
                 </p>
               </div>
 
               <div className="border border-white/5 rounded-2xl p-4 text-center">
-                <div className="text-lg mb-2">✋</div>
+                <div className="text-lg mb-2">
+                  ✋
+                </div>
+
                 <p className="text-[9px] md:text-[10px] text-neutral-500 uppercase tracking-wider">
                   Crafted with care
                 </p>
               </div>
+
             </div>
 
             {/* PRODUCT INFO */}
             <div className="mt-10 border-t border-white/5">
+
               {product.style && (
                 <div className="flex justify-between py-4 border-b border-white/5 text-sm">
-                  <span className="text-neutral-500">Style</span>
-                  <span className="text-neutral-300">{product.style}</span>
+                  <span className="text-neutral-500">
+                    Style
+                  </span>
+
+                  <span className="text-neutral-300">
+                    {product.style}
+                  </span>
                 </div>
               )}
 
               {product.occasion && (
                 <div className="flex justify-between py-4 border-b border-white/5 text-sm">
-                  <span className="text-neutral-500">Occasion</span>
+                  <span className="text-neutral-500">
+                    Occasion
+                  </span>
+
                   <span className="text-neutral-300">
                     {product.occasion}
                   </span>
@@ -404,12 +583,16 @@ export default function ProductDetail() {
 
               {product.outfitLayer && (
                 <div className="flex justify-between py-4 border-b border-white/5 text-sm">
-                  <span className="text-neutral-500">Outfit layer</span>
+                  <span className="text-neutral-500">
+                    Outfit layer
+                  </span>
+
                   <span className="text-neutral-300">
                     {product.outfitLayer}
                   </span>
                 </div>
               )}
+
             </div>
           </div>
         </div>
@@ -418,10 +601,13 @@ export default function ProductDetail() {
       {/* OUTFIT BUILDER CTA */}
       <section className="border-t border-white/5 bg-neutral-950">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 py-20 md:py-28">
+
           <div className="relative overflow-hidden rounded-[2rem] border border-white/10">
+
             <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-transparent to-transparent" />
 
             <div className="relative px-7 py-14 md:px-14 md:py-16">
+
               <p className="text-amber-400 text-[10px] font-bold tracking-[0.35em] uppercase mb-4">
                 VÉRANE STUDIO
               </p>
@@ -429,11 +615,14 @@ export default function ProductDetail() {
               <h2 className="text-3xl md:text-5xl font-black leading-[0.95]">
                 BUILD THE
                 <br />
-                <span className="text-neutral-500">COMPLETE LOOK.</span>
+                <span className="text-neutral-500">
+                  COMPLETE LOOK.
+                </span>
               </h2>
 
               <p className="text-neutral-400 text-sm max-w-xl mt-5 leading-relaxed">
-                Pair this piece with clothing, footwear and accessories from
+                Pair this piece with clothing,
+                footwear and accessories from
                 both VÉRANE collections.
               </p>
 
@@ -443,10 +632,12 @@ export default function ProductDetail() {
               >
                 Open Outfit Builder →
               </Link>
+
             </div>
           </div>
         </div>
       </section>
+
     </main>
   );
 }

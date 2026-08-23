@@ -14,7 +14,8 @@ model User {
   name       String?
   createdAt  DateTime    @default(now())
   orders     Order[]
-  savedLooks SavedLook[]
+savedLooks SavedLook[]
+wishlist   Wishlist[]
 }
 
 model Product {
@@ -29,19 +30,20 @@ model Product {
   colors                 String?
   style                  String?
   occasion               String?
-  outfitLayer        String                 @default("none")
-outfitCompatible   Boolean                @default(false)
-mannequinAsset     String?
-builderAssetUrl    String?
-builderPositionX   Float                  @default(0)
-builderPositionY   Float                  @default(0)
-builderScale      Float                  @default(1)
+  outfitLayer            String                 @default("none")
+  outfitCompatible       Boolean                @default(false)
+  mannequinAsset         String?
   collectionId           String?
   createdAt              DateTime               @default(now())
   categoryId             String?
-  collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
+  builderAssetUrl        String?
+  builderPositionX       Float                  @default(0)
+  builderPositionY       Float                  @default(0)
+  builderScale           Float                  @default(1)
+    collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
   orderItems             OrderItem[]
+  wishlistItems          Wishlist[]
   categoryRef            Category?              @relation(fields: [categoryId], references: [id])
   collection             Collection?            @relation(fields: [collectionId], references: [id])
   variants               ProductVariant[]
@@ -251,4 +253,18 @@ model AdminNotification {
   @@index([recipientBrand])
   @@index([readAt])
   @@index([requestId])
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
 }

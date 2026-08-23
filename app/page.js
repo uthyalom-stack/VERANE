@@ -1,7 +1,5 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { PrismaClient } from "@prisma/client";
-
-
 import SiteFooter from "@/components/SiteFooter";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +61,7 @@ const FALLBACK_SECTIONS = [
     title: "FROM THE GROUND UP.",
     subtitle: "ALOMZIEE FOOTIES",
     description:
-      "Handmade footwear and accessories built with character Ã¢â‚¬â€ shoes, sandals, slides, boots, belts and bags.",
+      "Handmade footwear and accessories built with character - shoes, sandals, slides, boots, belts and bags.",
     image:
       "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=1800&q=85",
     mobileImage: "",
@@ -100,7 +98,7 @@ const FALLBACK_SECTIONS = [
     title: "CRAFTED WITH INTENTION.",
     subtitle: "The philosophy",
     description:
-      "Two expressions. One philosophy. Pieces created with intention for people who don't want to look like everybody else.",
+      "Two expressions. One philosophy. Pieces created with intention for people who do not want to look like everybody else.",
     image:
       "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1800&q=85",
     mobileImage: "",
@@ -205,13 +203,16 @@ function getBrandName(brand) {
     return "ALOMZIEE FOOTIES";
   }
 
-  return brand || "VÃƒâ€°RANE";
+  return brand || "VERANE";
 }
 
 function formatPrice(price) {
   const number = Number(price || 0);
 
-  return `Ã¢â€šÂ¦${number.toLocaleString("en-NG")}`;
+  return (
+    String.fromCharCode(8358) +
+    number.toLocaleString("en-NG")
+  );
 }
 
 /* =========================================================
@@ -232,7 +233,7 @@ function SectionImage({ section, className = "" }) {
 
       <img
         src={section.image}
-        alt={section.title || "VÃƒâ€°RANE"}
+        alt={section.title || "VERANE"}
         className={className}
       />
     </picture>
@@ -243,20 +244,15 @@ function SectionImage({ section, className = "" }) {
    PRODUCT CARD
 ========================================================= */
 
-function ProductCard({ product, featured = false }) {
+function ProductCard({ product }) {
   const image = getProductImage(product.images);
 
   return (
     <Link
       href={`/product/${product.id}`}
-      className={`group block snap-start shrink-0 ${
-        featured
-          ? "w-[72vw] sm:w-[42vw] md:w-[30vw] lg:w-[23vw]"
-          : "w-[72vw] sm:w-[42vw] md:w-[30vw] lg:w-[23vw]"
-      }`}
+      className="group block snap-start shrink-0 w-[72vw] sm:w-[42vw] md:w-[30vw] lg:w-[23vw]"
     >
       <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-neutral-950 mb-4 border border-white/[0.04]">
-
         {image ? (
           <img
             src={image}
@@ -314,7 +310,6 @@ function ProductRail({
 
   return (
     <div className="relative">
-
       <div
         className="
           flex
@@ -344,7 +339,9 @@ function ProductRail({
       <div className="mt-2 flex items-center gap-3 text-[9px] uppercase tracking-[0.25em] text-white/20">
         <span className="h-px w-8 bg-white/10" />
         <span>Swipe to explore</span>
-        <span className="text-white/10">Ã¢â€ â€™</span>
+        <span className="text-white/10">
+          {"\u2192"}
+        </span>
       </div>
     </div>
   );
@@ -387,19 +384,13 @@ export default async function HomePage() {
   return (
     <main className="bg-black text-white overflow-hidden">
 
-
-
-
-
       {/* =====================================================
           HERO
       ===================================================== */}
 
       {hero?.enabled !== false && (
         <section className="relative min-h-screen flex items-center overflow-hidden">
-
           <div className="absolute inset-0">
-
             <SectionImage
               section={hero}
               className="absolute inset-0 w-full h-full object-cover"
@@ -422,13 +413,10 @@ export default async function HomePage() {
             )}
 
             <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black" />
-
             <div className="absolute inset-0 bg-gradient-to-r from-black via-black/20 to-black" />
-
           </div>
 
           <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 w-full py-32">
-
             <div className="max-w-5xl">
 
               {hero?.subtitle && (
@@ -448,7 +436,6 @@ export default async function HomePage() {
               )}
 
               <div className="flex flex-col sm:flex-row gap-4 mt-10">
-
                 {hero?.buttonText && (
                   <Link
                     href={hero.buttonLink || "/catalog"}
@@ -460,16 +447,12 @@ export default async function HomePage() {
 
                 {hero?.secondaryButtonText && (
                   <Link
-                    href={
-                      hero.secondaryButtonLink ||
-                      "/outfit-builder"
-                    }
+                    href={hero.secondaryButtonLink || "/outfit-builder"}
                     className="border border-white/30 backdrop-blur-md px-8 py-4 rounded-full font-bold text-sm uppercase tracking-wider text-center hover:bg-white hover:text-black transition"
                   >
                     {hero.secondaryButtonText}
                   </Link>
                 )}
-
               </div>
             </div>
           </div>
@@ -482,9 +465,7 @@ export default async function HomePage() {
 
       {selected?.enabled !== false && (
         <section className="max-w-7xl mx-auto px-5 sm:px-8 py-28">
-
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-5">
-
             <div>
               {selected.subtitle && (
                 <p className="text-xs font-bold tracking-[0.35em] uppercase mb-4 text-amber-400">
@@ -502,17 +483,15 @@ export default async function HomePage() {
                 href={selected.buttonLink || "/catalog"}
                 className="text-sm font-bold uppercase tracking-wider text-neutral-400 hover:text-white transition"
               >
-                {selected.buttonText} Ã¢â€ â€™
+                {selected.buttonText} {"\u2192"}
               </Link>
             )}
-
           </div>
 
           <ProductRail
             products={selectedProducts}
             emptyText="Products will appear here once you add them from the admin."
           />
-
         </section>
       )}
 
@@ -522,9 +501,7 @@ export default async function HomePage() {
 
       {uthy?.enabled !== false && (
         <>
-
           <section className="relative min-h-[75vh] flex items-center overflow-hidden border-y border-white/5">
-
             <SectionImage
               section={uthy}
               className="absolute inset-0 w-full h-full object-cover"
@@ -537,7 +514,6 @@ export default async function HomePage() {
             <div className="absolute inset-0 bg-gradient-to-r from-black via-black/65 to-transparent" />
 
             <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 w-full">
-
               <div className="max-w-xl">
 
                 {uthy.subtitle && (
@@ -558,26 +534,18 @@ export default async function HomePage() {
 
                 {uthy.buttonText && (
                   <Link
-                    href={
-                      uthy.buttonLink ||
-                      "/catalog?brand=UTHY_LUXURY"
-                    }
+                    href={uthy.buttonLink || "/catalog?brand=UTHY_LUXURY"}
                     className="inline-block mt-8 bg-white text-black px-7 py-4 rounded-full font-bold text-xs uppercase tracking-wider hover:bg-amber-400 transition"
                   >
                     {uthy.buttonText}
                   </Link>
                 )}
-
               </div>
             </div>
           </section>
 
-          {/* UTHY PRODUCTS */}
-
           <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20">
-
             <div className="flex justify-between items-center mb-8">
-
               <div>
                 <p className="text-[9px] font-bold tracking-[0.3em] uppercase text-amber-400 mb-2">
                   UTHY LUXURY
@@ -592,18 +560,15 @@ export default async function HomePage() {
                 href="/catalog?brand=UTHY_LUXURY"
                 className="text-xs uppercase tracking-wider text-neutral-400 hover:text-white"
               >
-                Shop all Ã¢â€ â€™
+                Shop all {"\u2192"}
               </Link>
-
             </div>
 
             <ProductRail
               products={uthyProducts}
               emptyText="UTHY products will appear here once you add them."
             />
-
           </section>
-
         </>
       )}
 
@@ -613,9 +578,7 @@ export default async function HomePage() {
 
       {alomziee?.enabled !== false && (
         <>
-
           <section className="relative min-h-[75vh] flex items-center overflow-hidden border-y border-white/5">
-
             <SectionImage
               section={alomziee}
               className="absolute inset-0 w-full h-full object-cover"
@@ -628,7 +591,6 @@ export default async function HomePage() {
             <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
 
             <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 w-full">
-
               <div className="max-w-xl">
 
                 {alomziee.subtitle && (
@@ -658,17 +620,12 @@ export default async function HomePage() {
                     {alomziee.buttonText}
                   </Link>
                 )}
-
               </div>
             </div>
           </section>
 
-          {/* ALOMZIEE PRODUCTS */}
-
           <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20">
-
             <div className="flex justify-between items-center mb-8">
-
               <div>
                 <p className="text-[9px] font-bold tracking-[0.3em] uppercase text-amber-400 mb-2">
                   ALOMZIEE FOOTIES
@@ -683,18 +640,15 @@ export default async function HomePage() {
                 href="/catalog?brand=ALOMZIEE_FOOTIES"
                 className="text-xs uppercase tracking-wider text-neutral-400 hover:text-white"
               >
-                Shop all Ã¢â€ â€™
+                Shop all {"\u2192"}
               </Link>
-
             </div>
 
             <ProductRail
               products={alomzieeProducts}
               emptyText="ALOMZIEE products will appear here once you add them."
             />
-
           </section>
-
         </>
       )}
 
@@ -704,13 +658,10 @@ export default async function HomePage() {
 
       {outfit?.enabled !== false && (
         <section className="max-w-7xl mx-auto px-5 sm:px-8 py-28">
-
           <div className="rounded-[2rem] bg-neutral-950 border border-white/10 overflow-hidden">
-
             <div className="grid md:grid-cols-2 min-h-[600px]">
 
               <div className="relative flex items-center justify-center bg-gradient-to-b from-neutral-900 to-black p-10">
-
                 <div className="relative w-56 h-[430px]">
 
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-neutral-700 border border-white/10" />
@@ -724,7 +675,6 @@ export default async function HomePage() {
                   <div className="absolute top-[265px] left-1/2 -translate-x-[95%] w-16 h-40 rounded-full bg-neutral-800 border border-white/10" />
 
                   <div className="absolute top-[265px] left-1/2 translate-x-[0%] w-16 h-40 rounded-full bg-neutral-800 border border-white/10" />
-
                 </div>
               </div>
 
@@ -747,7 +697,6 @@ export default async function HomePage() {
                 )}
 
                 <div className="grid grid-cols-4 gap-2 mt-10">
-
                   {[
                     "TOP",
                     "BOTTOM",
@@ -765,21 +714,16 @@ export default async function HomePage() {
                       </p>
                     </div>
                   ))}
-
                 </div>
 
                 {outfit.buttonText && (
                   <Link
-                    href={
-                      outfit.buttonLink ||
-                      "/outfit-builder"
-                    }
+                    href={outfit.buttonLink || "/outfit-builder"}
                     className="mt-8 inline-block px-7 py-4 rounded-full font-bold text-xs uppercase tracking-wider text-center bg-amber-500 text-black hover:bg-amber-400 transition"
                   >
-                    {outfit.buttonText} Ã¢â€ â€™
+                    {outfit.buttonText} {"\u2192"}
                   </Link>
                 )}
-
               </div>
             </div>
           </div>
@@ -792,11 +736,9 @@ export default async function HomePage() {
 
       {arrivals?.enabled !== false && (
         <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20">
-
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
 
             <div>
-
               {arrivals.subtitle && (
                 <p className="text-xs font-bold tracking-[0.35em] uppercase mb-4 text-amber-400">
                   {arrivals.subtitle}
@@ -806,7 +748,6 @@ export default async function HomePage() {
               <h2 className="text-4xl md:text-6xl font-black">
                 {arrivals.title}
               </h2>
-
             </div>
 
             {arrivals.buttonText && (
@@ -814,17 +755,15 @@ export default async function HomePage() {
                 href={arrivals.buttonLink || "/catalog"}
                 className="mt-5 md:mt-0 text-xs uppercase tracking-wider text-neutral-400 hover:text-white"
               >
-                {arrivals.buttonText} Ã¢â€ â€™
+                {arrivals.buttonText} {"\u2192"}
               </Link>
             )}
-
           </div>
 
           <ProductRail
             products={newArrivals}
             emptyText="New arrivals will appear here once you add products."
           />
-
         </section>
       )}
 
@@ -872,7 +811,6 @@ export default async function HomePage() {
                 {story.buttonText}
               </Link>
             )}
-
           </div>
         </section>
       )}
@@ -900,20 +838,30 @@ export default async function HomePage() {
             </p>
           )}
 
-          <form className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto" action="/api/subscribe" method="POST">
-  <input type="email" name="email" placeholder="Your email address" required className="flex-1 bg-neutral-900 border border-white/10 rounded-full px-5 py-4 text-sm outline-none focus:border-amber-500 transition" />
-  <button type="submit" className="px-7 py-4 rounded-full font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 transition">
-    {newsletter.buttonText || "Subscribe"}
-  </button>
-</form>
+          <form
+            className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto"
+            action="/api/subscribe"
+            method="POST"
+          >
+            <input
+              type="email"
+              name="email"
+              placeholder="Your email address"
+              required
+              className="flex-1 bg-neutral-900 border border-white/10 rounded-full px-5 py-4 text-sm outline-none focus:border-amber-500 transition"
+            />
+
+            <button
+              type="submit"
+              className="px-7 py-4 rounded-full font-bold text-sm bg-amber-500 text-black hover:bg-amber-400 transition"
+            >
+              {newsletter.buttonText || "Subscribe"}
+            </button>
+          </form>
         </section>
       )}
 
       <SiteFooter />
-
     </main>
   );
 }
-
-
-

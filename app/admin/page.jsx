@@ -1122,71 +1122,77 @@ function BrandDashboard({
 
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
 
-          <StatCard
-            label="Revenue"
-            value={
-              analyticsLoading
-                ? "—"
-                : formatMoney(
-                    analytics?.revenue ??
-                      analytics?.totalRevenue ??
-                      0
-                  )
-            }
-            change={
-              analytics?.revenueChange ??
-              analytics?.revenueGrowth
-            }
-            accent={accent}
-          />
+  <StatCard
+    label="Revenue"
+    value={
+      analyticsLoading
+        ? "—"
+        : formatMoney(
+            analytics?.overview?.revenue ??
+              analytics?.revenue ??
+              analytics?.totalRevenue ??
+              0
+          )
+    }
+    change={
+      analytics?.overview?.revenueChange ??
+      analytics?.revenueChange ??
+      analytics?.revenueGrowth
+    }
+    accent={accent}
+  />
 
-          <StatCard
-            label="Orders"
-            value={
-              analyticsLoading
-                ? "—"
-                : formatNumber(
-                    analytics?.orders ??
-                      analytics?.totalOrders ??
-                      0
-                  )
-            }
-            change={
-              analytics?.ordersChange ??
-              analytics?.ordersGrowth
-            }
-            accent={accent}
-          />
+  <StatCard
+    label="Orders"
+    value={
+      analyticsLoading
+        ? "—"
+        : formatNumber(
+            analytics?.overview?.orders ??
+              analytics?.orders ??
+              analytics?.totalOrders ??
+              0
+          )
+    }
+    change={
+      analytics?.overview?.ordersChange ??
+      analytics?.ordersChange ??
+      analytics?.ordersGrowth
+    }
+    accent={accent}
+  />
 
-          <StatCard
-            label="Products"
-            value={
-              analyticsLoading
-                ? "—"
-                : formatNumber(
-                    analytics?.products ??
-                      analytics?.totalProducts ??
-                      0
-                  )
-            }
-            accent={accent}
-          />
+  <StatCard
+    label="Products"
+    value={
+      analyticsLoading
+        ? "—"
+        : formatNumber(
+            analytics?.overview?.products ??
+              analytics?.products ??
+              analytics?.totalProducts ??
+              0
+          )
+    }
+    accent={accent}
+  />
 
-          <StatCard
-            label="Low Stock"
-            value={
-              analyticsLoading
-                ? "—"
-                : formatNumber(
-                    analytics?.lowStock ??
-                      analytics?.lowStockProducts ??
-                      0
-                  )
-            }
-            warning
-          />
+  <StatCard
+    label="Low Stock"
+    value={
+      analyticsLoading
+        ? "—"
+        : formatNumber(
+            analytics?.overview?.lowStock ??
+              analytics?.lowStock ??
+              analytics?.lowStockProducts ??
+              0
+          )
+    }
+    warning
+  />
 
-        </section>
+</section>
 
 
         {/* ======================================================
