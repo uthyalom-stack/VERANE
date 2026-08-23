@@ -7,6 +7,26 @@ export async function GET() {
       orderBy: {
         createdAt: "desc",
       },
+
+      include: {
+        variants: {
+          orderBy: {
+            createdAt: "asc",
+          },
+          include: {
+            color: true,
+          },
+        },
+
+        productColors: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+
+        categoryRef: true,
+        collection: true,
+      },
     });
 
     return NextResponse.json(products);

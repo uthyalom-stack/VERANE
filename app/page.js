@@ -136,10 +136,10 @@ async function getHomepageSections() {
     }
 
     return sections;
-  } catch (error) {
-    console.error("Homepage sections error:", error);
-    return FALLBACK_SECTIONS;
-  }
+} catch (error) {
+  console.error("Homepage sections error:", error);
+  return [];
+}
 }
 
 async function getProducts() {

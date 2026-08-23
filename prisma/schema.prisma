@@ -8,14 +8,15 @@ datasource db {
 }
 
 model User {
-  id         String      @id @default(cuid())
-  email      String      @unique
-  password   String
-  name       String?
-  createdAt  DateTime    @default(now())
-  orders     Order[]
-  savedLooks SavedLook[]
-  wishlist   Wishlist[]
+  id          String        @id @default(cuid())
+  email       String        @unique
+  password    String
+  name        String?
+  createdAt   DateTime      @default(now())
+  orders      Order[]
+  savedLooks  SavedLook[]
+  waitingList WaitingList[]
+  wishlist    Wishlist[]
 }
 
 model Product {
@@ -27,7 +28,7 @@ model Product {
   description            String?
   images                 String
   inventory              Int                    @default(0)
-  colors                 String?
+  legacyColors           String?                @map("colors")
   style                  String?
   occasion               String?
   outfitLayer            String                 @default("none")
@@ -40,12 +41,19 @@ model Product {
   builderPositionX       Float                  @default(0)
   builderPositionY       Float                  @default(0)
   builderScale           Float                  @default(1)
+  initialInventory       Int                    @default(0)
+  customSizingEnabled    Boolean                @default(false)
+  fulfillmentTime        String?
+  preOrderEnabled        Boolean                @default(false)
+  sizeType               String?
   collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
   orderItems             OrderItem[]
   categoryRef            Category?              @relation(fields: [categoryId], references: [id])
   collection             Collection?            @relation(fields: [collectionId], references: [id])
+  productColors          ProductColor[]
   variants               ProductVariant[]
+  waitingListEntries     WaitingList[]
   wishlistItems          Wishlist[]
 
   @@index([brand])
@@ -109,26 +117,34 @@ model SiteSetting {
 }
 
 model Order {
-  id        String      @id @default(cuid())
-  userId    String
-  status    String      @default("pending")
-  total     Float
-  createdAt DateTime    @default(now())
-  user      User        @relation(fields: [userId], references: [id])
-  items     OrderItem[]
+  id          String      @id @default(cuid())
+  userId      String
+  status      String      @default("pending")
+  total       Float
+  createdAt   DateTime    @default(now())
+  orderNumber String      @unique
+  user        User        @relation(fields: [userId], references: [id])
+  items       OrderItem[]
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String
-  productId String
-  quantity  Int
-  price     Float
-  order     Order   @relation(fields: [orderId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
+  id                 String          @id @default(cuid())
+  orderId            String
+  productId          String
+  quantity           Int
+  price              Float
+  customMeasurements String?
+  selectedColor      String?
+  selectedColorHex   String?
+  selectedSize       String?
+  variantId          String?
+  order              Order           @relation(fields: [orderId], references: [id])
+  product            Product         @relation(fields: [productId], references: [id])
+  variant            ProductVariant? @relation(fields: [variantId], references: [id])
 
   @@index([productId])
   @@index([orderId])
+  @@index([variantId])
 }
 
 model SavedLook {
@@ -170,15 +186,54 @@ model Discount {
 }
 
 model ProductVariant {
-  id        String   @id @default(cuid())
-  productId String
-  name      String
-  value     String
-  stock     Int      @default(0)
-  createdAt DateTime @default(now())
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id           String        @id @default(cuid())
+  productId    String
+  stock        Int           @default(0)
+  createdAt    DateTime      @default(now())
+  initialStock Int           @default(0)
+  size         String?
+  colorId      String?
+  orderItems   OrderItem[]
+  color        ProductColor? @relation(fields: [colorId], references: [id])
+  product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  waitingList  WaitingList[]
 
   @@index([productId])
+  @@index([colorId])
+  @@index([productId, size])
+  @@index([productId, colorId])
+}
+
+model ProductColor {
+  id        String           @id @default(cuid())
+  productId String
+  name      String
+  hex       String
+  createdAt DateTime         @default(now())
+  product   Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variants  ProductVariant[]
+
+  @@index([productId])
+}
+
+model WaitingList {
+  id               String          @id @default(cuid())
+  productId        String
+  variantId        String?
+  userId           String?
+  email            String
+  selectedColor    String?
+  selectedColorHex String?
+  selectedSize     String?
+  createdAt        DateTime        @default(now())
+  product          Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user             User?           @relation(fields: [userId], references: [id])
+  variant          ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([productId])
+  @@index([variantId])
+  @@index([userId])
+  @@index([email])
 }
 
 model CollaborationRequest {
