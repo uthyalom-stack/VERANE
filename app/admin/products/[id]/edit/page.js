@@ -37,6 +37,7 @@ export default function EditProductPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+const [mannequinUploading, setMannequinUploading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -105,9 +106,10 @@ export default function EditProductPage() {
           colors: parsedColors.join(", "),
           style: product.style || "",
           occasion: product.occasion || "",
-          outfitLayer: product.outfitLayer || "none",
-          outfitCompatible: Boolean(product.outfitCompatible),
-          images: parsedImages,
+         outfitLayer: product.outfitLayer || "none",
+outfitCompatible: Boolean(product.outfitCompatible),
+mannequinAsset: product.mannequinAsset || "",
+images: parsedImages,
         });
       } catch (err) {
         console.error("Load product error:", err);
@@ -121,6 +123,71 @@ export default function EditProductPage() {
 
     loadProduct();
   }, [id]);
+
+function compressImage(file, maxWidth = 1800) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onerror = () =>
+      reject(new Error("Could not read image."));
+
+    reader.onload = () => {
+      const image = new Image();
+
+      image.onerror = () =>
+        reject(new Error("Invalid image file."));
+
+      image.onload = () => {
+        let width = image.naturalWidth;
+        let height = image.naturalHeight;
+
+        if (width > maxWidth) {
+          height = Math.round((height / width) * maxWidth);
+          width = maxWidth;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const context = canvas.getContext("2d");
+
+        if (!context) {
+          reject(new Error("Image processing is unavailable."));
+          return;
+        }
+
+        context.drawImage(image, 0, 0, width, height);
+
+        resolve(canvas.toDataURL("image/webp", 0.82));
+      };
+
+      image.src = reader.result;
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleMannequinFile(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+
+  try {
+    setMannequinUploading(true);
+    setError("");
+
+    const src = await compressImage(file, 1800);
+
+    updateField("mannequinAsset", src);
+  } catch (err) {
+    setError(
+      err?.message ||
+        "Could not process the Outfit Builder image."
+    );
+  } finally {
+    setMannequinUploading(false);
+  }
+}
 
   const updateField = (field, value) => {
     setForm((prev) => ({
@@ -219,6 +286,7 @@ export default function EditProductPage() {
             : "none",
           outfitCompatible: form.outfitCompatible,
           images: form.images,
+mannequinAsset: form.mannequinAsset,
         }),
       });
 
@@ -644,6 +712,41 @@ export default function EditProductPage() {
                       </option>
                     ))}
                   </select>
+<input
+  type="file"
+  accept="image/*"
+  className="hidden"
+  id="mannequin-image"
+  onChange={(e) =>
+    handleMannequinFile(e.target.files?.[0])
+  }
+/>
+
+<label
+  htmlFor="mannequin-image"
+  className="mt-5 block cursor-pointer rounded-2xl border border-dashed border-white/15 bg-black p-6 hover:border-amber-400/40 transition"
+>
+  <p className="text-sm font-bold">
+    {mannequinUploading
+      ? "Processing image..."
+      : "Choose Outfit Builder image"}
+  </p>
+
+  <p className="mt-1 text-xs text-neutral-600">
+    Use a transparent PNG/WebP showing the product positioned
+    for the mannequin.
+  </p>
+</label>
+
+{form.mannequinAsset && (
+  <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black">
+    <img
+      src={form.mannequinAsset}
+      alt="Outfit Builder preview"
+      className="max-h-96 w-full object-contain"
+    />
+  </div>
+)}
                 </div>
               )}
             </div>

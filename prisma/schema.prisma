@@ -14,8 +14,8 @@ model User {
   name       String?
   createdAt  DateTime    @default(now())
   orders     Order[]
-savedLooks SavedLook[]
-wishlist   Wishlist[]
+  savedLooks SavedLook[]
+  wishlist   Wishlist[]
 }
 
 model Product {
@@ -40,13 +40,13 @@ model Product {
   builderPositionX       Float                  @default(0)
   builderPositionY       Float                  @default(0)
   builderScale           Float                  @default(1)
-    collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
+  collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
   orderItems             OrderItem[]
-  wishlistItems          Wishlist[]
   categoryRef            Category?              @relation(fields: [categoryId], references: [id])
   collection             Collection?            @relation(fields: [collectionId], references: [id])
   variants               ProductVariant[]
+  wishlistItems          Wishlist[]
 
   @@index([brand])
   @@index([categoryId])
@@ -260,9 +260,8 @@ model Wishlist {
   userId    String
   productId String
   createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
   @@index([userId])
