@@ -123,13 +123,15 @@ function Spinner() {
   );
 }
 
-function CatalogContent() {
+function CatalogContent({
+  defaultBrand = "all",
+}) {
   const [products, setProducts] = useState([]);
   const [collections, setCollections] = useState([]);
 
   const [loading, setLoading] = useState(true);
 
-  const [activeBrand, setActiveBrand] = useState("all");
+  const [activeBrand, setActiveBrand] = useState(defaultBrand);
   const [activeCat, setActiveCat] = useState("all");
   const [activeCollection, setActiveCollection] =
     useState("all");
@@ -182,9 +184,9 @@ function CatalogContent() {
               cache: "no-store",
             }),
 
-            fetch("/api/admin/collections", {
-              cache: "no-store",
-            }),
+            fetch("/api/collections", {
+  cache: "no-store",
+}),
           ]);
 
         if (!prodRes.ok) {
@@ -194,16 +196,19 @@ function CatalogContent() {
         }
 
         if (!colRes.ok) {
-          throw new Error(
-            `Collections request failed: ${colRes.status}`
-          );
-        }
+  console.error(
+    `Collections request failed: ${colRes.status}`
+  );
+}
 
         const productsData =
           await prodRes.json();
 
-        const collectionsData =
-          await colRes.json();
+console.log("CATALOG PRODUCTS:", productsData);
+
+       const collectionsData = colRes.ok
+  ? await colRes.json()
+  : [];
 
         const loadedProducts =
           Array.isArray(productsData)
@@ -1028,6 +1033,10 @@ function CatalogContent() {
   );
 }
 
-export default function CatalogPage() {
-  return <CatalogContent />;
+export default function CatalogPage({
+  brand = "all",
+}) {
+  return (
+    <CatalogContent defaultBrand={brand} />
+  );
 }

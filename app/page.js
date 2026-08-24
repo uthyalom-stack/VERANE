@@ -53,7 +53,7 @@ const FALLBACK_SECTIONS = [
       "https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?auto=format&fit=crop&w=1800&q=85",
     mobileImage: "",
     buttonText: "Explore UTHY",
-    buttonLink: "/catalog?brand=UTHY_LUXURY",
+    buttonLink: "/uthy",
   },
   {
     key: "alomziee",
@@ -66,7 +66,7 @@ const FALLBACK_SECTIONS = [
       "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=1800&q=85",
     mobileImage: "",
     buttonText: "Explore Alomziee",
-    buttonLink: "/catalog?brand=ALOMZIEE_FOOTIES",
+    buttonLink: "/alomziee",
   },
   {
     key: "outfit-builder",
@@ -467,23 +467,23 @@ export default async function HomePage() {
         <section className="max-w-7xl mx-auto px-5 sm:px-8 py-28">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-5">
             <div>
-              {selected.subtitle && (
+              {selected?.subtitle && (
                 <p className="text-xs font-bold tracking-[0.35em] uppercase mb-4 text-amber-400">
-                  {selected.subtitle}
+                  {selected?.subtitle}
                 </p>
               )}
 
               <h2 className="text-4xl md:text-6xl font-black tracking-tight">
-                {selected.title}
+                {selected?.title}
               </h2>
             </div>
 
-            {selected.buttonText && (
+            {selected?.buttonText && (
               <Link
-                href={selected.buttonLink || "/catalog"}
+                href={selected?.buttonLink || "/catalog"}
                 className="text-sm font-bold uppercase tracking-wider text-neutral-400 hover:text-white transition"
               >
-                {selected.buttonText} {"\u2192"}
+                {selected?.buttonText} {"\u2192"}
               </Link>
             )}
           </div>

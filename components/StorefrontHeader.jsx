@@ -12,9 +12,11 @@ export default function StorefrontHeader() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [account, setAccount] = useState(null);
+  const [settings, setSettings] = useState({});
   const [cartCount, setCartCount] = useState(0);
 
-  useEffect(() => {
+    useEffect(() => {
+    loadSettings();
     loadSession();
     updateCartCount();
 
@@ -68,6 +70,22 @@ export default function StorefrontHeader() {
     };
   }, [menuOpen]);
 
+async function loadSettings() {
+  try {
+    const response = await fetch("/api/settings", {
+      cache: "no-store",
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json();
+
+    setSettings(data || {});
+  } catch (error) {
+    console.error("Failed loading settings", error);
+  }
+}
+
   async function loadSession() {
     try {
       const response = await fetch("/api/auth/session", {
@@ -79,7 +97,7 @@ export default function StorefrontHeader() {
         return;
       }
 
-      const data = await response.json();
+        const data = await response.json();
 
       setAccount(data?.user || null);
     } catch {
@@ -160,9 +178,18 @@ export default function StorefrontHeader() {
           ANNOUNCEMENT BAR
       ===================================================== */}
 
-      <div className="bg-white text-black text-[9px] sm:text-[10px] uppercase tracking-[0.25em] text-center py-2.5 px-4 font-semibold">
-        Complimentary delivery on qualifying orders
-      </div>
+      {settings.announcementEnabled === "true" &&
+ settings.announcementText && (
+  <div
+    className="text-black text-[9px] sm:text-[10px] uppercase tracking-[0.25em] text-center py-2.5 px-4 font-semibold"
+    style={{
+      backgroundColor:
+        settings.primaryColor || "#f5b942",
+    }}
+  >
+    {settings.announcementText}
+  </div>
+)}
 
       {/* =====================================================
           MAIN HEADER
@@ -265,23 +292,27 @@ export default function StorefrontHeader() {
             </nav>
 
             {/* =================================================
-                CENTER BRAND
-            ================================================= */}
+    CENTER BRAND
+================================================= */}
 
-            <Link
-              href="/"
-              className="absolute left-1/2 -translate-x-1/2 text-center"
-              onClick={closeMenu}
-            >
-              <div className="text-xl sm:text-2xl font-black tracking-[0.22em] text-white">
-                VÉRANE
-              </div>
+<Link
+  href="/"
+  className="absolute left-1/2 -translate-x-1/2 text-center"
+  onClick={closeMenu}
+>
+  <div
+    className="text-xl sm:text-2xl font-black tracking-[0.22em]"
+    style={{
+      color: settings.primaryColor || "#ffffff",
+    }}
+  >
+    {settings.siteName || "VÉRANE"}
+  </div>
 
-              <div className="hidden sm:block text-[7px] text-neutral-500 tracking-[0.35em] uppercase mt-1">
-                Two brands. One expression.
-              </div>
-            </Link>
-
+  <div className="hidden sm:block text-[7px] text-neutral-500 tracking-[0.35em] uppercase mt-1">
+    {settings.tagline || "Two brands. One expression."}
+  </div>
+</Link>
             {/* =================================================
                 RIGHT ACTIONS
             ================================================= */}
@@ -516,17 +547,17 @@ export default function StorefrontHeader() {
                   </span>
                 </Link>
 
-                {/* JOIN VÉRANE */}
+                {/* JOIN SITE */}
 
-                <Link
-                  href={account ? "/account" : "/join"}
-                  onClick={closeMenu}
-                  className="px-4 py-4 text-xs uppercase tracking-[0.2em] text-neutral-400 hover:text-white border-b border-white/5"
-                >
-                  {account
-                    ? "My Account"
-                    : "Join VÉRANE"}
-                </Link>
+<Link
+  href={account ? "/account" : "/join"}
+  onClick={closeMenu}
+  className="px-4 py-4 text-xs uppercase tracking-[0.2em] text-neutral-400 hover:text-white border-b border-white/5"
+>
+  {account
+    ? "My Account"
+    : `Join ${settings.siteName || "VÉRANE"}`}
+</Link>
 
                 {/* SIGN OUT */}
 
@@ -547,13 +578,13 @@ export default function StorefrontHeader() {
               <div className="mt-6 px-4 flex items-center justify-between">
 
                 <div>
-                  <p className="text-[9px] uppercase tracking-[0.3em] text-neutral-500">
-                    VÉRANE
-                  </p>
+                <p className="text-[9px] uppercase tracking-[0.3em] text-neutral-500">
+  {settings.siteName || "VÉRANE"}
+</p>
 
-                  <p className="mt-1 text-[8px] uppercase tracking-[0.2em] text-neutral-700">
-                    Two brands. One expression.
-                  </p>
+                <p className="mt-1 text-[8px] uppercase tracking-[0.2em] text-neutral-700">
+  {settings.tagline || "Two brands. One expression."}
+</p>
                 </div>
 
                 <button
