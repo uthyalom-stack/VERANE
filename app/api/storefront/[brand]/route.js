@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-const VALID_BRANDS = [
-  "UTHY_LUXURY",
-  "ALOMZIEE_FOOTIES",
-];
+const VALID_BRANDS = ["UTHY_LUXURY", "ALOMZIEE_FOOTIES"];
 
 function getStorageKey(brand) {
   return `storefront:${brand}`;
 }
 
+function getHeroKey(brand) {
+  return `storefront-hero:${brand}`;
+}
+
 function getBrandDisplayName(brand) {
-  return brand === "UTHY_LUXURY"
-    ? "UTHY LUXURY"
-    : "ALOMZIEE FOOTIES";
+  return brand === "UTHY_LUXURY" ? "UTHY LUXURY" : "ALOMZIEE FOOTIES";
 }
 
 function parseImages(images) {
@@ -24,10 +23,7 @@ function parseImages(images) {
     if (Array.isArray(parsed)) return parsed;
     if (typeof parsed === "string") return [parsed];
   } catch {
-    return String(images)
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
+    return String(images).split(",").map((item) => item.trim()).filter(Boolean);
   }
 
   return [];
@@ -41,12 +37,10 @@ export async function GET(request, { params }) {
       return NextResponse.json({ success: false, error: "Invalid brand." }, { status: 400 });
     }
 
-    const [setting, products, brandSetting] = await Promise.all([
+    const [setting, heroSetting, products, brandSetting] = await Promise.all([
       prisma.siteSetting.findUnique({ where: { key: getStorageKey(brand) } }),
-      prisma.product.findMany({
-        where: { brand },
-        orderBy: { createdAt: "desc" },
-      }),
+      prisma.siteSetting.findUnique({ where: { key: getHeroKey(brand) } }),
+      prisma.product.findMany({ where: { brand }, orderBy: { createdAt: "desc" } }),
       prisma.siteSetting.findUnique({ where: { key: "brandData" } }),
     ]);
 
@@ -70,32 +64,22 @@ export async function GET(request, { params }) {
     }
 
     const brandInfo = brandData?.[brand] || {};
-
     const productMap = new Map(
-      products.map((product) => [
-        product.id,
-        { ...product, images: parseImages(product.images) },
-      ])
+      products.map((product) => [product.id, { ...product, images: parseImages(product.images) }])
     );
 
     const publicSections = sections
       .filter((section) => section && section.enabled !== false)
       .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
-      .map((section) => {
-        const productIds = Array.isArray(section.productIds)
-          ? section.productIds
-          : [];
-
-        return {
-          id: section.id,
-          title: section.title || "Featured",
-          description: section.description || "",
-          image: section.image || "",
-          products: productIds
-            .map((id) => productMap.get(id))
-            .filter(Boolean),
-        };
-      })
+      .map((section) => ({
+        id: section.id,
+        title: section.title || "Featured",
+        description: section.description || "",
+        image: section.image || "",
+        products: (Array.isArray(section.productIds) ? section.productIds : [])
+          .map((id) => productMap.get(id))
+          .filter(Boolean),
+      }))
       .filter((section) => section.products.length > 0 || section.image);
 
     return NextResponse.json({
@@ -105,7 +89,7 @@ export async function GET(request, { params }) {
         name: brandInfo.name || getBrandDisplayName(brand),
         tagline: brandInfo.tagline || "",
         description: brandInfo.description || "",
-        image: brandInfo.image || "",
+        image: heroSetting?.value || brandInfo.image || "",
       },
       products: Array.from(productMap.values()),
       sections: publicSections,
