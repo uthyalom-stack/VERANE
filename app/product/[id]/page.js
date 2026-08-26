@@ -150,16 +150,16 @@ export default function ProductDetail() {
     ? "Sold Out"
     : stockPercentage <= 10
     ? "Few Left"
-    : stockPercentage < 60
-    ? "Low Stock"
-    : "In Stock";
+    : stockPercentage <= 40
+    ? "Almost Sold Out"
+    : "Available";
 
   const stockStatusClass =
     stockStatus === "Sold Out"
       ? "text-red-400"
       : stockStatus === "Few Left"
       ? "text-orange-400"
-      : stockStatus === "Low Stock"
+      : stockStatus === "Almost Sold Out"
       ? "text-amber-400"
       : "text-emerald-400";
 
