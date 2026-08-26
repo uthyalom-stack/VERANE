@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import StorefrontProductActions from "@/components/StorefrontProductActions";
 
 const VALID_BRANDS = ["UTHY_LUXURY", "ALOMZIEE_FOOTIES"];
 
@@ -26,19 +27,29 @@ function ProductCard({ product }) {
   const image = getProductImage(product.images);
 
   return (
-    <Link href={`/product/${product.id}`} className="group block">
-      <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-white/[0.04]">
-        {image ? (
-          <img src={image} alt={product.name || "Product"} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-        ) : (
-          <div className="flex h-full items-center justify-center text-2xl text-white/10">V</div>
-        )}
+    <div className="group min-w-0">
+      <Link href={`/product/${product.id}`} className="block">
+        <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-white/[0.04]">
+          {image ? (
+            <img
+              src={image}
+              alt={product.name || "Product"}
+              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-2xl text-white/10">V</div>
+          )}
+        </div>
+      </Link>
+
+      <div className="px-1 pt-3">
+        <Link href={`/product/${product.id}`} className="block">
+          <p className="truncate text-sm font-medium text-white">{product.name || "Unnamed Product"}</p>
+          <p className="mt-1 text-xs text-white/40">{formatPrice(product.price)}</p>
+        </Link>
+        <StorefrontProductActions product={product} />
       </div>
-      <div className="pt-3">
-        <p className="truncate text-sm font-medium text-white">{product.name || "Unnamed Product"}</p>
-        <p className="mt-1 text-xs text-white/40">{formatPrice(product.price)}</p>
-      </div>
-    </Link>
+    </div>
   );
 }
 
