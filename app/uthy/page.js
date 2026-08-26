@@ -1,9 +1,7 @@
 "use client";
 
-import CatalogPage from "../catalog/page";
+import BrandStorefront from "@/components/BrandStorefront";
 
 export default function UthyPage() {
-  return (
-    <CatalogPage brand="UTHY_LUXURY" />
-  );
+  return <BrandStorefront brand="UTHY_LUXURY" />;
 }
