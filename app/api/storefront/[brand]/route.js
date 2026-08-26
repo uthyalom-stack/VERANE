@@ -11,28 +11,18 @@ function getStorageKey(brand) {
 }
 
 function getBrandDisplayName(brand) {
-  if (brand === "UTHY_LUXURY") {
-    return "UTHY LUXURY";
-  }
-
-  return "ALOMZIEE FOOTIES";
+  return brand === "UTHY_LUXURY"
+    ? "UTHY LUXURY"
+    : "ALOMZIEE FOOTIES";
 }
 
 function parseImages(images) {
-  if (!images) {
-    return [];
-  }
+  if (!images) return [];
 
   try {
     const parsed = JSON.parse(images);
-
-    if (Array.isArray(parsed)) {
-      return parsed;
-    }
-
-    if (typeof parsed === "string") {
-      return [parsed];
-    }
+    if (Array.isArray(parsed)) return parsed;
+    if (typeof parsed === "string") return [parsed];
   } catch {
     return String(images)
       .split(",")
@@ -48,60 +38,32 @@ export async function GET(request, { params }) {
     const { brand } = await params;
 
     if (!VALID_BRANDS.includes(brand)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid brand.",
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Invalid brand." }, { status: 400 });
     }
 
-    const [setting, products, brandSetting] =
-      await Promise.all([
-        prisma.siteSetting.findUnique({
-          where: {
-            key: getStorageKey(brand),
-          },
-        }),
-
-        prisma.product.findMany({
-          where: {
-            brand,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        }),
-
-        prisma.siteSetting.findUnique({
-          where: {
-            key: "brandData",
-          },
-        }),
-      ]);
+    const [setting, products, brandSetting] = await Promise.all([
+      prisma.siteSetting.findUnique({ where: { key: getStorageKey(brand) } }),
+      prisma.product.findMany({
+        where: { brand },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.siteSetting.findUnique({ where: { key: "brandData" } }),
+    ]);
 
     let sections = [];
-
     if (setting?.value) {
       try {
         const parsed = JSON.parse(setting.value);
-
-        if (Array.isArray(parsed)) {
-          sections = parsed;
-        }
+        if (Array.isArray(parsed)) sections = parsed;
       } catch {
         sections = [];
       }
     }
 
     let brandData = {};
-
     if (brandSetting?.value) {
       try {
-        brandData = JSON.parse(
-          brandSetting.value
-        );
+        brandData = JSON.parse(brandSetting.value);
       } catch {
         brandData = {};
       }
@@ -112,87 +74,44 @@ export async function GET(request, { params }) {
     const productMap = new Map(
       products.map((product) => [
         product.id,
-        {
-          ...product,
-          images: parseImages(product.images),
-        },
+        { ...product, images: parseImages(product.images) },
       ])
     );
 
     const publicSections = sections
-      .filter(
-        (section) =>
-          section &&
-          section.enabled !== false
-      )
-      .sort(
-        (a, b) =>
-          Number(a.sortOrder || 0) -
-          Number(b.sortOrder || 0)
-      )
+      .filter((section) => section && section.enabled !== false)
+      .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
       .map((section) => {
-        const productIds = Array.isArray(
-          section.productIds
-        )
+        const productIds = Array.isArray(section.productIds)
           ? section.productIds
           : [];
 
         return {
           id: section.id,
-          title:
-            section.title || "Featured",
-          description:
-            section.description || "",
+          title: section.title || "Featured",
+          description: section.description || "",
+          image: section.image || "",
           products: productIds
-            .map((id) =>
-              productMap.get(id)
-            )
+            .map((id) => productMap.get(id))
             .filter(Boolean),
         };
       })
-      .filter(
-        (section) =>
-          section.products.length > 0
-      );
+      .filter((section) => section.products.length > 0 || section.image);
 
     return NextResponse.json({
       success: true,
-
       brand,
-
       brandInfo: {
-        name:
-          brandInfo.name ||
-          getBrandDisplayName(brand),
-
-        tagline:
-          brandInfo.tagline || "",
-
-        description:
-          brandInfo.description || "",
-
-        image:
-          brandInfo.image || "",
+        name: brandInfo.name || getBrandDisplayName(brand),
+        tagline: brandInfo.tagline || "",
+        description: brandInfo.description || "",
+        image: brandInfo.image || "",
       },
-
-      products: Array.from(
-        productMap.values()
-      ),
-
+      products: Array.from(productMap.values()),
       sections: publicSections,
     });
   } catch (error) {
-    console.error(
-      "GET /api/storefront/[brand] error:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to load storefront.",
-      },
-      { status: 500 }
-    );
+    console.error("GET /api/storefront/[brand] error:", error);
+    return NextResponse.json({ success: false, error: "Failed to load storefront." }, { status: 500 });
   }
 }
