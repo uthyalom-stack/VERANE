@@ -1,9 +1,7 @@
 "use client";
 
-import CatalogPage from "../catalog/page";
+import BrandStorefront from "@/components/BrandStorefront";
 
 export default function AlomzieePage() {
-  return (
-    <CatalogPage brand="ALOMZIEE_FOOTIES" />
-  );
+  return <BrandStorefront brand="ALOMZIEE_FOOTIES" />;
 }
