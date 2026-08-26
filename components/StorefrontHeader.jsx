@@ -257,7 +257,7 @@ async function loadSettings() {
               </Link>
 
               <Link
-                href="/catalog?brand=UTHY_LUXURY"
+                href="/storefront/UTHY_LUXURY"
                 className={`text-[10px] uppercase tracking-[0.2em] transition ${
                   pathname?.includes("UTHY_LUXURY")
                     ? "text-white"
@@ -268,7 +268,7 @@ async function loadSettings() {
               </Link>
 
               <Link
-                href="/catalog?brand=ALOMZIEE_FOOTIES"
+                href="/storefront/ALOMZIEE_FOOTIES"
                 className={`text-[10px] uppercase tracking-[0.2em] transition ${
                   pathname?.includes("ALOMZIEE_FOOTIES")
                     ? "text-white"
@@ -516,7 +516,7 @@ async function loadSettings() {
                 {/* UTHY */}
 
                 <Link
-                  href="/catalog?brand=UTHY_LUXURY"
+                  href="/storefront/UTHY_LUXURY"
                   onClick={closeMenu}
                   className="px-4 py-4 text-xs uppercase tracking-[0.2em] text-neutral-400 hover:text-white border-b border-white/5"
                 >
