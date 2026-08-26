@@ -208,6 +208,12 @@ export default function AdminLayout({ children }) {
       show: isStoreAdmin,
     },
 
+{
+  href: "/admin/storefront",
+  label: "Store Page",
+  show: isStoreAdmin,
+},
+
     {
       href: "/admin/orders",
       label: "Orders",
