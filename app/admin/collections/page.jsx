@@ -15,6 +15,7 @@ export default function CollectionsPage() {
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [message, setMessage] = useState("");
 
@@ -26,13 +27,21 @@ export default function CollectionsPage() {
     try {
       setLoading(true);
 
-      const [collectionsResponse, productsResponse] = await Promise.all([
-        fetch("/api/admin/collections"),
-        fetch("/api/admin/products"),
-      ]);
+      const [collectionsResponse, productsResponse] =
+        await Promise.all([
+          fetch("/api/admin/collections", {
+            cache: "no-store",
+          }),
+          fetch("/api/admin/products", {
+            cache: "no-store",
+          }),
+        ]);
 
-      const collectionsData = await collectionsResponse.json();
-      const productsData = await productsResponse.json();
+      const collectionsData =
+        await collectionsResponse.json();
+
+      const productsData =
+        await productsResponse.json();
 
       setCollections(
         Array.isArray(collectionsData)
@@ -46,8 +55,14 @@ export default function CollectionsPage() {
           : []
       );
     } catch (error) {
-      console.error("Failed to load collections:", error);
-      setMessage("Failed to load collections.");
+      console.error(
+        "Failed to load collections:",
+        error
+      );
+
+      setMessage(
+        "Failed to load collections."
+      );
     } finally {
       setLoading(false);
     }
@@ -66,12 +81,16 @@ export default function CollectionsPage() {
   function startEditing(collection) {
     setEditingId(collection.id);
     setName(collection.name || "");
-    setDescription(collection.description || "");
+    setDescription(
+      collection.description || ""
+    );
     setImage(collection.image || "");
     setEnabled(collection.enabled !== false);
 
     setSelectedProducts(
-      collection.products?.map((product) => product.id) || []
+      collection.products?.map(
+        (product) => product.id
+      ) || []
     );
 
     window.scrollTo({
@@ -83,16 +102,73 @@ export default function CollectionsPage() {
   function toggleProduct(productId) {
     setSelectedProducts((current) => {
       if (current.includes(productId)) {
-        return current.filter((id) => id !== productId);
+        return current.filter(
+          (id) => id !== productId
+        );
       }
 
       return [...current, productId];
     });
   }
 
+  async function handleImageUpload(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setMessage("");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        "/api/admin/upload",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.error ||
+            "Failed to upload image."
+        );
+      }
+
+      setImage(data.url);
+
+      setMessage(
+        "Collection image uploaded successfully."
+      );
+    } catch (error) {
+      console.error(
+        "Collection image upload failed:",
+        error
+      );
+
+      setMessage(
+        error?.message ||
+          "Failed to upload image."
+      );
+    } finally {
+      setUploadingImage(false);
+
+      event.target.value = "";
+    }
+  }
+
   async function saveCollection() {
     if (!name.trim()) {
-      setMessage("Collection name is required.");
+      setMessage(
+        "Collection name is required."
+      );
       return;
     }
 
@@ -112,7 +188,9 @@ export default function CollectionsPage() {
         ? `/api/admin/collections/${editingId}`
         : "/api/admin/collections";
 
-      const method = editingId ? "PUT" : "POST";
+      const method = editingId
+        ? "PUT"
+        : "POST";
 
       const response = await fetch(url, {
         method,
@@ -126,22 +204,31 @@ export default function CollectionsPage() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || "Failed to save collection."
+          data?.error ||
+            "Failed to save collection."
         );
       }
 
       await loadData();
+
+      const wasEditing = Boolean(editingId);
+
       resetForm();
 
       setMessage(
-        editingId
+        wasEditing
           ? "Collection updated successfully."
           : "Collection created successfully."
       );
     } catch (error) {
-      console.error("Failed to save collection:", error);
+      console.error(
+        "Failed to save collection:",
+        error
+      );
+
       setMessage(
-        error.message || "Something went wrong."
+        error?.message ||
+          "Something went wrong."
       );
     } finally {
       setSaving(false);
@@ -167,7 +254,8 @@ export default function CollectionsPage() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || "Failed to delete collection."
+          data?.error ||
+            "Failed to delete collection."
         );
       }
 
@@ -176,11 +264,19 @@ export default function CollectionsPage() {
       }
 
       await loadData();
-      setMessage("Collection deleted.");
-    } catch (error) {
-      console.error("Failed to delete collection:", error);
+
       setMessage(
-        error.message || "Failed to delete collection."
+        "Collection deleted."
+      );
+    } catch (error) {
+      console.error(
+        "Failed to delete collection:",
+        error
+      );
+
+      setMessage(
+        error?.message ||
+          "Failed to delete collection."
       );
     } finally {
       setDeletingId(null);
@@ -208,8 +304,8 @@ export default function CollectionsPage() {
               </h1>
 
               <p className="mt-3 max-w-2xl text-sm leading-7 text-white/40">
-                Build curated collections and decide exactly which
-                products belong to each one.
+                Build curated collections and decide
+                exactly which products belong to each one.
               </p>
             </div>
 
@@ -231,9 +327,12 @@ export default function CollectionsPage() {
 
         {/* FORM */}
         <section className="mb-12 overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.025]">
+
           <div className="border-b border-white/[0.06] px-6 py-5 sm:px-8">
             <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber-400/70">
-              {editingId ? "Edit Collection" : "Create Collection"}
+              {editingId
+                ? "Edit Collection"
+                : "Create Collection"}
             </p>
 
             <h2 className="mt-2 text-xl font-semibold tracking-tight">
@@ -253,7 +352,9 @@ export default function CollectionsPage() {
 
               <input
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) =>
+                  setName(e.target.value)
+                }
                 placeholder="New Arrivals"
                 className="w-full rounded-2xl border border-white/[0.08] bg-black px-5 py-4 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-amber-400/40"
               />
@@ -267,7 +368,9 @@ export default function CollectionsPage() {
 
               <textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) =>
+                  setDescription(e.target.value)
+                }
                 placeholder="A curated selection of our latest pieces."
                 rows={4}
                 className="w-full resize-none rounded-2xl border border-white/[0.08] bg-black px-5 py-4 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-amber-400/40"
@@ -280,26 +383,53 @@ export default function CollectionsPage() {
                 Collection Image
               </label>
 
-              <input
-                value={image}
-                onChange={(e) => setImage(e.target.value)}
-                placeholder="Paste image URL"
-                className="w-full rounded-2xl border border-white/[0.08] bg-black px-5 py-4 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-amber-400/40"
-              />
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <label
+                  className={`inline-flex cursor-pointer items-center justify-center rounded-2xl border px-5 py-4 text-sm font-bold transition ${
+                    uploadingImage
+                      ? "cursor-not-allowed border-white/10 bg-white/5 text-white/30"
+                      : "border-white/[0.08] bg-black text-white hover:border-amber-400/40 hover:bg-white/[0.03]"
+                  }`}
+                >
+                  {uploadingImage
+                    ? "Uploading..."
+                    : image
+                    ? "Choose Another Image"
+                    : "Choose Image From Device"}
+
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                    onChange={handleImageUpload}
+                    disabled={uploadingImage}
+                    className="hidden"
+                  />
+                </label>
+
+                {image && (
+                  <div className="flex items-center rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] px-5 py-4 text-xs text-emerald-400">
+                    Image uploaded
+                  </div>
+                )}
+              </div>
 
               <p className="mt-2 text-xs text-white/25">
-                The image is stored in the collection and can be
-                changed later. Nothing is hard-coded.
+                Choose an image directly from your computer.
+                It will be uploaded to VÉRANE storage automatically.
               </p>
 
               {image && (
-                <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08]">
+                <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-black">
                   <img
                     src={image}
-                    alt={name || "Collection preview"}
+                    alt={
+                      name ||
+                      "Collection preview"
+                    }
                     className="h-48 w-full object-cover"
                     onError={(e) => {
-                      e.currentTarget.style.display = "none";
+                      e.currentTarget.style.display =
+                        "none";
                     }}
                   />
                 </div>
@@ -314,14 +444,16 @@ export default function CollectionsPage() {
                 </p>
 
                 <p className="mt-1 text-xs text-white/30">
-                  Disabled collections can remain saved without
-                  appearing publicly.
+                  Disabled collections can remain saved
+                  without appearing publicly.
                 </p>
               </div>
 
               <button
                 type="button"
-                onClick={() => setEnabled(!enabled)}
+                onClick={() =>
+                  setEnabled(!enabled)
+                }
                 className={`relative h-7 w-12 rounded-full transition ${
                   enabled
                     ? "bg-amber-400"
@@ -365,14 +497,18 @@ export default function CollectionsPage() {
                 <div className="grid max-h-[420px] gap-3 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3">
                   {products.map((product) => {
                     const selected =
-                      selectedProducts.includes(product.id);
+                      selectedProducts.includes(
+                        product.id
+                      );
 
                     return (
                       <button
                         type="button"
                         key={product.id}
                         onClick={() =>
-                          toggleProduct(product.id)
+                          toggleProduct(
+                            product.id
+                          )
                         }
                         className={`group flex items-center gap-3 rounded-2xl border p-3 text-left transition ${
                           selected
@@ -383,7 +519,11 @@ export default function CollectionsPage() {
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/[0.05]">
                           {product.images ? (
                             <img
-                              src={product.images.split(",")[0]}
+                              src={
+                                product.images.split(
+                                  ","
+                                )[0]
+                              }
                               alt={product.name}
                               className="h-full w-full object-cover"
                             />
@@ -435,7 +575,10 @@ export default function CollectionsPage() {
               <button
                 type="button"
                 onClick={saveCollection}
-                disabled={saving}
+                disabled={
+                  saving ||
+                  uploadingImage
+                }
                 className="rounded-full bg-amber-400 px-7 py-3 text-xs font-bold text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving
@@ -478,124 +621,150 @@ export default function CollectionsPage() {
             </div>
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
-              {collections.map((collection) => (
-                <article
-                  key={collection.id}
-                  className="group overflow-hidden rounded-[26px] border border-white/[0.08] bg-white/[0.025] transition hover:border-white/[0.14]"
-                >
-                  <div className="flex">
+              {collections.map(
+                (collection) => (
+                  <article
+                    key={collection.id}
+                    className="group overflow-hidden rounded-[26px] border border-white/[0.08] bg-white/[0.025] transition hover:border-white/[0.14]"
+                  >
+                    <div className="flex">
 
-                    {/* IMAGE */}
-                    <div className="hidden h-auto w-32 shrink-0 bg-black sm:block">
-                      {collection.image ? (
-                        <img
-                          src={collection.image}
-                          alt={collection.name}
-                          className="h-full min-h-[190px] w-full object-cover opacity-80 transition group-hover:opacity-100"
-                        />
-                      ) : (
-                        <div className="flex h-full min-h-[190px] items-center justify-center text-white/10">
-                          V
-                        </div>
-                      )}
-                    </div>
+                      {/* IMAGE */}
+                      <div className="hidden h-auto w-32 shrink-0 bg-black sm:block">
+                        {collection.image ? (
+                          <img
+                            src={
+                              collection.image
+                            }
+                            alt={
+                              collection.name
+                            }
+                            className="h-full min-h-[190px] w-full object-cover opacity-80 transition group-hover:opacity-100"
+                          />
+                        ) : (
+                          <div className="flex h-full min-h-[190px] items-center justify-center text-white/10">
+                            V
+                          </div>
+                        )}
+                      </div>
 
-                    {/* CONTENT */}
-                    <div className="flex min-w-0 flex-1 flex-col p-6">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <div className="mb-2 flex items-center gap-2">
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${
-                                collection.enabled
-                                  ? "bg-emerald-400"
-                                  : "bg-white/20"
-                              }`}
-                            />
+                      {/* CONTENT */}
+                      <div className="flex min-w-0 flex-1 flex-col p-6">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="mb-2 flex items-center gap-2">
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${
+                                  collection.enabled
+                                    ? "bg-emerald-400"
+                                    : "bg-white/20"
+                                }`}
+                              />
 
-                            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">
-                              {collection.enabled
-                                ? "Published"
-                                : "Hidden"}
-                            </span>
+                              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">
+                                {collection.enabled
+                                  ? "Published"
+                                  : "Hidden"}
+                              </span>
+                            </div>
+
+                            <h3 className="truncate text-xl font-semibold tracking-tight">
+                              {collection.name}
+                            </h3>
                           </div>
 
-                          <h3 className="truncate text-xl font-semibold tracking-tight">
-                            {collection.name}
-                          </h3>
+                          <span className="shrink-0 text-[10px] text-white/20">
+                            {collection.products
+                              ?.length || 0}{" "}
+                            products
+                          </span>
                         </div>
 
-                        <span className="shrink-0 text-[10px] text-white/20">
-                          {collection.products?.length || 0}{" "}
-                          products
-                        </span>
-                      </div>
+                        <p className="mt-3 line-clamp-2 text-sm leading-6 text-white/35">
+                          {collection.description ||
+                            "No description added."}
+                        </p>
 
-                      <p className="mt-3 line-clamp-2 text-sm leading-6 text-white/35">
-                        {collection.description ||
-                          "No description added."}
-                      </p>
+                        {/* PRODUCT PREVIEW */}
+                        {collection.products
+                          ?.length > 0 && (
+                          <div className="mt-5 flex -space-x-2">
+                            {collection.products
+                              .slice(0, 5)
+                              .map(
+                                (product) => (
+                                  <div
+                                    key={
+                                      product.id
+                                    }
+                                    className="h-9 w-9 overflow-hidden rounded-full border-2 border-black bg-white/[0.08]"
+                                  >
+                                    {product.images ? (
+                                      <img
+                                        src={
+                                          product.images.split(
+                                            ","
+                                          )[0]
+                                        }
+                                        alt=""
+                                        className="h-full w-full object-cover"
+                                      />
+                                    ) : null}
+                                  </div>
+                                )
+                              )}
 
-                      {/* PRODUCT PREVIEW */}
-                      {collection.products?.length > 0 && (
-                        <div className="mt-5 flex -space-x-2">
-                          {collection.products
-                            .slice(0, 5)
-                            .map((product) => (
-                              <div
-                                key={product.id}
-                                className="h-9 w-9 overflow-hidden rounded-full border-2 border-black bg-white/[0.08]"
-                              >
-                                {product.images ? (
-                                  <img
-                                    src={product.images.split(",")[0]}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : null}
+                            {collection.products
+                              .length > 5 && (
+                              <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-black bg-white/10 text-[9px] text-white/50">
+                                +
+                                {collection
+                                  .products
+                                  .length -
+                                  5}
                               </div>
-                            ))}
+                            )}
+                          </div>
+                        )}
 
-                          {collection.products.length > 5 && (
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-black bg-white/10 text-[9px] text-white/50">
-                              +
-                              {collection.products.length - 5}
-                            </div>
-                          )}
+                        {/* ACTIONS */}
+                        <div className="mt-6 flex items-center justify-between border-t border-white/[0.06] pt-4">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              startEditing(
+                                collection
+                              )
+                            }
+                            className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 transition hover:text-amber-400"
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteCollection(
+                                collection.id
+                              )
+                            }
+                            disabled={
+                              deletingId ===
+                              collection.id
+                            }
+                            className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-400/60 transition hover:text-red-400 disabled:opacity-40"
+                          >
+                            {deletingId ===
+                            collection.id
+                              ? "Deleting..."
+                              : "Delete"}
+                          </button>
                         </div>
-                      )}
-
-                      {/* ACTIONS */}
-                      <div className="mt-6 flex items-center justify-between border-t border-white/[0.06] pt-4">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startEditing(collection)
-                          }
-                          className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 transition hover:text-amber-400"
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            deleteCollection(collection.id)
-                          }
-                          disabled={
-                            deletingId === collection.id
-                          }
-                          className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-400/60 transition hover:text-red-400 disabled:opacity-40"
-                        >
-                          {deletingId === collection.id
-                            ? "Deleting..."
-                            : "Delete"}
-                        </button>
                       </div>
                     </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                )
+              )}
             </div>
           )}
         </section>

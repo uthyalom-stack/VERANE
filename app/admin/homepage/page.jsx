@@ -81,6 +81,61 @@ export default function HomepageSettings() {
     );
   }
 
+  async function uploadSectionImage(
+    sectionId,
+    field,
+    file
+  ) {
+    if (!file) return;
+
+    try {
+      setMessage("Uploading image...");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        "/api/admin/upload",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data?.success || !data?.url) {
+        throw new Error(
+          data?.error || "Image upload failed."
+        );
+      }
+
+      updateSection(
+        sectionId,
+        field,
+        data.url
+      );
+
+      setMessage(
+        "Image uploaded successfully."
+      );
+
+      setTimeout(() => {
+        setMessage("");
+      }, 3000);
+    } catch (error) {
+      console.error(
+        "Image upload failed:",
+        error
+      );
+
+      setMessage(
+        error?.message ||
+          "Could not upload image."
+      );
+    }
+  }
+
   function moveSection(index, direction) {
     const newIndex = index + direction;
 
@@ -236,7 +291,6 @@ export default function HomepageSettings() {
 
   return (
     <main className="min-h-screen bg-black text-white">
-
       <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
 
         {/* HEADER */}
@@ -295,14 +349,15 @@ export default function HomepageSettings() {
             </button>
 
           </div>
-
         </div>
 
         {/* STATUS MESSAGE */}
         {message && (
           <div
             className={`mb-6 rounded-2xl border px-5 py-4 text-sm ${
-              message.toLowerCase().includes("could not")
+              message.toLowerCase().includes("could not") ||
+              message.toLowerCase().includes("failed") ||
+              message.toLowerCase().includes("unauthorized")
                 ? "border-red-500/20 bg-red-500/5 text-red-400"
                 : "border-emerald-500/20 bg-emerald-500/5 text-emerald-400"
             }`}
@@ -361,7 +416,6 @@ export default function HomepageSettings() {
               </button>
 
             </div>
-
           </div>
         )}
 
@@ -430,8 +484,7 @@ export default function HomepageSettings() {
                             }
                             disabled={
                               index ===
-                              sections.length -
-                                1
+                              sections.length - 1
                             }
                             aria-label="Move section down"
                             className="rounded-lg border border-white/10 px-3 py-1 text-neutral-400 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-30"
@@ -547,26 +600,28 @@ export default function HomepageSettings() {
                         />
                       </div>
 
-                      {/* IMAGE */}
+                      {/* DESKTOP IMAGE */}
                       <div>
                         <label className="mb-1 block text-xs text-neutral-500">
-                          Image URL
+                          Desktop Image
                         </label>
 
-                        <input
-                          value={
-                            section.image || ""
-                          }
-                          onChange={(event) =>
-                            updateSection(
-                              sectionId,
-                              "image",
-                              event.target.value
-                            )
-                          }
-                          className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm outline-none transition focus:border-amber-400/40"
-                          placeholder="https://..."
-                        />
+                        <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-white/10 bg-black px-4 py-6 text-sm text-neutral-400 transition hover:border-amber-400/40 hover:text-white">
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                            className="hidden"
+                            onChange={(event) =>
+                              uploadSectionImage(
+                                sectionId,
+                                "image",
+                                event.target.files?.[0]
+                              )
+                            }
+                          />
+
+                          Choose Desktop Image
+                        </label>
 
                         {section.image && (
                           <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black">
@@ -574,10 +629,6 @@ export default function HomepageSettings() {
                               src={section.image}
                               alt=""
                               className="h-32 w-full object-cover"
-                              onError={(event) => {
-                                event.currentTarget.style.display =
-                                  "none";
-                              }}
                             />
                           </div>
                         )}
@@ -586,24 +637,35 @@ export default function HomepageSettings() {
                       {/* MOBILE IMAGE */}
                       <div>
                         <label className="mb-1 block text-xs text-neutral-500">
-                          Mobile Image URL
+                          Mobile Image
                         </label>
 
-                        <input
-                          value={
-                            section.mobileImage ||
-                            ""
-                          }
-                          onChange={(event) =>
-                            updateSection(
-                              sectionId,
-                              "mobileImage",
-                              event.target.value
-                            )
-                          }
-                          className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm outline-none transition focus:border-amber-400/40"
-                          placeholder="https://..."
-                        />
+                        <label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-white/10 bg-black px-4 py-6 text-sm text-neutral-400 transition hover:border-amber-400/40 hover:text-white">
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                            className="hidden"
+                            onChange={(event) =>
+                              uploadSectionImage(
+                                sectionId,
+                                "mobileImage",
+                                event.target.files?.[0]
+                              )
+                            }
+                          />
+
+                          Choose Mobile Image
+                        </label>
+
+                        {section.mobileImage && (
+                          <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black">
+                            <img
+                              src={section.mobileImage}
+                              alt=""
+                              className="h-32 w-full object-cover"
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* BUTTON TEXT */}
@@ -699,18 +761,14 @@ export default function HomepageSettings() {
                       </div>
 
                     </div>
-
                   </div>
                 );
               }
             )}
 
           </div>
-
         )}
-
       </div>
-
     </main>
   );
 }
