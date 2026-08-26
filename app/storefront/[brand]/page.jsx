@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import StorefrontProductActions from "@/components/StorefrontProductActions";
 
 const VALID_BRANDS = ["UTHY_LUXURY", "ALOMZIEE_FOOTIES"];
 
@@ -26,19 +27,25 @@ function ProductCard({ product }) {
   const image = getProductImage(product.images);
 
   return (
-    <Link href={`/product/${product.id}`} className="group block">
-      <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-white/[0.04]">
-        {image ? (
-          <img src={image} alt={product.name || "Product"} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-        ) : (
-          <div className="flex h-full items-center justify-center text-2xl text-white/10">V</div>
-        )}
+    <div className="group min-w-0">
+      <Link href={`/product/${product.id}`} className="block">
+        <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-white/[0.04]">
+          {image ? (
+            <img src={image} alt={product.name || "Product"} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+          ) : (
+            <div className="flex h-full items-center justify-center text-2xl text-white/10">V</div>
+          )}
+        </div>
+      </Link>
+
+      <div className="px-1 pt-3">
+        <Link href={`/product/${product.id}`} className="block">
+          <p className="truncate text-sm font-medium text-white">{product.name || "Unnamed Product"}</p>
+          <p className="mt-1 text-xs text-white/40">{formatPrice(product.price)}</p>
+        </Link>
+        <StorefrontProductActions product={product} />
       </div>
-      <div className="pt-3">
-        <p className="truncate text-sm font-medium text-white">{product.name || "Unnamed Product"}</p>
-        <p className="mt-1 text-xs text-white/40">{formatPrice(product.price)}</p>
-      </div>
-    </Link>
+    </div>
   );
 }
 
@@ -126,6 +133,8 @@ export default function BrandStorefrontPage() {
           <div className="space-y-20">
             {sections.map((section) => {
               const sectionUrl = `${brandUrl}/section/${encodeURIComponent(section.id)}`;
+              const sectionProducts = Array.isArray(section.products) ? section.products : [];
+              const previewProducts = sectionProducts.slice(0, 5);
 
               return (
                 <section key={section.id}>
@@ -145,9 +154,29 @@ export default function BrandStorefrontPage() {
                     </div>
                   </Link>
 
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {Array.isArray(section.products) && section.products.map((product) => <ProductCard key={product.id} product={product} />)}
-                  </div>
+                  {sectionProducts.length > 0 ? (
+                    <div className="-mx-1 overflow-x-auto px-1 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      <div className="flex snap-x snap-mandatory gap-3">
+                        {previewProducts.map((product) => (
+                          <div key={product.id} className="w-[48%] shrink-0 snap-start sm:w-[31.5%] lg:w-[19%]">
+                            <ProductCard product={product} />
+                          </div>
+                        ))}
+
+                        <Link href={sectionUrl} className="flex min-h-full w-[48%] shrink-0 snap-start items-center justify-center rounded-2xl border border-white/10 bg-white/[0.025] px-5 text-center transition hover:border-amber-400/40 hover:bg-amber-400/[0.05] sm:w-[31.5%] lg:w-[19%]">
+                          <div>
+                            <span className="text-[9px] font-black uppercase tracking-[0.25em] text-amber-400">More</span>
+                            <p className="mt-3 text-sm font-semibold text-white">View all products</p>
+                            <p className="mt-2 text-xs text-white/30">{sectionProducts.length} in this section</p>
+                          </div>
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-white/10 px-6 py-12 text-center">
+                      <p className="text-sm text-white/25">No products in this section yet.</p>
+                    </div>
+                  )}
                 </section>
               );
             })}
@@ -158,6 +187,7 @@ export default function BrandStorefrontPage() {
               <h2 className="text-2xl font-semibold">Shop {brandInfo.name || brand}</h2>
               <p className="mt-2 text-sm text-white/35">Explore everything currently available from this store.</p>
             </div>
+
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {products.map((product) => <ProductCard key={product.id} product={product} />)}
             </div>
