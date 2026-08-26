@@ -15,18 +15,32 @@ function getBrandDisplayName(brand) {
   return brand === "UTHY_LUXURY" ? "UTHY LUXURY" : "ALOMZIEE FOOTIES";
 }
 
-function parseImages(images) {
-  if (!images) return [];
+function getFirstImage(images) {
+  if (!images) return "";
 
   try {
     const parsed = JSON.parse(images);
-    if (Array.isArray(parsed)) return parsed;
-    if (typeof parsed === "string") return [parsed];
+
+    if (Array.isArray(parsed)) return parsed[0] || "";
+    if (typeof parsed === "string") return parsed;
   } catch {
-    return String(images).split(",").map((item) => item.trim()).filter(Boolean);
+    return String(images)
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)[0] || "";
   }
 
-  return [];
+  return "";
+}
+
+function toPublicProduct(product) {
+  return {
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    brand: product.brand,
+    images: getFirstImage(product.images) ? [getFirstImage(product.images)] : [],
+  };
 }
 
 export async function GET(request, { params }) {
@@ -34,13 +48,26 @@ export async function GET(request, { params }) {
     const { brand } = await params;
 
     if (!VALID_BRANDS.includes(brand)) {
-      return NextResponse.json({ success: false, error: "Invalid brand." }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Invalid brand." },
+        { status: 400 }
+      );
     }
 
     const [setting, heroSetting, products, brandSetting] = await Promise.all([
       prisma.siteSetting.findUnique({ where: { key: getStorageKey(brand) } }),
       prisma.siteSetting.findUnique({ where: { key: getHeroKey(brand) } }),
-      prisma.product.findMany({ where: { brand }, orderBy: { createdAt: "desc" } }),
+      prisma.product.findMany({
+        where: { brand },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          brand: true,
+          images: true,
+        },
+      }),
       prisma.siteSetting.findUnique({ where: { key: "brandData" } }),
     ]);
 
@@ -65,7 +92,10 @@ export async function GET(request, { params }) {
 
     const brandInfo = brandData?.[brand] || {};
     const productMap = new Map(
-      products.map((product) => [product.id, { ...product, images: parseImages(product.images) }])
+      products.map((product) => {
+        const publicProduct = toPublicProduct(product);
+        return [publicProduct.id, publicProduct];
+      })
     );
 
     const publicSections = sections
@@ -96,6 +126,9 @@ export async function GET(request, { params }) {
     });
   } catch (error) {
     console.error("GET /api/storefront/[brand] error:", error);
-    return NextResponse.json({ success: false, error: "Failed to load storefront." }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Failed to load storefront." },
+      { status: 500 }
+    );
   }
 }
