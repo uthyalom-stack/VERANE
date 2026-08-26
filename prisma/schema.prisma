@@ -8,70 +8,70 @@ datasource db {
 }
 
 model User {
-  id          String        @id @default(cuid())
-  email       String        @unique
-  password    String
-  name        String?
-  createdAt   DateTime      @default(now())
-  orders      Order[]
-  savedLooks  SavedLook[]
+  id String @id @default(cuid())
+  email String @unique
+  password String
+  name String?
+  createdAt DateTime @default(now())
+  orders Order[]
+  savedLooks SavedLook[]
   waitingList WaitingList[]
-  wishlist    Wishlist[]
+  wishlist Wishlist[]
 }
 
 model Product {
-  id                     String                 @id @default(cuid())
-  name                   String
-  brand                  String
-  category               String
-  price                  Float
-  description            String?
-  images                 String
-  inventory              Int                    @default(0)
-  legacyColors           String?                @map("colors")
-  style                  String?
-  occasion               String?
-  outfitLayer            String                 @default("none")
-  outfitCompatible       Boolean                @default(false)
-  mannequinAsset         String?
-  collectionId           String?
-  createdAt              DateTime               @default(now())
-  categoryId             String?
-  builderAssetUrl        String?
-  builderPositionX       Float                  @default(0)
-  builderPositionY       Float                  @default(0)
-  builderScale           Float                  @default(1)
-  initialInventory       Int                    @default(0)
-  customSizingEnabled    Boolean                @default(false)
-  fulfillmentTime        String?
-  preOrderEnabled        Boolean                @default(false)
-  sizeType               String?
+  id String @id @default(cuid())
+  name String
+  brand String
+  category String
+  price Float
+  description String?
+  images String
+  inventory Int @default(0)
+  legacyColors String? @map("colors")
+  style String?
+  occasion String?
+  outfitLayer String @default("none")
+  outfitCompatible Boolean @default(false)
+  mannequinAsset String?
+  collectionId String?
+  createdAt DateTime @default(now())
+  categoryId String?
+  builderAssetUrl String?
+  builderPositionX Float @default(0)
+  builderPositionY Float @default(0)
+  builderScale Float @default(1)
+  initialInventory Int @default(0)
+  customSizingEnabled Boolean @default(false)
+  fulfillmentTime String?
+  preOrderEnabled Boolean @default(false)
+  sizeType String?
   collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
-  orderItems             OrderItem[]
-  categoryRef            Category?              @relation(fields: [categoryId], references: [id])
-  collection             Collection?            @relation(fields: [collectionId], references: [id])
-  productColors          ProductColor[]
-  variants               ProductVariant[]
-  waitingListEntries     WaitingList[]
-  wishlistItems          Wishlist[]
+  orderItems OrderItem[]
+  categoryRef Category? @relation(fields: [categoryId], references: [id])
+  collection Collection? @relation(fields: [collectionId], references: [id])
+  productColors ProductColor[]
+  variants ProductVariant[]
+  waitingListEntries WaitingList[]
+  wishlistItems Wishlist[]
   @@index([brand])
   @@index([categoryId])
   @@index([collectionId])
 }
 
 model Category {
-  id          String    @id @default(cuid())
-  brand       String
-  name        String
-  slug        String
+  id String @id @default(cuid())
+  brand String
+  name String
+  slug String
   description String?
-  enabled     Boolean   @default(true)
-  sortOrder   Int       @default(0)
-  sizeType    String    @default("none")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  products    Product[]
+  enabled Boolean @default(true)
+  sortOrder Int @default(0)
+  sizeType String @default("none")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products Product[]
   @@unique([brand, slug])
   @@index([brand])
 }
@@ -108,7 +108,11 @@ model HomepageSection {
   updatedAt DateTime @updatedAt
 }
 
-model SiteSetting { id String @id @default(cuid()); key String @unique; value String }
+model SiteSetting {
+  id String @id @default(cuid())
+  key String @unique
+  value String
+}
 
 model Order {
   id String @id @default(cuid())
@@ -140,9 +144,41 @@ model OrderItem {
   @@index([variantId])
 }
 
-model SavedLook { id String @id @default(cuid()); userId String; products String; createdAt DateTime @default(now()); user User @relation(fields: [userId], references: [id]) }
-model Subscriber { id String @id @default(cuid()); email String; createdAt DateTime @default(now()); brand String?; @@unique([email, brand]); @@index([brand]) }
-model Discount { id String @id @default(cuid()); brand String?; code String @unique; name String; description String?; type String; value Float; enabled Boolean @default(true); minOrderValue Float?; usageLimit Int?; usageCount Int @default(0); startsAt DateTime?; endsAt DateTime?; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; @@index([brand]) }
+model SavedLook {
+  id String @id @default(cuid())
+  userId String
+  products String
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Subscriber {
+  id String @id @default(cuid())
+  email String
+  createdAt DateTime @default(now())
+  brand String?
+  @@unique([email, brand])
+  @@index([brand])
+}
+
+model Discount {
+  id String @id @default(cuid())
+  brand String?
+  code String @unique
+  name String
+  description String?
+  type String
+  value Float
+  enabled Boolean @default(true)
+  minOrderValue Float?
+  usageLimit Int?
+  usageCount Int @default(0)
+  startsAt DateTime?
+  endsAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([brand])
+}
 
 model ProductVariant {
   id String @id @default(cuid())
@@ -192,8 +228,84 @@ model WaitingList {
   @@index([email])
 }
 
-model CollaborationRequest { id String @id @default(cuid()); fromBrand String; toBrand String; title String; message String?; status String @default("pending"); collaborationId String?; createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; notifications AdminNotification[]; collaboration Collaboration? @relation(fields: [collaborationId], references: [id]); @@index([fromBrand]); @@index([toBrand]); @@index([status]); @@index([collaborationId]) }
-model Collaboration { id String @id @default(cuid()); name String; description String?; brandA String; brandB String; status String @default("active"); createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; products CollaborationProduct[]; requests CollaborationRequest[]; @@index([brandA]); @@index([brandB]); @@index([status]) }
-model CollaborationProduct { id String @id @default(cuid()); collaborationId String; productAId String; productBId String; name String; description String?; price Float; images String @default("[]"); status String @default("draft"); createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; collaboration Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade); productA Product @relation("CollaborationProductA", fields: [productAId], references: [id]); productB Product @relation("CollaborationProductB", fields: [productBId], references: [id]); @@index([collaborationId]); @@index([productAId]); @@index([productBId]); @@index([status]) }
-model AdminNotification { id String @id @default(cuid()); recipientBrand String; type String; title String; message String; readAt DateTime?; requestId String?; createdAt DateTime @default(now()); request CollaborationRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade); @@index([recipientBrand]); @@index([readAt]); @@index([requestId]) }
-model Wishlist { id String @id @default(cuid()); userId String; productId String; createdAt DateTime @default(now()); product Product @relation(fields: [productId], references: [id], onDelete: Cascade); user User @relation(fields: [userId], references: [id], onDelete: Cascade); @@unique([userId, productId]); @@index([userId]); @@index([productId]) }
+model CollaborationRequest {
+  id String @id @default(cuid())
+  fromBrand String
+  toBrand String
+  title String
+  message String?
+  status String @default("pending")
+  collaborationId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  notifications AdminNotification[]
+  collaboration Collaboration? @relation(fields: [collaborationId], references: [id])
+  @@index([fromBrand])
+  @@index([toBrand])
+  @@index([status])
+  @@index([collaborationId])
+}
+
+model Collaboration {
+  id String @id @default(cuid())
+  name String
+  description String?
+  brandA String
+  brandB String
+  status String @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products CollaborationProduct[]
+  requests CollaborationRequest[]
+  @@index([brandA])
+  @@index([brandB])
+  @@index([status])
+}
+
+model CollaborationProduct {
+  id String @id @default(cuid())
+  collaborationId String
+  productAId String
+  productBId String
+  name String
+  description String?
+  price Float
+  images String @default("[]")
+  status String @default("draft")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  collaboration Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
+  productA Product @relation("CollaborationProductA", fields: [productAId], references: [id])
+  productB Product @relation("CollaborationProductB", fields: [productBId], references: [id])
+  @@index([collaborationId])
+  @@index([productAId])
+  @@index([productBId])
+  @@index([status])
+}
+
+model AdminNotification {
+  id String @id @default(cuid())
+  recipientBrand String
+  type String
+  title String
+  message String
+  readAt DateTime?
+  requestId String?
+  createdAt DateTime @default(now())
+  request CollaborationRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  @@index([recipientBrand])
+  @@index([readAt])
+  @@index([requestId])
+}
+
+model Wishlist {
+  id String @id @default(cuid())
+  userId String
+  productId String
+  createdAt DateTime @default(now())
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
