@@ -67,6 +67,7 @@ model Category {
   name        String
   slug        String
   description String?
+  sizeType    String    @default("none")
   enabled     Boolean   @default(true)
   sortOrder   Int       @default(0)
   createdAt   DateTime  @default(now())
