@@ -214,20 +214,20 @@ const clothing =
   selectedCategory?.sizeType === "clothing";
 
   const sizeOptions = useMemo(() => {
-    if (footwear) {
-  return NUMBER_SIZES;
-}
+  if (footwear) {
+    return FOOTWEAR_SIZES;
+  }
 
-if (belt) {
-  return NUMBER_SIZES;
-}
+  if (belt) {
+    return WAIST_SIZES;
+  }
 
-    if (clothing) {
-      return CLOTHING_SIZES;
-    }
+  if (clothing) {
+    return CLOTHING_SIZES;
+  }
 
-    return [];
-  }, [footwear, belt, clothing]);
+  return [];
+}, [footwear, belt, clothing]);
 
   useEffect(() => {
   if (!selectedCategory) return;
