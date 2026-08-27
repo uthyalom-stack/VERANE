@@ -41,9 +41,14 @@ const COLOR_PALETTE = [
 
 const CLOTHING_SIZES = ["S", "M", "L", "XL", "XXL"];
 
-const NUMBER_SIZES = Array.from(
-  { length: 100 },
-  (_, index) => String(index + 1)
+const FOOTWEAR_SIZES = Array.from(
+  { length: 31 },
+  (_, index) => String(index + 35)
+);
+
+const WAIST_SIZES = Array.from(
+  { length: 31 },
+  (_, index) => String(index + 28)
 );
 
 function makeId() {
@@ -95,52 +100,6 @@ function compressImage(file, maxWidth = 1400) {
 
     reader.readAsDataURL(file);
   });
-}
-
-function isFootwearCategory(category) {
-  if (!category) return false;
-
-  const value = `${category.slug || ""} ${category.name || ""}`.toLowerCase();
-
-  return [
-    "shoe",
-    "shoes",
-    "sandal",
-    "sandals",
-    "slide",
-    "slides",
-    "boot",
-    "boots",
-    "footwear",
-  ].some((word) => value.includes(word));
-}
-
-function isBeltCategory(category) {
-  if (!category) return false;
-
-  const value = `${category.slug || ""} ${category.name || ""}`.toLowerCase();
-
-  return value.includes("belt");
-}
-
-function isClothingCategory(category) {
-  if (!category) return false;
-
-  const value = `${category.slug || ""} ${category.name || ""}`.toLowerCase();
-
-  return [
-    "shirt",
-    "shirts",
-    "trouser",
-    "trousers",
-    "hoodie",
-    "hoodies",
-    "traditional",
-    "cloth",
-    "clothing",
-    "top",
-    "bottom",
-  ].some((word) => value.includes(word));
 }
 
 export default function AddProductPage() {
@@ -245,26 +204,23 @@ export default function AddProductPage() {
     );
   }, [categories, form.category]);
 
-  const footwear = isFootwearCategory(
-    selectedCategory
-  );
+  const footwear =
+  selectedCategory?.sizeType === "footwear";
 
-  const belt = isBeltCategory(
-    selectedCategory
-  );
+const belt =
+  selectedCategory?.sizeType === "waist";
 
-  const clothing = isClothingCategory(
-    selectedCategory
-  );
+const clothing =
+  selectedCategory?.sizeType === "clothing";
 
   const sizeOptions = useMemo(() => {
     if (footwear) {
-      return NUMBER_SIZES;
-    }
+  return NUMBER_SIZES;
+}
 
-    if (belt) {
-      return NUMBER_SIZES;
-    }
+if (belt) {
+  return NUMBER_SIZES;
+}
 
     if (clothing) {
       return CLOTHING_SIZES;
@@ -274,36 +230,24 @@ export default function AddProductPage() {
   }, [footwear, belt, clothing]);
 
   useEffect(() => {
-    if (!selectedCategory) return;
+  if (!selectedCategory) return;
 
-    let nextType = "none";
+  const nextType =
+    selectedCategory.sizeType || "none";
 
-    if (footwear) {
-      nextType = "footwear";
-    } else if (belt) {
-      nextType = "waist";
-    } else if (clothing) {
-      nextType = "clothing";
+  setForm((current) => {
+    if (current.sizeType === nextType) {
+      return current;
     }
 
-    setForm((current) => {
-      if (current.sizeType === nextType) {
-        return current;
-      }
-
-      return {
-        ...current,
-        sizeType: nextType,
-        sizes: [],
-        variantStock: {},
-      };
-    });
-  }, [
-    selectedCategory,
-    footwear,
-    belt,
-    clothing,
-  ]);
+    return {
+      ...current,
+      sizeType: nextType,
+      sizes: [],
+      variantStock: {},
+    };
+  });
+}, [selectedCategory]);
 
   async function handleImageFiles(fileList) {
     const files = Array.from(
@@ -1348,12 +1292,12 @@ export default function AddProductPage() {
 
                   <p className="mt-2 text-sm text-white">
                     {footwear
-                      ? "Footwear sizing — numeric sizes 1–100"
-                      : belt
-                      ? "Waist sizing — numeric sizes 1–100"
-                      : clothing
-                      ? "Clothing sizing — S, M, L, XL, XXL"
-                      : "This category does not require standard sizing."}
+  ? "Footwear sizing — numeric sizes"
+  : belt
+  ? "Waist sizing — numeric sizes"
+  : clothing
+  ? "Clothing sizing — S, M, L, XL, XXL"
+  : "This category does not require standard sizing."}
                   </p>
 
                 </div>
