@@ -9,8 +9,9 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
 
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [enabled, setEnabled] = useState(true);
+ const [description, setDescription] = useState("");
+const [sizeType, setSizeType] = useState("none");
+const [enabled, setEnabled] = useState(true);
 
   const [editing, setEditing] = useState(null);
 
@@ -56,7 +57,8 @@ export default function CategoriesPage() {
   function resetForm() {
     setName("");
     setDescription("");
-    setEnabled(true);
+setSizeType("none");
+setEnabled(true);
     setEditing(null);
     setError("");
     setMessage("");
@@ -66,7 +68,8 @@ export default function CategoriesPage() {
     setEditing(category);
     setName(category.name || "");
     setDescription(category.description || "");
-    setEnabled(category.enabled !== false);
+setSizeType(category.sizeType || "none");
+setEnabled(category.enabled !== false);
     setError("");
     setMessage("");
 
@@ -98,10 +101,11 @@ export default function CategoriesPage() {
         },
         credentials: "include",
         body: JSON.stringify({
-          name: name.trim(),
-          description: description.trim(),
-          enabled,
-        }),
+  name: name.trim(),
+  description: description.trim(),
+  sizeType,
+  enabled,
+}),
       });
 
       const data = await response.json().catch(() => null);
