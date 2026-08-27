@@ -57,6 +57,19 @@ export async function PUT(request, { params }) {
         ? body.description.trim()
         : existing.description || "";
 
+const allowedSizeTypes = [
+  "none",
+  "clothing",
+  "footwear",
+  "waist",
+];
+
+const sizeType = allowedSizeTypes.includes(
+  body.sizeType
+)
+  ? body.sizeType
+  : "none";
+
     const slug =
       typeof body.slug === "string" && body.slug.trim()
         ? body.slug
@@ -116,12 +129,13 @@ export async function PUT(request, { params }) {
         id,
       },
       data: {
-        name,
-        slug,
-        description: description || null,
-        enabled,
-        sortOrder,
-      },
+  name,
+  slug,
+  description: description || null,
+  sizeType,
+  enabled,
+  sortOrder,
+},
     });
 
     return NextResponse.json(category);
