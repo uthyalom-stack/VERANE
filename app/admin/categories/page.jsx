@@ -277,6 +277,41 @@ setEnabled(category.enabled !== false);
               />
             </div>
 
+<div>
+  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
+    Size System
+  </label>
+
+  <select
+    value={sizeType}
+    onChange={(event) =>
+      setSizeType(event.target.value)
+    }
+    className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
+  >
+    <option value="none">
+      No sizing
+    </option>
+
+    <option value="clothing">
+      Clothing — S, M, L, XL, XXL
+    </option>
+
+    <option value="footwear">
+      Footwear — Numeric sizes
+    </option>
+
+    <option value="waist">
+      Waist — Numeric sizes
+    </option>
+  </select>
+
+  <p className="mt-2 text-xs text-neutral-600">
+    This determines which sizing system appears when
+    creating products in this category.
+  </p>
+</div>
+
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black px-5 py-4">
               <div>
                 <p className="text-sm font-semibold">
