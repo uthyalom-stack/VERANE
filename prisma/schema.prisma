@@ -46,6 +46,7 @@ model Product {
   fulfillmentTime        String?
   preOrderEnabled        Boolean                @default(false)
   sizeType               String?
+sizeGuideImage String?
   collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
   orderItems             OrderItem[]
