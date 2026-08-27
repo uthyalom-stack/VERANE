@@ -90,6 +90,19 @@ export async function POST(request) {
         ? body.description.trim()
         : "";
 
+const allowedSizeTypes = [
+  "none",
+  "clothing",
+  "footwear",
+  "waist",
+];
+
+const sizeType = allowedSizeTypes.includes(
+  body.sizeType
+)
+  ? body.sizeType
+  : "none";
+
     const slug =
       typeof body.slug === "string"
         ? body.slug.trim().toLowerCase()
@@ -144,13 +157,14 @@ export async function POST(request) {
 
     const category = await prisma.category.create({
       data: {
-        brand: admin.brand,
-        name,
-        slug,
-        description: description || null,
-        enabled,
-        sortOrder,
-      },
+  brand: admin.brand,
+  name,
+  slug,
+  description: description || null,
+  sizeType,
+  enabled,
+  sortOrder,
+},
     });
 
     return NextResponse.json(category, {
