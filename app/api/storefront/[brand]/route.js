@@ -39,6 +39,8 @@ function toPublicProduct(product) {
     name: product.name,
     price: product.price,
     brand: product.brand,
+    inventory: product.inventory,
+    initialInventory: product.initialInventory,
     images: getFirstImage(product.images) ? [getFirstImage(product.images)] : [],
   };
 }
@@ -65,6 +67,8 @@ export async function GET(request, { params }) {
           name: true,
           price: true,
           brand: true,
+          inventory: true,
+          initialInventory: true,
           images: true,
         },
       }),
