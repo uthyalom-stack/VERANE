@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "npx prisma@5 generate && next build",
+    "build": "npx prisma@5 generate && npx prisma@5 migrate deploy && next build",
     "start": "next start"
   },
   "dependencies": {
