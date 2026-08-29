@@ -125,6 +125,15 @@ model Order {
   total       Float
   createdAt   DateTime    @default(now())
   orderNumber String      @unique
+
+  firstName   String?
+  lastName    String?
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  state       String?
+
   user        User        @relation(fields: [userId], references: [id])
   items       OrderItem[]
 }
