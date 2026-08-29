@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -46,7 +47,7 @@ model Product {
   fulfillmentTime        String?
   preOrderEnabled        Boolean                @default(false)
   sizeType               String?
-sizeGuideImage String?
+  sizeGuideImage         String?
   collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
   orderItems             OrderItem[]
@@ -108,8 +109,8 @@ model HomepageSection {
   secondaryButtonText String   @default("")
   secondaryButtonLink String   @default("")
   products            String   @default("[]")
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model SiteSetting {
