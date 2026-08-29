@@ -53,6 +53,11 @@ export async function GET(request) {
         items: {
           include: {
             product: true,
+            variant: {
+              include: {
+                color: true,
+              },
+            },
           },
         },
       },
@@ -74,7 +79,6 @@ export async function GET(request) {
   }
 }
 
-
 export async function POST(request) {
   try {
     const session = await getSession(request);
@@ -93,8 +97,14 @@ export async function POST(request) {
     const {
       items,
       total,
+      firstName,
+      lastName,
+      email,
+      phone,
+      address,
+      city,
+      state,
     } = body;
-
 
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -105,29 +115,30 @@ export async function POST(request) {
       );
     }
 
-
     const order = await prisma.order.create({
       data: {
         userId: session.user.id,
-
         orderNumber: generateOrderNumber(),
-
         total: Number(total || 0),
+
+        firstName: firstName || null,
+        lastName: lastName || null,
+        email: email || null,
+        phone: phone || null,
+        address: address || null,
+        city: city || null,
+        state: state || null,
 
         items: {
           create: items.map((item) => ({
             productId: item.id,
             quantity: Number(item.qty || 1),
             price: Number(item.price || 0),
-
-            selectedColor:
-              item.selectedColor || null,
-
-            selectedSize:
-              item.selectedSize || null,
-
-            customMeasurements:
-              item.customSizing || null,
+            selectedColor: item.selectedColor || null,
+            selectedColorHex: item.selectedColorHex || null,
+            selectedSize: item.selectedSize || null,
+            variantId: item.variantId || null,
+            customMeasurements: item.customSizing || null,
           })),
         },
       },
@@ -137,17 +148,12 @@ export async function POST(request) {
       },
     });
 
-
     return NextResponse.json({
       success: true,
       order,
     });
-
   } catch (error) {
-    console.error(
-      "Create order error:",
-      error
-    );
+    console.error("Create order error:", error);
 
     return NextResponse.json(
       {
