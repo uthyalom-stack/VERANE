@@ -10,21 +10,22 @@ export function proxy(request: Request) {
    * -------------------------------------------------------
    */
 
-  if (pathname.startsWith("/admin")) {
-    const isLoginPage = pathname === "/admin/login";
+  const authRequiredMap: Record<string, boolean> = {
+    "/admin/login": false
+  };
 
-    if (!isLoginPage) {
-      const cookieHeader = request.headers.get("cookie") || "";
+  if (pathname.startsWith("/admin") && (authRequiredMap[pathname] ?? true)) {
+    const cookieHeader = request.headers.get("cookie") || "";
 
-      const hasAdminAuth = cookieHeader
-        .split(";")
-        .some((cookie) => cookie.trim().startsWith("adminAuth="));
+    const hasAdminAuth = cookieHeader
+      .split(";")
+      .some((cookie) => cookie.trim().startsWith("adminAuth="));
 
-      if (!hasAdminAuth) {
-        console.log("[ADMIN AUTH]", pathname, "NO COOKIE");
+    if (!hasAdminAuth) {
+      console.log("[ADMIN AUTH]", pathname, "NO COOKIE");
 
-        const loginUrl = new URL("/admin/login", request.url);
-        loginUrl.searchParams.set("redirect", pathname);
+      const loginUrl = new URL("/admin/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
 
         return NextResponse.redirect(loginUrl);
       }
