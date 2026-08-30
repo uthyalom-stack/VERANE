@@ -9,12 +9,14 @@ export function proxy(request: Request) {
    * ADMIN PAGE AUTHENTICATION
    * -------------------------------------------------------
    */
-
   const authRequiredMap: Record<string, boolean> = {
-    "/admin/login": false
+    "/admin/login": false,
   };
 
-  if (pathname.startsWith("/admin") && (authRequiredMap[pathname] ?? true)) {
+  if (
+    pathname.startsWith("/admin") &&
+    (authRequiredMap[pathname] ?? true)
+  ) {
     const cookieHeader = request.headers.get("cookie") || "";
 
     const hasAdminAuth = cookieHeader
@@ -27,11 +29,10 @@ export function proxy(request: Request) {
       const loginUrl = new URL("/admin/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
 
-        return NextResponse.redirect(loginUrl);
-      }
-
-      console.log("[ADMIN AUTH]", pathname, "COOKIE FOUND");
+      return NextResponse.redirect(loginUrl);
     }
+
+    console.log("[ADMIN AUTH]", pathname, "COOKIE FOUND");
   }
 
   /*
