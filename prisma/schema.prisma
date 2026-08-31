@@ -294,14 +294,67 @@ model CollaborationProduct {
   status          String        @default("draft")
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
   collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
   productA        Product       @relation("CollaborationProductA", fields: [productAId], references: [id])
   productB        Product       @relation("CollaborationProductB", fields: [productBId], references: [id])
+
+  variants        CollaborationVariant[]
 
   @@index([collaborationId])
   @@index([productAId])
   @@index([productBId])
   @@index([status])
+}
+
+model CollaborationVariant {
+  id                    String   @id @default(cuid())
+  collaborationProductId String
+
+  // The actual existing variants chosen from each brand
+  productAVariantId     String?
+  productBVariantId     String?
+
+  // Snapshot of what was selected.
+  // This protects the collaboration from later changes
+  // to the original product's variant.
+  productASize           String?
+  productAColor          String?
+  productAColorHex       String?
+
+  productBSize           String?
+  productBColor          String?
+  productBColorHex       String?
+
+  stock                  Int      @default(0)
+  initialStock           Int      @default(0)
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  collaborationProduct   CollaborationProduct @relation(
+    fields: [collaborationProductId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  productAVariant        ProductVariant? @relation(
+    "CollaborationVariantA",
+    fields: [productAVariantId],
+    references: [id]
+  )
+
+  productBVariant        ProductVariant? @relation(
+    "CollaborationVariantB",
+    fields: [productBVariantId],
+    references: [id]
+  )
+
+  orderItems             OrderItem[]
+
+  @@index([collaborationProductId])
+  @@index([productAVariantId])
+  @@index([productBVariantId])
 }
 
 model AdminNotification {
