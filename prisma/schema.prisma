@@ -155,16 +155,10 @@ model OrderItem {
   order              Order           @relation(fields: [orderId], references: [id])
   product            Product         @relation(fields: [productId], references: [id])
   variant            ProductVariant? @relation(fields: [variantId], references: [id])
-  collaborationProduct CollaborationProduct? @relation(
-    fields: [collaborationProductId],
-    references: [id],
-    onDelete: SetNull
+  collaborationProduct CollaborationProduct? @relation(fields: [collaborationProductId], references: [id], onDelete: SetNull)
   )
 
-  collaborationVariant CollaborationVariant? @relation(
-    fields: [collaborationVariantId],
-    references: [id],
-    onDelete: SetNull
+  collaborationVariant CollaborationVariant? @relation(fields: [collaborationVariantId], references: [id], onDelete: SetNull)
   )
   @@index([productId])
   @@index([orderId])
@@ -351,22 +345,13 @@ model CollaborationVariant {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
-  collaborationProduct   CollaborationProduct @relation(
-    fields: [collaborationProductId],
-    references: [id],
-    onDelete: Cascade
+  collaborationProduct CollaborationProduct @relation(fields: [collaborationProductId], references: [id], onDelete: Cascade)
   )
 
-  productAVariant        ProductVariant? @relation(
-    "CollaborationVariantA",
-    fields: [productAVariantId],
-    references: [id]
+  productAVariant ProductVariant? @relation("CollaborationVariantA", fields: [productAVariantId], references: [id])
   )
 
-  productBVariant        ProductVariant? @relation(
-    "CollaborationVariantB",
-    fields: [productBVariantId],
-    references: [id]
+  productBVariant ProductVariant? @relation("CollaborationVariantB", fields: [productBVariantId], references: [id])
   )
 
   orderItems             OrderItem[]
