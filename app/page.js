@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PrismaClient } from "@prisma/client";
 import SiteFooter from "@/components/SiteFooter";
+import StorefrontProductActions from "@/components/StorefrontProductActions";
 
 export const dynamic = "force-dynamic";
 
@@ -248,45 +249,56 @@ function ProductCard({ product }) {
   const image = getProductImage(product.images);
 
   return (
-    <Link
-      href={`/product/${product.id}`}
-      className="group block snap-start shrink-0 w-[72vw] sm:w-[42vw] md:w-[30vw] lg:w-[23vw]"
-    >
-      <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-neutral-950 mb-4 border border-white/[0.04]">
-        {image ? (
-          <img
-            src={image}
-            alt={product.name || "Product"}
-            loading="lazy"
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-neutral-900">
-            <span className="text-5xl opacity-20">V</span>
+    <div className="group shrink-0 w-[72vw] sm:w-[42vw] md:w-[30vw] lg:w-[23vw]">
+      <Link
+        href={`/product/${product.id}`}
+        className="block"
+      >
+        <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-neutral-950 mb-4 border border-white/[0.04]">
+          {image ? (
+            <img
+              src={image}
+              alt={product.name || "Product"}
+              loading="lazy"
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-neutral-900">
+              <span className="text-5xl opacity-20">V</span>
+            </div>
+          )}
+
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+          <div className="absolute left-3 top-3">
+            <span className="rounded-full border border-white/10 bg-black/60 backdrop-blur-md px-3 py-1.5 text-[8px] font-bold uppercase tracking-[0.18em] text-white/80">
+              View
+            </span>
           </div>
-        )}
-
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-        <div className="absolute left-3 top-3">
-          <span className="rounded-full border border-white/10 bg-black/60 backdrop-blur-md px-3 py-1.5 text-[8px] font-bold uppercase tracking-[0.18em] text-white/80">
-            View
-          </span>
         </div>
+      </Link>
+
+      <div className="px-1">
+        <Link
+          href={`/product/${product.id}`}
+          className="block"
+        >
+          <p className="text-[9px] md:text-[10px] font-bold tracking-[0.18em] uppercase text-amber-400">
+            {getBrandName(product.brand)}
+          </p>
+
+          <h3 className="font-semibold mt-1 text-sm md:text-base truncate">
+            {product.name}
+          </h3>
+
+          <p className="text-neutral-400 text-sm mt-1">
+            {formatPrice(product.price)}
+          </p>
+        </Link>
+
+        <StorefrontProductActions product={product} />
       </div>
-
-      <p className="text-[9px] md:text-[10px] font-bold tracking-[0.18em] uppercase text-amber-400">
-        {getBrandName(product.brand)}
-      </p>
-
-      <h3 className="font-semibold mt-1 text-sm md:text-base truncate">
-        {product.name}
-      </h3>
-
-      <p className="text-neutral-400 text-sm mt-1">
-        {formatPrice(product.price)}
-      </p>
-    </Link>
+    </div>
   );
 }
 
