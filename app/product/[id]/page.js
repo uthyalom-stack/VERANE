@@ -188,17 +188,26 @@ export default function ProductDetail() {
   const needsSizeSelection =
     hasSizes && !isPreOrder;
 
-  const selectedVariant = selectedSize
-    ? variants.find(
-        (variant) =>
-          String(
-            variant.size ||
-              variant.name ||
-              variant.value ||
-              ""
-          ) === String(selectedSize)
-      )
-    : null;
+  const selectedVariant = variants.find((variant) => {
+  const variantSize = String(
+    variant.size ||
+      variant.name ||
+      variant.value ||
+      variant.label ||
+      ""
+  );
+
+  const sizeMatches =
+    !selectedSize ||
+    variantSize === String(selectedSize);
+
+  const colorMatches =
+    !selectedColor ||
+    !variant.colorId ||
+    String(variant.colorId) === String(selectedColor);
+
+  return sizeMatches && colorMatches;
+}) || null;
 
   const selectedColorObject =
     selectedColor && productColors.length > 0
@@ -268,106 +277,188 @@ export default function ProductDetail() {
   };
 
   const addToCart = () => {
-    if (!product || isOutOfStock) {
-      return;
-    }
+  if (!product || isOutOfStock) {
+    return;
+  }
 
-    if (
-      needsSizeSelection &&
-      !selectedSize
-    ) {
-      alert(
-        isFootwear
-          ? "Please select your footwear size."
-          : "Please select your size."
+  if (
+    needsSizeSelection &&
+    !selectedSize
+  ) {
+    alert(
+      isFootwear
+        ? "Please select your footwear size."
+        : "Please select your size."
+    );
+
+    return;
+  }
+
+  if (
+    isPreOrder &&
+    customSizingEnabled &&
+    !customSizing.trim()
+  ) {
+    alert(
+      "Please enter your sizing or measurements before adding this pre-order to your cart."
+    );
+
+    return;
+  }
+
+  /*
+   * Find the exact variant using BOTH
+   * the selected size and selected color.
+   *
+   * This allows combinations such as:
+   *
+   * Black / 40
+   * Black / 41
+   * Brown / 40
+   * Brown / 41
+   *
+   * to exist independently.
+   */
+  const exactVariant = variants.find(
+    (variant) => {
+      const variantSize = String(
+        variant.size ||
+          variant.name ||
+          variant.value ||
+          variant.label ||
+          ""
       );
 
-      return;
-    }
+      const sizeMatches =
+        !selectedSize ||
+        variantSize ===
+          String(selectedSize);
 
-    if (
-      isPreOrder &&
-      customSizingEnabled &&
-      !customSizing.trim()
-    ) {
-      alert(
-        "Please enter your sizing or measurements before adding this pre-order to your cart."
+      const colorMatches =
+        !selectedColor ||
+        !variant.colorId ||
+        String(variant.colorId) ===
+          String(selectedColor);
+
+      return (
+        sizeMatches &&
+        colorMatches
       );
-
-      return;
     }
+  ) || null;
 
-    const cart = JSON.parse(
-      localStorage.getItem("cart") ||
-        '{"items":[],"total":0,"event":"Verane"}'
-    );
+  const cartColor =
+    selectedColorObject?.name ||
+    selectedColorObject?.label ||
+    selectedColorObject?.value ||
+    null;
 
-    if (!Array.isArray(cart.items)) {
-      cart.items = [];
-    }
+  /*
+   * The variant ID is part of the cart
+   * identity whenever a real variant exists.
+   *
+   * This prevents different variants of
+   * the same product from being merged.
+   */
+  const variantKey =
+    exactVariant?.id
+      ? String(exactVariant.id)
+      : "";
 
-    const cartColor =
-      selectedColorObject?.name ||
-      selectedColorObject?.label ||
-      selectedColorObject?.value ||
-      null;
+  const cartItemKey = [
+    product.id,
+    variantKey,
+    selectedColorObject?.id ||
+      cartColor ||
+      "",
+    selectedSize || "",
+    customSizing.trim() || "",
+  ].join("|");
 
-    const cartItemKey = [
-      product.id,
-      cartColor || "",
-      selectedSize || "",
-      customSizing.trim() || "",
-    ].join("|");
+  const cart = JSON.parse(
+    localStorage.getItem("cart") ||
+      '{"items":[],"total":0,"event":"Verane"}'
+  );
 
-    const existing = cart.items.find(
-      (item) =>
-        item.cartItemKey === cartItemKey
-    );
+  if (!Array.isArray(cart.items)) {
+    cart.items = [];
+  }
 
-    if (existing) {
-      existing.qty += qty;
-    } else {
-      cart.items.push({
-        ...product,
+  const existing = cart.items.find(
+    (item) =>
+      item.cartItemKey ===
+      cartItemKey
+  );
 
-        qty,
+  if (existing) {
+    existing.qty =
+      Number(existing.qty || 0) +
+      Number(qty || 1);
+  } else {
+    cart.items.push({
+      ...product,
 
-        cartItemKey,
+      /*
+       * Keep the exact variant attached
+       * to this cart item.
+       */
+      variantId:
+        exactVariant?.id ||
+        null,
 
-        selectedColor: cartColor,
+      variant:
+        exactVariant || null,
 
-        selectedColorId:
-          selectedColorObject?.id ||
-          null,
+      /*
+       * If the variant has its own stock,
+       * preserve it for the cart.
+       */
+      variantInventory:
+        exactVariant?.inventory ??
+        exactVariant?.stock ??
+        null,
 
-        selectedSize:
-          selectedSize || null,
+      qty,
 
-        customSizing:
-          customSizing.trim() || null,
+      cartItemKey,
 
-        isPreOrder,
+      selectedColor:
+        cartColor,
 
-        fulfillmentTime:
-          fulfillmentTime || null,
-      });
-    }
+      selectedColorId:
+        selectedColorObject?.id ||
+        exactVariant?.colorId ||
+        null,
 
-    cart.total = cart.items.reduce(
-      (sum, item) =>
-        sum +
-        Number(item.price || 0) *
-          Number(item.qty || 0),
-      0
-    );
+      selectedSize:
+        selectedSize || null,
 
-    localStorage.setItem(
-      "cart",
-      JSON.stringify(cart)
-    );
+      customSizing:
+        customSizing.trim() ||
+        null,
 
-    router.push("/cart");
-  };
+      isPreOrder,
+
+      fulfillmentTime:
+        fulfillmentTime || null,
+    });
+  }
+
+  cart.total = cart.items.reduce(
+    (sum, item) =>
+      sum +
+      Number(item.price || 0) *
+        Number(item.qty || 0),
+    0
+  );
+
+  localStorage.setItem(
+    "cart",
+    JSON.stringify(cart)
+  );
+
+  router.push("/cart");
+};
 
   const getVariantLabel = (variant) => {
     return (
