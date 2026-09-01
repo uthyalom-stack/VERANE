@@ -48,10 +48,8 @@ model Product {
   preOrderEnabled        Boolean                @default(false)
   sizeType               String?
 sizeGuideImage String?
-    collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
+  collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
-  collaborationVariantA  CollaborationVariant[] @relation("CollaborationVariantA")
-  collaborationVariantB  CollaborationVariant[] @relation("CollaborationVariantB")
   orderItems             OrderItem[]
   categoryRef            Category?              @relation(fields: [categoryId], references: [id])
   collection             Collection?            @relation(fields: [collectionId], references: [id])
@@ -122,21 +120,45 @@ model SiteSetting {
 }
 
 model Order {
-  id              String      @id @default(cuid())
-  userId          String
-  status          String      @default("pending")
-  total           Float
-  firstName       String?
-  lastName        String?
-  email           String?
-  phone           String?
-  address         String?
-  city            String?
-  state           String?
-  createdAt       DateTime    @default(now())
-  orderNumber     String      @unique
-  user            User        @relation(fields: [userId], references: [id])
-  items           OrderItem[]
+  id                  String      @id @default(cuid())
+  userId              String
+  status              String      @default("pending")
+  paymentStatus       String      @default("pending")
+  paymentReference    String?     @unique
+  paymentMethod       String?
+  paidAt              DateTime?
+  pendingCheckoutData String?
+  total               Float
+  shippingFee         Float       @default(0)
+  firstName           String?
+  lastName            String?
+  email               String?
+  phone               String?
+  country             String?     @default("Nigeria")
+  state               String?
+  city                String?
+  zone                String?
+  address             String?
+  createdAt           DateTime    @default(now())
+  orderNumber         String      @unique
+  user                User        @relation(fields: [userId], references: [id])
+  items               OrderItem[]
+}
+
+model DeliveryLocation {
+  id        String   @id @default(cuid())
+  country   String   @default("Nigeria")
+  state     String
+  city      String
+  zone      String?
+  fee       Float    @default(0)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([country])
+  @@index([state])
+  @@index([city])
 }
 
 model OrderItem {
@@ -312,6 +334,7 @@ model CollaborationProduct {
   productB        Product       @relation("CollaborationProductB", fields: [productBId], references: [id])
 
   variants        CollaborationVariant[]
+  orderItems      OrderItem[]
 
   @@index([collaborationId])
   @@index([productAId])

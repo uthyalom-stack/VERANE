@@ -2,6 +2,68 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
+export async function GET(request, { params }) {
+  try {
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        user: true,
+        items: {
+          include: {
+            product: true,
+            variant: {
+              include: {
+                color: true,
+              },
+            },
+            collaborationProduct: true,
+            collaborationVariant: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return NextResponse.json(
+        { success: false, error: "Order not found." },
+        { status: 404 }
+      );
+    }
+
+    // Filter items by brand unless superadmin
+    if (!admin.isSuperAdmin) {
+      order.items = order.items.filter((item) => {
+        if (item.product?.brand === admin.brand) return true;
+        if (item.collaborationProduct) {
+          const brandA = item.collaborationProduct.productA?.brand;
+          const brandB = item.collaborationProduct.productB?.brand;
+          return brandA === admin.brand || brandB === admin.brand;
+        }
+        return false;
+      });
+    }
+
+    return NextResponse.json({ success: true, order });
+  } catch (error) {
+    console.error("GET /api/admin/orders/[id] error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch order details." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(request, { params }) {
   try {
     const admin = await getAdminSession();

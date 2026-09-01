@@ -144,8 +144,10 @@ export default function StorefrontProductActions({ product }) {
 
       if (!Array.isArray(cart.items)) cart.items = [];
 
+      const cartItemKey = `${product.id}||||`;
+
       const existing = cart.items.find(
-        (item) => item?.id === product.id
+        (item) => (item?.cartItemKey || `${item?.id}||||`) === cartItemKey
       );
 
       const inventory = Math.max(
@@ -154,13 +156,15 @@ export default function StorefrontProductActions({ product }) {
       );
 
       if (existing) {
+        existing.cartItemKey = cartItemKey;
         existing.qty = Math.min(
           Number(existing.qty || 0) + 1,
-          inventory
+          inventory > 0 ? inventory : Number(existing.qty || 0) + 1
         );
       } else {
         cart.items.push({
           ...product,
+          cartItemKey,
           qty: 1,
         });
       }

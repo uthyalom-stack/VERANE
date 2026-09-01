@@ -96,14 +96,18 @@ export async function POST(request) {
 
     const {
       items,
+      subtotal,
+      shippingFee,
       total,
       firstName,
       lastName,
       email,
       phone,
+      country,
       address,
       city,
       state,
+      zone,
     } = body;
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -120,24 +124,29 @@ export async function POST(request) {
         userId: session.user.id,
         orderNumber: generateOrderNumber(),
         total: Number(total || 0),
+        shippingFee: Number(shippingFee || 0),
 
         firstName: firstName || null,
         lastName: lastName || null,
         email: email || null,
         phone: phone || null,
+        country: country || "Nigeria",
         address: address || null,
         city: city || null,
         state: state || null,
+        zone: zone || null,
 
         items: {
           create: items.map((item) => ({
-            productId: item.id,
+            productId: item.isCollaboration ? item.productAId : item.id,
             quantity: Number(item.qty || 1),
             price: Number(item.price || 0),
             selectedColor: item.selectedColor || null,
             selectedColorHex: item.selectedColorHex || null,
             selectedSize: item.selectedSize || null,
             variantId: item.variantId || null,
+            collaborationProductId: item.collaborationProductId || null,
+            collaborationVariantId: item.collaborationVariantId || null,
             customMeasurements: item.customSizing || null,
           })),
         },

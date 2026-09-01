@@ -97,6 +97,16 @@ export async function POST(request) {
     const session =
       createCustomerSession(user);
 
+    // Send welcome email asynchronously
+    try {
+      const { sendWelcomeEmail } = await import("@/lib/email");
+      sendWelcomeEmail({ email: user.email, name: user.name }).catch((e) =>
+        console.error("Welcome email async error:", e)
+      );
+    } catch (e) {
+      console.error("Import email module error:", e);
+    }
+
     const response = NextResponse.json({
       success: true,
       user,
