@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -47,11 +46,9 @@ model Product {
   fulfillmentTime        String?
   preOrderEnabled        Boolean                @default(false)
   sizeType               String?
-sizeGuideImage String?
-    collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
+  sizeGuideImage         String?
+  collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
-  collaborationVariantA  CollaborationVariant[] @relation("CollaborationVariantA")
-  collaborationVariantB  CollaborationVariant[] @relation("CollaborationVariantB")
   orderItems             OrderItem[]
   categoryRef            Category?              @relation(fields: [categoryId], references: [id])
   collection             Collection?            @relation(fields: [collectionId], references: [id])
@@ -122,21 +119,21 @@ model SiteSetting {
 }
 
 model Order {
-  id              String      @id @default(cuid())
-  userId          String
-  status          String      @default("pending")
-  total           Float
-  firstName       String?
-  lastName        String?
-  email           String?
-  phone           String?
-  address         String?
-  city            String?
-  state           String?
-  createdAt       DateTime    @default(now())
-  orderNumber     String      @unique
-  user            User        @relation(fields: [userId], references: [id])
-  items           OrderItem[]
+  id          String      @id @default(cuid())
+  userId      String
+  status      String      @default("pending")
+  total       Float
+  firstName   String?
+  lastName    String?
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  state       String?
+  createdAt   DateTime    @default(now())
+  orderNumber String      @unique
+  user        User        @relation(fields: [userId], references: [id])
+  items       OrderItem[]
 }
 
 model OrderItem {
@@ -150,20 +147,17 @@ model OrderItem {
   selectedColorHex   String?
   selectedSize       String?
   variantId          String?
-  collaborationProductId String?
-  collaborationVariantId String?
+collaborationProductId String?
+collaborationVariantId String?
   order              Order           @relation(fields: [orderId], references: [id])
   product            Product         @relation(fields: [productId], references: [id])
   variant            ProductVariant? @relation(fields: [variantId], references: [id])
-  collaborationProduct CollaborationProduct? @relation(fields: [collaborationProductId], references: [id], onDelete: SetNull)
-
-  collaborationVariant CollaborationVariant? @relation(fields: [collaborationVariantId], references: [id], onDelete: SetNull)
+collaborationProduct CollaborationProduct? @relation(fields: [collaborationProductId], references: [id], onDelete: SetNull)
+collaborationVariant CollaborationVariant? @relation(fields: [collaborationVariantId], references: [id], onDelete: SetNull)
 
   @@index([productId])
   @@index([orderId])
   @@index([variantId])
-  @@index([collaborationProductId])
-  @@index([collaborationVariantId])
 }
 
 model SavedLook {
@@ -212,13 +206,12 @@ model ProductVariant {
   initialStock Int           @default(0)
   size         String?
   colorId      String?
-    orderItems             OrderItem[]
-  collaborationVariantA CollaborationVariant[] @relation("CollaborationVariantA")
-  collaborationVariantB CollaborationVariant[] @relation("CollaborationVariantB")
-
-  color        ProductColor? @relation(fields: [colorId], references: [id])
-  product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  waitingList  WaitingList[]
+  orderItems             OrderItem[]
+  color                  ProductColor? @relation(fields: [colorId], references: [id])
+  product                Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  waitingList            WaitingList[]
+  collaborationVariantA  CollaborationVariant[] @relation("CollaborationVariantA")
+  collaborationVariantB  CollaborationVariant[] @relation("CollaborationVariantB")
 
   @@index([productId])
   @@index([colorId])
@@ -306,55 +299,16 @@ model CollaborationProduct {
   status          String        @default("draft")
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-
   collaboration   Collaboration @relation(fields: [collaborationId], references: [id], onDelete: Cascade)
   productA        Product       @relation("CollaborationProductA", fields: [productAId], references: [id])
   productB        Product       @relation("CollaborationProductB", fields: [productBId], references: [id])
-
-  variants        CollaborationVariant[]
+orderItems      OrderItem[]
+variants CollaborationVariant[]
 
   @@index([collaborationId])
   @@index([productAId])
   @@index([productBId])
   @@index([status])
-}
-
-model CollaborationVariant {
-  id                    String   @id @default(cuid())
-  collaborationProductId String
-
-  // The actual existing variants chosen from each brand
-  productAVariantId     String?
-  productBVariantId     String?
-
-  // Snapshot of what was selected.
-  // This protects the collaboration from later changes
-  // to the original product's variant.
-  productASize           String?
-  productAColor          String?
-  productAColorHex       String?
-
-  productBSize           String?
-  productBColor          String?
-  productBColorHex       String?
-
-  stock                  Int      @default(0)
-  initialStock           Int      @default(0)
-
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-
-  collaborationProduct CollaborationProduct @relation(fields: [collaborationProductId], references: [id], onDelete: Cascade)
-
-  productAVariant ProductVariant? @relation("CollaborationVariantA", fields: [productAVariantId], references: [id])
-
-  productBVariant ProductVariant? @relation("CollaborationVariantB", fields: [productBVariantId], references: [id])
-
-  orderItems             OrderItem[]
-
-  @@index([collaborationProductId])
-  @@index([productAVariantId])
-  @@index([productBVariantId])
 }
 
 model AdminNotification {
@@ -384,4 +338,37 @@ model Wishlist {
   @@unique([userId, productId])
   @@index([userId])
   @@index([productId])
+}
+model CollaborationVariant {
+  id                    String   @id @default(cuid())
+  collaborationProductId String
+
+  productAVariantId     String?
+  productBVariantId     String?
+
+  productASize          String?
+  productAColor         String?
+  productAColorHex      String?
+
+  productBSize          String?
+  productBColor         String?
+  productBColorHex      String?
+
+  stock                 Int      @default(0)
+  initialStock          Int      @default(0)
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  collaborationProduct  CollaborationProduct @relation(fields: [collaborationProductId], references: [id], onDelete: Cascade)
+
+  productAVariant       ProductVariant? @relation("CollaborationVariantA", fields: [productAVariantId], references: [id])
+
+  productBVariant       ProductVariant? @relation("CollaborationVariantB", fields: [productBVariantId], references: [id])
+
+  orderItems            OrderItem[]
+
+  @@index([collaborationProductId])
+  @@index([productAVariantId])
+  @@index([productBVariantId])
 }
