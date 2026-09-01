@@ -139,21 +139,38 @@ const FALLBACK_SECTIONS = [
 
 async function getHomepageSections() {
   try {
-    const sections = await prisma.homepageSection.findMany({
+    const dbSections = await prisma.homepageSection.findMany({
       orderBy: {
         sortOrder: "asc",
       },
     });
 
-    if (!sections.length) {
-      return FALLBACK_SECTIONS;
-    }
+    const dbMap = new Map(dbSections.map((s) => [s.key, s]));
 
-    return sections;
-} catch (error) {
-  console.error("Homepage sections error:", error);
-  return [];
-}
+    // Merge DB sections with fallbacks so any newly introduced section keys are preserved
+    const mergedSections = FALLBACK_SECTIONS.map((fallback) => {
+      const dbSec = dbMap.get(fallback.key);
+      if (dbSec) {
+        return {
+          ...fallback,
+          ...dbSec,
+        };
+      }
+      return fallback;
+    });
+
+    // Also include any custom DB section keys that aren't in fallbacks
+    dbSections.forEach((dbSec) => {
+      if (!FALLBACK_SECTIONS.some((f) => f.key === dbSec.key)) {
+        mergedSections.push(dbSec);
+      }
+    });
+
+    return mergedSections;
+  } catch (error) {
+    console.error("Homepage sections error:", error);
+    return FALLBACK_SECTIONS;
+  }
 }
 
 async function getProducts() {
@@ -382,8 +399,11 @@ export default async function HomePage() {
     getProducts(),
   ]);
 
-  const getSection = (key) =>
-    sections.find((section) => section.key === key);
+  const getSection = (key) => {
+    const found = sections.find((section) => section.key === key);
+    if (found) return found;
+    return FALLBACK_SECTIONS.find((s) => s.key === key) || null;
+  };
 
   const hero = getSection("hero");
   const selected = getSection("selected-pieces");
