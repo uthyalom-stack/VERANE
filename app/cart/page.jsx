@@ -65,17 +65,30 @@ export default function CartPage() {
     setCart(updatedCart);
   };
 
+  const getItemKey = (item) => {
+    if (item?.cartItemKey) return item.cartItemKey;
+
+    return [
+      item?.id || "",
+      item?.variantId || "",
+      item?.selectedColor || item?.selectedColorId || "",
+      item?.selectedSize || "",
+      item?.customSizing || "",
+    ].join("|");
+  };
+
   const increaseQuantity = (item) => {
-    const inventory = Number(item.inventory || 0);
+    const targetKey = getItemKey(item);
+    const maxStock = Number(item.variantInventory ?? item.inventory ?? 0);
 
     const items = cart.items.map((current) => {
-      if (current.id !== item.id) {
+      if (getItemKey(current) !== targetKey) {
         return current;
       }
 
-      const nextQty = current.qty + 1;
+      const nextQty = Number(current.qty || 0) + 1;
 
-      if (inventory > 0 && nextQty > inventory) {
+      if (maxStock > 0 && nextQty > maxStock) {
         return current;
       }
 
@@ -89,25 +102,29 @@ export default function CartPage() {
   };
 
   const decreaseQuantity = (item) => {
+    const targetKey = getItemKey(item);
+
     const items = cart.items
       .map((current) => {
-        if (current.id !== item.id) {
+        if (getItemKey(current) !== targetKey) {
           return current;
         }
 
         return {
           ...current,
-          qty: current.qty - 1,
+          qty: Number(current.qty || 0) - 1,
         };
       })
-      .filter((current) => current.qty > 0);
+      .filter((current) => Number(current.qty || 0) > 0);
 
     updateCart(items);
   };
 
   const removeItem = (item) => {
+    const targetKey = getItemKey(item);
+
     const items = cart.items.filter(
-      (current) => current.id !== item.id
+      (current) => getItemKey(current) !== targetKey
     );
 
     updateCart(items);
@@ -260,9 +277,11 @@ export default function CartPage() {
               const subtotal =
                 price * quantity;
 
+              const lineKey = getItemKey(item);
+
               return (
                 <div
-                  key={item.id}
+                  key={lineKey}
                   className="border border-white/10 bg-neutral-950 rounded-[1.5rem] p-4 md:p-5"
                 >
                   <div className="flex gap-5">
@@ -301,6 +320,32 @@ export default function CartPage() {
                           {item.category && (
                             <p className="text-[10px] text-neutral-600 uppercase tracking-[0.15em] mt-2">
                               {item.category}
+                            </p>
+                          )}
+
+                          {(item.selectedColor || item.selectedSize || item.isPreOrder) && (
+                            <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] text-neutral-400">
+                              {item.selectedColor && (
+                                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5">
+                                  Color: {item.selectedColor}
+                                </span>
+                              )}
+                              {item.selectedSize && (
+                                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5">
+                                  Size: {item.selectedSize}
+                                </span>
+                              )}
+                              {item.isPreOrder && (
+                                <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-0.5 font-bold text-amber-400">
+                                  Pre-Order
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {item.customSizing && (
+                            <p className="mt-2 rounded-xl border border-white/5 bg-white/[0.02] p-2 text-[10px] text-neutral-400">
+                              <span className="font-bold text-amber-400">Sizing:</span> {item.customSizing}
                             </p>
                           )}
                         </div>

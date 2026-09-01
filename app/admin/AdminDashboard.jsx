@@ -210,6 +210,14 @@ export default function AdminDashboard({ admin }) {
               />
 
               <AdminLink
+                title="Delivery"
+                description="Manage countries, cities & rates"
+                onClick={() =>
+                  router.push("/admin/delivery")
+                }
+              />
+
+              <AdminLink
                 title="Settings"
                 description="Manage global site settings"
                 onClick={() =>

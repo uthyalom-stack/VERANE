@@ -23,6 +23,28 @@ const DEFAULT_SETTINGS = {
   // Announcement
   announcementEnabled: "false",
   announcementText: "",
+
+  // Receipt & Business Branding
+  veraneLogo: "",
+  veraneName: "VÉRANE",
+  veraneAddress: "",
+  veranePhone: "",
+  veraneEmail: "",
+  veraneWebsite: "https://verane.com",
+
+  uthyLogo: "",
+  uthyName: "UTHY LUXURY",
+  uthyAddress: "",
+  uthyPhone: "",
+  uthyEmail: "",
+  uthyWebsite: "",
+
+  alomzieeLogo: "",
+  alomzieeName: "ALOMZIEE FOOTIES",
+  alomzieeAddress: "",
+  alomzieePhone: "",
+  alomzieeEmail: "",
+  alomzieeWebsite: "",
 };
 
 export default function SettingsPage() {
@@ -315,6 +337,15 @@ export default function SettingsPage() {
                 }
                 title="Social"
                 description="Social platforms"
+              />
+
+              <SettingsTab
+                active={activeSection === "receipts"}
+                onClick={() =>
+                  setActiveSection("receipts")
+                }
+                title="Receipt Branding"
+                description="PDF & email logos/info"
               />
 
               <SettingsTab
@@ -734,6 +765,108 @@ export default function SettingsPage() {
                   />
 
                 </div>
+              </div>
+            )}
+
+            {/* =====================================================
+                RECEIPT BRANDING
+            ===================================================== */}
+            {activeSection === "receipts" && (
+              <div className="space-y-6">
+                <SectionHeader
+                  eyebrow="BUSINESS & DOCUMENTS"
+                  title="Receipt & Email Branding"
+                  description="Upload brand logos and configure business contact details shown on customer PDF receipts and emails."
+                  color={settings.primaryColor}
+                />
+
+                {/* VÉRANE PARENT BRANDING */}
+                <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                  <h3 className="text-lg font-black text-amber-400">1. VÉRANE Parent Branding</h3>
+
+                  <LogoUploader
+                    label="VÉRANE House Logo"
+                    value={settings.veraneLogo || ""}
+                    onChange={(url) => updateSetting("veraneLogo", url)}
+                  />
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <Field label="Brand Display Name">
+                      <input value={settings.veraneName || ""} onChange={(e) => updateSetting("veraneName", e.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="Website URL">
+                      <input value={settings.veraneWebsite || ""} onChange={(e) => updateSetting("veraneWebsite", e.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="Contact Phone">
+                      <input value={settings.veranePhone || ""} onChange={(e) => updateSetting("veranePhone", e.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="Contact Email">
+                      <input value={settings.veraneEmail || ""} onChange={(e) => updateSetting("veraneEmail", e.target.value)} className={inputClass} />
+                    </Field>
+                  </div>
+                  <Field label="Physical Address">
+                    <textarea value={settings.veraneAddress || ""} onChange={(e) => updateSetting("veraneAddress", e.target.value)} rows={2} className={`${inputClass} resize-none`} />
+                  </Field>
+                </div>
+
+                {/* UTHY LUXURY BRANDING */}
+                <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                  <h3 className="text-lg font-black text-amber-400">2. UTHY LUXURY House Branding</h3>
+
+                  <LogoUploader
+                    label="UTHY LUXURY Logo"
+                    value={settings.uthyLogo || ""}
+                    onChange={(url) => updateSetting("uthyLogo", url)}
+                  />
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <Field label="Brand Display Name">
+                      <input value={settings.uthyName || ""} onChange={(e) => updateSetting("uthyName", e.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="Website URL">
+                      <input value={settings.uthyWebsite || ""} onChange={(e) => updateSetting("uthyWebsite", e.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="House Phone">
+                      <input value={settings.uthyPhone || ""} onChange={(e) => updateSetting("uthyPhone", e.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="House Email">
+                      <input value={settings.uthyEmail || ""} onChange={(e) => updateSetting("uthyEmail", e.target.value)} className={inputClass} />
+                    </Field>
+                  </div>
+                  <Field label="House Address">
+                    <textarea value={settings.uthyAddress || ""} onChange={(e) => updateSetting("uthyAddress", e.target.value)} rows={2} className={`${inputClass} resize-none`} />
+                  </Field>
+                </div>
+
+                {/* ALOMZIEE FOOTIES BRANDING */}
+                <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                  <h3 className="text-lg font-black text-amber-400">3. ALOMZIEE FOOTIES House Branding</h3>
+
+                  <LogoUploader
+                    label="ALOMZIEE FOOTIES Logo"
+                    value={settings.alomzieeLogo || ""}
+                    onChange={(url) => updateSetting("alomzieeLogo", url)}
+                  />
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <Field label="Brand Display Name">
+                      <input value={settings.alomzieeName || ""} onChange={(e) => updateSetting("alomzieeName", e.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="Website URL">
+                      <input value={settings.alomzieeWebsite || ""} onChange={(e) => updateSetting("alomzieeWebsite", e.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="House Phone">
+                      <input value={settings.alomzieePhone || ""} onChange={(e) => updateSetting("alomzieePhone", e.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="House Email">
+                      <input value={settings.alomzieeEmail || ""} onChange={(e) => updateSetting("alomzieeEmail", e.target.value)} className={inputClass} />
+                    </Field>
+                  </div>
+                  <Field label="House Address">
+                    <textarea value={settings.alomzieeAddress || ""} onChange={(e) => updateSetting("alomzieeAddress", e.target.value)} rows={2} className={`${inputClass} resize-none`} />
+                  </Field>
+                </div>
+
               </div>
             )}
 
@@ -1256,6 +1389,70 @@ function PreviewContact({
       <p className="mt-2 truncate text-xs text-neutral-500">
         {value}
       </p>
+    </div>
+  );
+}
+
+function LogoUploader({ label, value, onChange }) {
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.url) {
+        onChange(data.url);
+      } else {
+        alert(data.error || "Failed to upload logo image.");
+      }
+    } catch (err) {
+      console.error("Logo upload error:", err);
+      alert("Failed to upload logo.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/40 p-5">
+      <label className="block text-sm font-bold text-white mb-2">{label}</label>
+      <div className="flex flex-col sm:flex-row items-center gap-4">
+        {value ? (
+          <div className="h-16 w-32 shrink-0 rounded-xl border border-white/10 bg-neutral-900 p-2 flex items-center justify-center overflow-hidden">
+            <img src={value} alt="Logo" className="max-h-full max-w-full object-contain" />
+          </div>
+        ) : (
+          <div className="h-16 w-32 shrink-0 rounded-xl border border-dashed border-white/20 bg-neutral-900 flex items-center justify-center text-[10px] text-neutral-500 uppercase font-bold">
+            No Logo
+          </div>
+        )}
+
+        <div className="flex-1 min-w-0 w-full space-y-2">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Logo image URL (e.g. https://...)"
+            className={inputClass}
+          />
+
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-xs font-bold text-amber-400 hover:bg-amber-400/20 transition">
+            <span>{uploading ? "Uploading..." : "Upload Logo from Device"}</span>
+            <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading} className="hidden" />
+          </label>
+        </div>
+      </div>
     </div>
   );
 }

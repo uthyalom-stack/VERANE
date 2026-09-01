@@ -70,6 +70,19 @@ const FALLBACK_SECTIONS = [
     buttonLink: "/alomziee",
   },
   {
+    key: "collaborations",
+    enabled: true,
+    title: "UTHY × ALOMZIEE.",
+    subtitle: "EXCLUSIVE EDITIONS",
+    description:
+      "Garments from UTHY LUXURY and footwear from ALOMZIEE FOOTIES crafted in unison. Co-created capsule collections designed to be worn together.",
+    image:
+      "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1800&q=85",
+    mobileImage: "",
+    buttonText: "Explore Collaborations",
+    buttonLink: "/collaborations",
+  },
+  {
     key: "outfit-builder",
     enabled: true,
     title: "BUILD YOUR LOOK.",
@@ -376,6 +389,7 @@ export default async function HomePage() {
   const selected = getSection("selected-pieces");
   const uthy = getSection("uthy");
   const alomziee = getSection("alomziee");
+  const collaborationsSection = getSection("collaborations");
   const outfit = getSection("outfit-builder");
   const arrivals = getSection("new-arrivals");
   const story = getSection("story");
@@ -662,6 +676,54 @@ export default async function HomePage() {
             />
           </section>
         </>
+      )}
+
+      {/* =====================================================
+          COLLABORATIONS
+      ===================================================== */}
+
+      {collaborationsSection?.enabled !== false && (
+        <section className="relative min-h-[70vh] flex items-center overflow-hidden border-y border-white/5 my-12">
+          <SectionImage
+            section={collaborationsSection}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+
+          {!collaborationsSection?.image && (
+            <div className="absolute inset-0 bg-neutral-900" />
+          )}
+
+          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent" />
+
+          <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 w-full py-16">
+            <div className="max-w-xl">
+              {collaborationsSection.subtitle && (
+                <p className="text-xs font-bold tracking-[0.4em] uppercase mb-4 text-amber-400">
+                  {collaborationsSection.subtitle}
+                </p>
+              )}
+
+              <h2 className="text-5xl md:text-7xl font-black leading-[0.9]">
+                {collaborationsSection.title}
+              </h2>
+
+              {collaborationsSection.description && (
+                <p className="text-neutral-300 mt-6 leading-relaxed max-w-md">
+                  {collaborationsSection.description}
+                </p>
+              )}
+
+              {collaborationsSection.buttonText && (
+                <Link
+                  href={collaborationsSection.buttonLink || "/collaborations"}
+                  className="inline-block mt-8 bg-amber-500 text-black px-8 py-4 rounded-full font-bold text-xs uppercase tracking-wider hover:bg-amber-400 transition"
+                >
+                  {collaborationsSection.buttonText} →
+                </Link>
+              )}
+            </div>
+          </div>
+        </section>
       )}
 
       {/* =====================================================

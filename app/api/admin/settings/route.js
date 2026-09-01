@@ -16,6 +16,30 @@ const DEFAULT_SETTINGS = {
   tiktok: "",
   announcementEnabled: "false",
   announcementText: "",
+
+  // VÉRANE RECEIPT BRANDING
+  veraneLogo: "",
+  veraneName: "VÉRANE",
+  veraneAddress: "",
+  veranePhone: "",
+  veraneEmail: "",
+  veraneWebsite: "https://verane.com",
+
+  // UTHY LUXURY RECEIPT BRANDING
+  uthyLogo: "",
+  uthyName: "UTHY LUXURY",
+  uthyAddress: "",
+  uthyPhone: "",
+  uthyEmail: "",
+  uthyWebsite: "",
+
+  // ALOMZIEE FOOTIES RECEIPT BRANDING
+  alomzieeLogo: "",
+  alomzieeName: "ALOMZIEE FOOTIES",
+  alomzieeAddress: "",
+  alomzieePhone: "",
+  alomzieeEmail: "",
+  alomzieeWebsite: "",
 };
 
 export async function GET() {

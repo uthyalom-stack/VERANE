@@ -115,18 +115,29 @@ export default function OrdersPage() {
                     </p>
                   </div>
 
-                  <div className="md:text-right">
-                    <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600">
-                      Status
-                    </p>
+                  <div className="md:text-right flex flex-col md:items-end gap-2">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600">
+                        Status
+                      </p>
 
-                    <p className="text-xs font-bold uppercase mt-2">
-                      {order.status}
-                    </p>
+                      <p className="text-xs font-bold uppercase mt-1">
+                        {order.status}
+                      </p>
 
-                    <p className="text-lg font-bold mt-2">
-                      ₦{Number(order.total).toLocaleString("en-NG")}
-                    </p>
+                      <p className="text-lg font-bold mt-1">
+                        ₦{Number(order.total).toLocaleString("en-NG")}
+                      </p>
+                    </div>
+
+                    <a
+                      href={`/api/orders/${order.id}/receipt`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-amber-400 hover:bg-amber-400/20 transition"
+                    >
+                      Download Receipt (PDF) ↓
+                    </a>
                   </div>
                 </div>
 

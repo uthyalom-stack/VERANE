@@ -5,9 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const DEFAULT_NAV_ITEMS = [
+  { label: "Home", href: "/" },
   { label: "Shop", href: "/catalog" },
   { label: "UTHY LUXURY", href: "/catalog?brand=UTHY_LUXURY" },
   { label: "ALOMZIEE", href: "/catalog?brand=ALOMZIEE_FOOTIES" },
+  { label: "Collaborations", href: "/collaborations" },
   { label: "Outfit Builder", href: "/outfit-builder" },
   { label: "Cart", href: "/cart" },
 ];

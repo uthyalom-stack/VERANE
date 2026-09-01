@@ -427,18 +427,12 @@ export default function OrdersPage() {
 
                           <div className="flex justify-end gap-4">
 
-                            <button
-                              type="button"
-                              disabled={!!actionLoading}
-                              onClick={() =>
-                                setSelectedOrder(
-                                  order
-                                )
-                              }
-                              className="text-xs font-semibold text-neutral-400 transition hover:text-white disabled:opacity-40"
+                            <a
+                              href={`/admin/orders/${order.id}`}
+                              className="text-xs font-semibold text-amber-400 transition hover:text-amber-300"
                             >
-                              View
-                            </button>
+                              Details →
+                            </a>
 
                             <button
                               type="button"

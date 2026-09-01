@@ -10,14 +10,25 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState({ items: [], total: 0 });
   const [loaded, setLoaded] = useState(false);
 
+  // Delivery options & calculation state
+  const [deliveryOptions, setDeliveryOptions] = useState({
+    countries: ["Nigeria", "International"],
+    states: [],
+    cities: [],
+  });
+
+  const [shippingFee, setShippingFee] = useState(0);
+
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
     email: "",
     phone: "",
-    address: "",
-    city: "",
+    country: "Nigeria",
     state: "",
+    city: "",
+    zone: "",
+    address: "",
   });
 
   useEffect(() => {
@@ -39,6 +50,41 @@ export default function CheckoutPage() {
     }
   }, []);
 
+  // Fetch delivery options whenever location selections change
+  useEffect(() => {
+    async function loadDeliveryFee() {
+      try {
+        const params = new URLSearchParams({
+          country: form.country,
+          state: form.state,
+          city: form.city,
+          zone: form.zone,
+        });
+
+        const res = await fetch(`/api/delivery?${params.toString()}`);
+        const data = await res.json();
+
+        if (data.success) {
+          setShippingFee(Number(data.fee || 0));
+          if (data.options) {
+            setDeliveryOptions((prev) => ({
+              ...prev,
+              countries: data.options.countries?.length ? data.options.countries : prev.countries,
+              states: data.options.states || [],
+              cities: data.options.cities || [],
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("Delivery rate error:", err);
+      }
+    }
+
+    if (form.country) {
+      loadDeliveryFee();
+    }
+  }, [form.country, form.state, form.city, form.zone]);
+
   const updateField = (event) => {
     const { name, value } = event.target;
     setForm((previous) => ({ ...previous, [name]: value }));
@@ -54,38 +100,49 @@ export default function CheckoutPage() {
     }
   };
 
+  const grandTotal = cart.total + shippingFee;
+
   const placeOrder = async () => {
+    if (!form.firstName || !form.email || !form.address || !form.state || !form.city) {
+      alert("Please fill in all required contact and delivery fields.");
+      return;
+    }
+
     try {
       setProcessing(true);
 
-      const response = await fetch("/api/orders", {
+      const response = await fetch("/api/paystack/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: cart.items,
-          total: cart.total,
+          subtotal: cart.total,
+          shippingFee,
+          total: grandTotal,
           firstName: form.firstName,
           lastName: form.lastName,
           email: form.email,
           phone: form.phone,
-          address: form.address,
-          city: form.city,
+          country: form.country,
           state: form.state,
+          city: form.city,
+          zone: form.zone,
+          address: form.address,
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create order");
+      if (!response.ok || !data.success || !data.authorizationUrl) {
+        throw new Error(data.error || "Failed to initialize Paystack checkout.");
       }
 
+      // Clear local cart before redirecting to Paystack checkout
       localStorage.removeItem("cart");
-      router.push(`/orders?order=${data.order.orderNumber}`);
+      window.location.href = data.authorizationUrl;
     } catch (error) {
-      console.error("Checkout error:", error);
+      console.error("Paystack initialization error:", error);
       alert(error.message);
-    } finally {
       setProcessing(false);
     }
   };
@@ -93,7 +150,7 @@ export default function CheckoutPage() {
   if (!loaded) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-neutral-500 text-xs uppercase tracking-[0.3em]">Loading checkout...</div>
+        <div className="text-neutral-500 text-xs uppercase tracking-[0.3em] animate-pulse">Loading checkout...</div>
       </main>
     );
   }
@@ -122,36 +179,92 @@ export default function CheckoutPage() {
           <h1 className="text-5xl md:text-7xl font-black tracking-[-0.05em] mt-3">CHECKOUT</h1>
         </div>
 
-        <div className="grid lg:grid-cols-[1fr_400px] gap-10 lg:gap-14">
+        <div className="grid lg:grid-cols-[1fr_420px] gap-10 lg:gap-14">
           <section>
             <div className="border border-white/10 bg-neutral-950 rounded-[2rem] p-6 md:p-8">
-              <p className="text-[10px] text-neutral-500 uppercase tracking-[0.25em] font-bold">Contact Information</p>
+
+              {/* CONTACT DETAILS */}
+              <p className="text-[10px] text-amber-400 uppercase tracking-[0.25em] font-bold">1. Contact Information</p>
               <div className="grid sm:grid-cols-2 gap-4 mt-6">
-                <input name="firstName" value={form.firstName} onChange={updateField} placeholder="First name" className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                <input name="firstName" value={form.firstName} onChange={updateField} placeholder="First name *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
                 <input name="lastName" value={form.lastName} onChange={updateField} placeholder="Last name" className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                <input name="email" type="email" value={form.email} onChange={updateField} placeholder="Email address" className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                <input name="phone" value={form.phone} onChange={updateField} placeholder="Phone number" className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                <input name="email" type="email" value={form.email} onChange={updateField} placeholder="Email address *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                <input name="phone" value={form.phone} onChange={updateField} placeholder="Phone number *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
               </div>
 
-              <p className="text-[10px] text-neutral-500 uppercase tracking-[0.25em] font-bold mt-10">Delivery Address</p>
+              {/* DELIVERY LOCATION SELECTOR */}
+              <p className="text-[10px] text-amber-400 uppercase tracking-[0.25em] font-bold mt-10">2. Delivery Location & Address</p>
               <div className="space-y-4 mt-6">
-                <input name="address" value={form.address} onChange={updateField} placeholder="Street address" className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <input name="city" value={form.city} onChange={updateField} placeholder="City" className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                  <input name="state" value={form.state} onChange={updateField} placeholder="State" className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+
+                {/* COUNTRY */}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Country *</label>
+                  <select name="country" value={form.country} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
+                    {deliveryOptions.countries.map((c) => (
+                      <option key={c} value={c} className="bg-neutral-900">{c}</option>
+                    ))}
+                  </select>
                 </div>
+
+                {/* STATE & CITY */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">State / Region *</label>
+                    {deliveryOptions.states.length > 0 ? (
+                      <select name="state" value={form.state} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
+                        <option value="">Select State</option>
+                        {deliveryOptions.states.map((s) => (
+                          <option key={s} value={s} className="bg-neutral-900">{s}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input name="state" value={form.state} onChange={updateField} placeholder="e.g. Lagos" className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">City *</label>
+                    {deliveryOptions.cities.length > 0 ? (
+                      <select name="city" value={form.city} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
+                        <option value="">Select City</option>
+                        {deliveryOptions.cities.map((c) => (
+                          <option key={c} value={c} className="bg-neutral-900">{c}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input name="city" value={form.city} onChange={updateField} placeholder="e.g. Ikeja" className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                    )}
+                  </div>
+                </div>
+
+                {/* ZONE / NEIGHBORHOOD */}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Zone / Neighborhood (Optional)</label>
+                  <input name="zone" value={form.zone} onChange={updateField} placeholder="e.g. Lekki Phase 1, Victoria Island..." className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                </div>
+
+                {/* FULL STREET ADDRESS */}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Complete Physical Address *</label>
+                  <textarea name="address" value={form.address} onChange={updateField} rows={3} placeholder="Street address, house number, apartment, suite, etc." className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50 resize-none" />
+                </div>
+
               </div>
 
-              <div className="mt-8 border border-white/5 rounded-2xl p-5">
-                <p className="text-xs font-bold">Payment</p>
-                <p className="text-xs text-neutral-500 mt-2">Payment will be connected at the final payment step. No payment is taken yet.</p>
+              <div className="mt-8 border border-white/5 rounded-2xl p-5 bg-white/[0.02]">
+                <p className="text-xs font-bold text-amber-400">Payment Authorization</p>
+                <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed">
+                  Payment configuration step. Your order will be created and confirmed upon submission.
+                </p>
               </div>
             </div>
           </section>
 
+          {/* ORDER SUMMARY */}
           <aside className="lg:sticky lg:top-8 h-fit">
             <div className="border border-white/10 bg-neutral-950 rounded-[2rem] p-6 md:p-8">
-              <p className="text-[10px] text-neutral-500 uppercase tracking-[0.25em] font-bold">Your Order</p>
+              <p className="text-[10px] text-amber-400 uppercase tracking-[0.25em] font-bold">Order Summary</p>
+
               <div className="mt-7 space-y-5">
                 {cart.items.map((item, index) => {
                   const images = getImages(item.images);
@@ -162,30 +275,54 @@ export default function CheckoutPage() {
 
                   return (
                     <div key={item.cartItemKey || `${item.id}-${index}`} className="flex gap-4">
-                      <div className="w-16 h-20 rounded-lg overflow-hidden bg-neutral-900 shrink-0">
+                      <div className="w-16 h-20 rounded-lg overflow-hidden bg-neutral-900 shrink-0 border border-white/5">
                         {image ? <img src={image} alt={item.name || "Product"} className="w-full h-full object-cover" /> : null}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold">{item.name}</p>
-                        {variation ? <p className="text-xs text-neutral-500 mt-1">{variation}</p> : null}
-                        <p className="text-xs text-neutral-600 mt-1">Qty: {quantity}</p>
-                        <p className="text-sm mt-2">₦{(price * quantity).toLocaleString()}</p>
+                        <p className="text-sm font-semibold truncate">{item.name}</p>
+                        {variation ? <p className="text-xs text-neutral-500 mt-0.5">{variation}</p> : null}
+                        <p className="text-xs text-neutral-600 mt-0.5">Qty: {quantity}</p>
+                        <p className="text-sm font-bold mt-1">₦{(price * quantity).toLocaleString()}</p>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              <div className="border-t border-white/10 mt-7 pt-6 space-y-4">
-                <div className="flex justify-between text-sm"><span className="text-neutral-500">Subtotal</span><span>₦{cart.total.toLocaleString()}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-neutral-500">Shipping</span><span className="text-neutral-400">Calculated later</span></div>
-                <div className="border-t border-white/10 pt-5 flex justify-between"><span className="font-bold">Total</span><span className="text-2xl font-black">₦{cart.total.toLocaleString()}</span></div>
+              {/* FINANCIAL BREAKDOWN */}
+              <div className="border-t border-white/10 mt-7 pt-6 space-y-3.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-400">Subtotal</span>
+                  <span>₦{cart.total.toLocaleString()}</span>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                  <span className="text-neutral-400">Delivery Fee</span>
+                  <span className="font-bold text-amber-400">
+                    {shippingFee > 0 ? `₦${shippingFee.toLocaleString()}` : "Select location"}
+                  </span>
+                </div>
+
+                <div className="border-t border-white/10 pt-4 flex justify-between items-baseline">
+                  <span className="font-bold text-base">Total</span>
+                  <span className="text-2xl font-black text-amber-400">
+                    ₦{grandTotal.toLocaleString()}
+                  </span>
+                </div>
               </div>
 
-              <button type="button" onClick={placeOrder} disabled={processing} className="mt-8 w-full rounded-full bg-amber-500 px-6 py-4 text-xs font-black uppercase tracking-[0.15em] text-black hover:bg-amber-400 transition disabled:opacity-50">
-                {processing ? "Creating Order..." : "Continue to Payment"}
+              <button
+                type="button"
+                onClick={placeOrder}
+                disabled={processing}
+                className="mt-8 w-full rounded-full bg-amber-500 px-6 py-4 text-xs font-black uppercase tracking-[0.15em] text-black hover:bg-amber-400 transition disabled:opacity-50"
+              >
+                {processing ? "Creating Order..." : "Place Order & Pay"}
               </button>
-              <p className="text-[10px] text-neutral-600 text-center mt-4 leading-relaxed">Your order will be securely processed.</p>
+
+              <p className="text-[10px] text-neutral-500 text-center mt-4 leading-relaxed">
+                Calculated based on selected city & zone rate.
+              </p>
             </div>
           </aside>
         </div>
