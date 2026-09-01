@@ -16,7 +16,16 @@ export default function AccountPage() {
   const [loggingOut, setLoggingOut] =
     useState(false);
 
+  const [showWelcome, setShowWelcome] = useState(false);
+
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("welcome") === "true") {
+        setShowWelcome(true);
+      }
+    } catch {}
+
     async function loadAccount() {
       try {
         const response =
@@ -83,6 +92,20 @@ export default function AccountPage() {
     <main className="min-h-screen bg-black text-white">
       <div className="max-w-6xl mx-auto px-5 sm:px-8 py-12 md:py-20">
         <div>
+          {showWelcome && (
+            <div className="mb-8 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-amber-400">
+                Welcome to VÉRANE
+              </p>
+              <h2 className="text-2xl font-black mt-2">
+                Your private account is active, {user.name}.
+              </h2>
+              <p className="text-xs text-neutral-300 mt-2 leading-relaxed">
+                Thank you for joining VÉRANE. A welcome email has been sent to <strong>{user.email}</strong>.
+              </p>
+            </div>
+          )}
+
           <p className="text-amber-400 text-[10px] font-bold tracking-[0.35em] uppercase">
             VÉRANE MEMBER
           </p>

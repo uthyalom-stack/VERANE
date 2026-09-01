@@ -105,15 +105,22 @@ export async function GET(request) {
       });
     });
 
-    // Generate PDF and send receipt email asynchronously
+    // Refetch full order with newly created orderItems for receipt generation and email dispatch
     try {
-      const { generateOrderReceiptPDF } = await import("@/lib/receipt-pdf");
-      const { sendOrderReceiptEmail } = await import("@/lib/email");
+      const fullOrder = await prisma.order.findUnique({
+        where: { id: existingOrder.id },
+        include: { items: { include: { product: true } } },
+      });
 
-      const pdfBuffer = await generateOrderReceiptPDF(existingOrder.id);
-      sendOrderReceiptEmail({ order: existingOrder, pdfBuffer }).catch((e) =>
-        console.error("Order receipt email async error:", e)
-      );
+      if (fullOrder) {
+        const { generateOrderReceiptPDF } = await import("@/lib/receipt-pdf");
+        const { sendOrderReceiptEmail } = await import("@/lib/email");
+
+        const pdfBuffer = await generateOrderReceiptPDF(fullOrder.id);
+        sendOrderReceiptEmail({ order: fullOrder, pdfBuffer }).catch((e) =>
+          console.error("Order receipt email async error:", e)
+        );
+      }
     } catch (e) {
       console.error("Generate receipt email error:", e);
     }

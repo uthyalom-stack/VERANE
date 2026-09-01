@@ -71,7 +71,7 @@ export default function JoinPage() {
         );
       }
 
-      router.push("/account");
+      router.push("/account?welcome=true");
     } catch (error) {
       setError(
         error.message ||

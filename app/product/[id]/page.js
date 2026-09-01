@@ -144,25 +144,6 @@ export default function ProductDetail() {
       ? 100
       : 0;
 
-  const isOutOfStock = inventory <= 0;
-
-  const stockStatus = isOutOfStock
-    ? "Sold Out"
-    : stockPercentage <= 10
-    ? "Few Left"
-    : stockPercentage <= 40
-    ? "Almost Sold Out"
-    : "Available";
-
-  const stockStatusClass =
-    stockStatus === "Sold Out"
-      ? "text-red-400"
-      : stockStatus === "Few Left"
-      ? "text-orange-400"
-      : stockStatus === "Almost Sold Out"
-      ? "text-amber-400"
-      : "text-emerald-400";
-
   const isPreOrder = Boolean(
     product?.preOrderEnabled ||
       product?.isPreOrder
@@ -189,25 +170,46 @@ export default function ProductDetail() {
     hasSizes && !isPreOrder;
 
   const selectedVariant = variants.find((variant) => {
-  const variantSize = String(
-    variant.size ||
-      variant.name ||
-      variant.value ||
-      variant.label ||
-      ""
-  );
+    const variantSize = String(
+      variant.size ||
+        variant.name ||
+        variant.value ||
+        variant.label ||
+        ""
+    );
 
-  const sizeMatches =
-    !selectedSize ||
-    variantSize === String(selectedSize);
+    const sizeMatches =
+      !selectedSize ||
+      variantSize === String(selectedSize);
 
-  const colorMatches =
-    !selectedColor ||
-    !variant.colorId ||
-    String(variant.colorId) === String(selectedColor);
+    const colorMatches =
+      !selectedColor ||
+      !variant.colorId ||
+      String(variant.colorId) === String(selectedColor);
 
-  return sizeMatches && colorMatches;
-}) || null;
+    return sizeMatches && colorMatches;
+  }) || null;
+
+  const activeStock = selectedVariant?.stock ?? selectedVariant?.inventory ?? inventory;
+
+  const isOutOfStock = activeStock <= 0;
+
+  const stockStatus = isOutOfStock
+    ? "Sold Out"
+    : activeStock <= 10
+    ? "Few Left"
+    : activeStock <= 40
+    ? "Almost Sold Out"
+    : "Available";
+
+  const stockStatusClass =
+    stockStatus === "Sold Out"
+      ? "text-red-400"
+      : stockStatus === "Few Left"
+      ? "text-orange-400"
+      : stockStatus === "Almost Sold Out"
+      ? "text-amber-400"
+      : "text-emerald-400";
 
   const selectedColorObject =
     selectedColor && productColors.length > 0
