@@ -106,37 +106,55 @@ function getItemPrice(item) {
    DATE HELPERS
 ============================================================ */
 
-function getDateRange(range) {
+function getDateRange(range, customStartDate, customEndDate) {
   const now = new Date();
 
   const end = new Date(now);
   const start = new Date(now);
 
+  if (range === "custom" && customStartDate) {
+    const s = new Date(customStartDate);
+    if (!isNaN(s.getTime())) {
+      s.setHours(0, 0, 0, 0);
+      const e = customEndDate ? new Date(customEndDate) : new Date();
+      if (!isNaN(e.getTime())) {
+        e.setHours(23, 59, 59, 999);
+      } else {
+        e.setTime(now.getTime());
+      }
+      return { start: s, end: e };
+    }
+  }
+
   switch (range) {
     case "today":
       start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
       break;
 
     case "7d":
       start.setDate(start.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
       break;
 
     case "30d":
       start.setDate(start.getDate() - 29);
+      start.setHours(0, 0, 0, 0);
       break;
 
     case "90d":
       start.setDate(start.getDate() - 89);
+      start.setHours(0, 0, 0, 0);
       break;
 
     case "1y":
-      start.setFullYear(
-        start.getFullYear() - 1
-      );
+      start.setFullYear(start.getFullYear() - 1);
+      start.setHours(0, 0, 0, 0);
       break;
 
     default:
       start.setDate(start.getDate() - 29);
+      start.setHours(0, 0, 0, 0);
       break;
   }
 
@@ -288,11 +306,11 @@ export async function GET(request) {
        4. DATE RANGE
     ======================================================== */
 
-    const range =
-      searchParams.get("range") || "30d";
+    const range = searchParams.get("range") || "30d";
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
 
-    const { start, end } =
-      getDateRange(range);
+    const { start, end } = getDateRange(range, startDateParam, endDateParam);
 
     /* ========================================================
        5. LOAD PRODUCTS
@@ -622,18 +640,65 @@ export async function GET(request) {
        15. CUSTOMERS
     ======================================================== */
 
-    const customerIds =
-      new Set(
-        validOrders
-          .map(
-            (order) =>
-              order.userId
-          )
-          .filter(Boolean)
-      );
+    const customerIds = new Set(
+      validOrders
+        .map((order) => order.userId)
+        .filter(Boolean)
+    );
 
-    const customerCount =
-      customerIds.size;
+    const customerCount = customerIds.size;
+
+    // Additional customer performance breakdown
+    let newCustomers = 0;
+    let firstTimeBuyers = 0;
+    let returningBuyers = 0;
+
+    if (customerIds.size > 0) {
+      // Find user registration dates in range
+      newCustomers = await prisma.user.count({
+        where: {
+          id: { in: Array.from(customerIds) },
+          createdAt: { gte: start, lte: end },
+        },
+      });
+
+      // Find total historical valid orders for these customers to determine first-time vs returning
+      const historicalOrders = await prisma.order.findMany({
+        where: {
+          userId: { in: Array.from(customerIds) },
+          status: { notIn: ["cancelled", "canceled", "refunded", "refund", "failed", "rejected"] },
+        },
+        select: { userId: true, createdAt: true },
+      });
+
+      const userOrderCounts = new Map();
+      for (const ho of historicalOrders) {
+        if (!ho.userId) continue;
+        userOrderCounts.set(ho.userId, (userOrderCounts.get(ho.userId) || 0) + 1);
+      }
+
+      for (const userId of customerIds) {
+        const count = userOrderCounts.get(userId) || 1;
+        if (count === 1) {
+          firstTimeBuyers += 1;
+        } else {
+          returningBuyers += 1;
+        }
+      }
+    }
+
+    /* ========================================================
+       15B. DEMAND / WAITING LIST
+    ======================================================== */
+
+    let waitingListCount = 0;
+    if (productIds.length > 0) {
+      waitingListCount = await prisma.waitingList.count({
+        where: {
+          productId: { in: productIds },
+        },
+      });
+    }
 
     /* ========================================================
        16. PRODUCT PERFORMANCE
@@ -965,6 +1030,14 @@ export async function GET(request) {
 
           customers:
             customerCount,
+
+          newCustomers,
+
+          firstTimeBuyers,
+
+          returningBuyers,
+
+          waitingListCount,
 
           products:
             totalProducts,
