@@ -64,15 +64,21 @@ export async function GET() {
       };
     });
 
-    // Fetch international delivery locations
-    const internationalLocations = await prisma.deliveryLocation.findMany({
-      where: {
-        country: {
-          not: "Nigeria",
+    // Safeguard international delivery locations lookup
+    let internationalLocations = [];
+    try {
+      internationalLocations = await prisma.deliveryLocation.findMany({
+        where: {
+          country: {
+            not: "Nigeria",
+          },
         },
-      },
-      orderBy: [{ country: "asc" }, { state: "asc" }, { city: "asc" }],
-    });
+        orderBy: [{ country: "asc" }, { state: "asc" }, { city: "asc" }],
+      });
+    } catch (intlErr) {
+      console.warn("DeliveryLocation query warning (table may be pending migration):", intlErr?.message || intlErr);
+      internationalLocations = [];
+    }
 
     return NextResponse.json({
       success: true,
