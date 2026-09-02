@@ -36,6 +36,13 @@ function normalizeBrand(value) {
 
 /* ============================================================
    MONEY NORMALIZATION
+
+   Analytics must NEVER arbitrarily multiply monetary values.
+
+   Product prices are read directly as stored.
+
+   We also protect against the common situation where a
+   monetary value arrives as a Decimal/string/object.
 ============================================================ */
 
 function money(value) {
@@ -44,106 +51,99 @@ function money(value) {
   }
 
   if (typeof value === "object") {
-    if (typeof value.toNumber === "function") {
+    if (
+      typeof value.toNumber === "function"
+    ) {
       const number = value.toNumber();
-      return Number.isFinite(number) ? number : 0;
+
+      return Number.isFinite(number)
+        ? number
+        : 0;
     }
 
-    if (typeof value.toString === "function") {
+    if (
+      typeof value.toString === "function"
+    ) {
       value = value.toString();
     }
   }
 
   const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
+
+  return Number.isFinite(number)
+    ? number
+    : 0;
 }
 
+/*
+ * Product price is the authoritative price for product
+ * analytics and inventory valuation.
+ */
 function getProductPrice(product) {
   return money(product?.price);
 }
 
+/*
+ * Order item price:
+ *
+ * Prefer the stored order-item price because an order may
+ * have been placed at a historical/sale price.
+ *
+ * If that value is missing or invalid, fall back to the
+ * product price.
+ */
 function getItemPrice(item) {
   const itemPrice = money(item?.price);
+
   if (itemPrice > 0) {
     return itemPrice;
   }
+
   return getProductPrice(item?.product);
 }
 
 /* ============================================================
-   DATE & NIGERIA TIMEZONE (WAT - UTC+1) HELPERS
+   DATE HELPERS
 ============================================================ */
 
-function getWATDateString(dateObj) {
-  return new Date(dateObj).toLocaleDateString("en-CA", {
-    timeZone: "Africa/Lagos",
-  });
-}
-
-function getWATDateRange(range, customStart, customEnd) {
+function getDateRange(range) {
   const now = new Date();
 
-  if (range === "custom" && customStart && customEnd) {
-    const start = new Date(`${customStart}T00:00:00+01:00`);
-    const end = new Date(`${customEnd}T23:59:59.999+01:00`);
-    if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-      return { start, end };
-    }
-  }
-
-  // Get current date string in WAT (YYYY-MM-DD)
-  const todayWatStr = getWATDateString(now);
-  const end = new Date(`${todayWatStr}T23:59:59.999+01:00`);
-
-  let start = new Date(`${todayWatStr}T00:00:00+01:00`);
+  const end = new Date(now);
+  const start = new Date(now);
 
   switch (range) {
     case "today":
-      // start is already midnight today WAT
+      start.setHours(0, 0, 0, 0);
       break;
 
-    case "7d": {
-      const d = new Date(end);
-      d.setDate(d.getDate() - 6);
-      const watStr = getWATDateString(d);
-      start = new Date(`${watStr}T00:00:00+01:00`);
+    case "7d":
+      start.setDate(start.getDate() - 6);
       break;
-    }
 
-    case "30d": {
-      const d = new Date(end);
-      d.setDate(d.getDate() - 29);
-      const watStr = getWATDateString(d);
-      start = new Date(`${watStr}T00:00:00+01:00`);
+    case "30d":
+      start.setDate(start.getDate() - 29);
       break;
-    }
 
-    case "90d": {
-      const d = new Date(end);
-      d.setDate(d.getDate() - 89);
-      const watStr = getWATDateString(d);
-      start = new Date(`${watStr}T00:00:00+01:00`);
+    case "90d":
+      start.setDate(start.getDate() - 89);
       break;
-    }
 
-    case "1y": {
-      const d = new Date(end);
-      d.setFullYear(d.getFullYear() - 1);
-      const watStr = getWATDateString(d);
-      start = new Date(`${watStr}T00:00:00+01:00`);
+    case "1y":
+      start.setFullYear(
+        start.getFullYear() - 1
+      );
       break;
-    }
 
-    default: {
-      const d = new Date(end);
-      d.setDate(d.getDate() - 29);
-      const watStr = getWATDateString(d);
-      start = new Date(`${watStr}T00:00:00+01:00`);
+    default:
+      start.setDate(start.getDate() - 29);
       break;
-    }
   }
 
-  return { start, end };
+  return {
+    start,
+    end,
+  };
 }
 
 function isCancelledStatus(status) {
@@ -161,12 +161,20 @@ function isCancelledStatus(status) {
   ].includes(value);
 }
 
-function formatDayWAT(dateObj) {
-  return new Date(dateObj).toLocaleDateString("en-NG", {
-    timeZone: "Africa/Lagos",
-    month: "short",
-    day: "numeric",
-  });
+function formatDate(date) {
+  return new Date(date)
+    .toISOString()
+    .slice(0, 10);
+}
+
+function formatDay(date) {
+  return new Date(date).toLocaleDateString(
+    "en-NG",
+    {
+      month: "short",
+      day: "numeric",
+    }
+  );
 }
 
 /* ============================================================
@@ -176,22 +184,29 @@ function formatDayWAT(dateObj) {
 export async function GET(request) {
   try {
     /* ========================================================
-       1. SESSION & AUTHENTICATION
+       1. SESSION
     ======================================================== */
 
     const sessionResponse = await fetch(
       `${request.nextUrl.origin}/api/admin/session`,
       {
         headers: {
-          cookie: request.headers.get("cookie") || "",
+          cookie:
+            request.headers.get("cookie") || "",
         },
         cache: "no-store",
       }
     );
 
-    const sessionData = await sessionResponse.json().catch(() => null);
+    const sessionData =
+      await sessionResponse
+        .json()
+        .catch(() => null);
 
-    if (!sessionResponse.ok || !sessionData?.admin) {
+    if (
+      !sessionResponse.ok ||
+      !sessionData?.admin
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -199,213 +214,321 @@ export async function GET(request) {
         },
         {
           status: 401,
-          headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+          headers: {
+            "Cache-Control":
+              "no-store, no-cache, must-revalidate",
+          },
         }
       );
     }
 
     const admin = sessionData.admin;
 
-    // Explicitly reject SUPERADMIN access
-    if (admin.role === "SUPERADMIN") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "SUPERADMIN is not authorized to access brand analytics.",
-        },
-        {
-          status: 403,
-          headers: { "Cache-Control": "no-store" },
-        }
-      );
-    }
-
     /* ========================================================
-       2. ADMIN BRAND & REQUEST AUTHORIZATION
+       2. ADMIN BRAND
     ======================================================== */
 
-    const adminBrand = normalizeBrand(admin.brand || admin.role);
+    const adminBrand = normalizeBrand(
+      admin.brand || admin.role
+    );
 
     if (!VALID_BRANDS.includes(adminBrand)) {
       return NextResponse.json(
         {
           success: false,
-          error: "Analytics are only available to UTHY and ALOMZIEE administrators.",
+          error:
+            "Analytics are only available to UTHY and ALOMZIEE administrators.",
           adminBrand,
         },
         {
           status: 403,
-          headers: { "Cache-Control": "no-store" },
+          headers: {
+            "Cache-Control": "no-store",
+          },
         }
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const requestedBrand = searchParams.get("brand");
-    const normalizedRequestedBrand = normalizeBrand(requestedBrand);
-    const brand = normalizedRequestedBrand || adminBrand;
+    /* ========================================================
+       3. REQUESTED BRAND
+    ======================================================== */
+
+    const { searchParams } =
+      new URL(request.url);
+
+    const requestedBrand =
+      searchParams.get("brand");
+
+    const normalizedRequestedBrand =
+      normalizeBrand(requestedBrand);
+
+    const brand =
+      normalizedRequestedBrand ||
+      adminBrand;
 
     if (brand !== adminBrand) {
       return NextResponse.json(
         {
           success: false,
-          error: "You are not authorized to view this brand's analytics.",
+          error:
+            "You are not authorized to view this brand's analytics.",
           adminBrand,
           requestedBrand: brand,
         },
         {
           status: 403,
-          headers: { "Cache-Control": "no-store" },
+          headers: {
+            "Cache-Control": "no-store",
+          },
         }
       );
     }
 
     /* ========================================================
-       3. DATE RANGE (WAT TIMEZONE)
+       4. DATE RANGE
     ======================================================== */
 
-    const range = searchParams.get("range") || "30d";
-    const startDateParam = searchParams.get("startDate");
-    const endDateParam = searchParams.get("endDate");
+    const range =
+      searchParams.get("range") || "30d";
 
-    const { start, end } = getWATDateRange(range, startDateParam, endDateParam);
+    const { start, end } =
+      getDateRange(range);
 
     /* ========================================================
-       4. LOAD BRAND PRODUCTS
+       5. LOAD PRODUCTS
     ======================================================== */
 
-    const allProducts = await prisma.product.findMany({
-      include: {
-        categoryRef: true,
-        collection: true,
-        variants: {
-          include: {
-            color: true,
-          },
+    const allProducts =
+      await prisma.product.findMany({
+        include: {
+          categoryRef: true,
+          collection: true,
+          variants: true,
         },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    const products = allProducts.filter(
-      (product) => normalizeBrand(product.brand) === brand
-    );
-
-    const productIds = products.map((product) => product.id);
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
 
     /* ========================================================
-       5. PRODUCT & INVENTORY METRICS
+       6. NORMALIZE/FILTER PRODUCTS
     ======================================================== */
 
-    const totalProducts = products.length;
+    const products =
+      allProducts.filter((product) => {
+        return (
+          normalizeBrand(product.brand) ===
+          brand
+        );
+      });
 
-    const activeProducts = products.filter(
-      (product) => money(product.inventory) > 0
-    ).length;
+    /* ========================================================
+       7. PRODUCT COUNTS
+    ======================================================== */
 
-    const outOfStockProducts = products.filter(
-      (product) => money(product.inventory) <= 0
-    );
+    const totalProducts =
+      products.length;
 
-    const outOfStock = outOfStockProducts.length;
+    const activeProducts =
+      products.filter(
+        (product) =>
+          money(product.inventory) > 0
+      ).length;
 
-    const lowStockProducts = products.filter((product) => {
-      const inventory = money(product.inventory);
-      return inventory > 0 && inventory <= 5;
-    });
+    const outOfStockProducts =
+      products.filter(
+        (product) =>
+          money(product.inventory) <= 0
+      );
 
-    const totalInventoryUnits = products.reduce(
-      (total, product) => total + money(product.inventory),
-      0
-    );
+    const outOfStock =
+      outOfStockProducts.length;
 
-    const inventoryValue = products.reduce((total, product) => {
-      const inventory = money(product.inventory);
-      const price = getProductPrice(product);
-      return total + inventory * price;
-    }, 0);
+    const lowStockProducts =
+      products.filter((product) => {
+        const inventory =
+          money(product.inventory);
+
+        return (
+          inventory > 0 &&
+          inventory <= 5
+        );
+      });
+
+    /* ========================================================
+       8. INVENTORY
+    ======================================================== */
+
+    const totalInventoryUnits =
+      products.reduce(
+        (total, product) =>
+          total +
+          money(product.inventory),
+        0
+      );
+
+    /*
+     * IMPORTANT:
+     * Product price is used directly.
+     *
+     * There is NO ×10 multiplication here.
+     */
+    const inventoryValue =
+      products.reduce(
+        (total, product) => {
+          const inventory =
+            money(product.inventory);
+
+          const price =
+            getProductPrice(product);
+
+          return (
+            total +
+            inventory * price
+          );
+        },
+        0
+      );
+
+    /* ========================================================
+       9. STOCK HEALTH
+    ======================================================== */
 
     const stockHealth =
       totalProducts > 0
-        ? Math.round((activeProducts / totalProducts) * 100)
+        ? Math.round(
+            (activeProducts /
+              totalProducts) *
+              100
+          )
         : 0;
 
-    /* ================================================= scheme
-       6. PRODUCT STATS MAP
+    /* ========================================================
+       10. PRODUCT PERFORMANCE MAP
     ======================================================== */
 
-    const productStats = new Map();
+    const productStats =
+      new Map();
 
     for (const product of products) {
       productStats.set(product.id, {
         id: product.id,
-        name: product.name || "Unnamed Product",
-        brand: normalizeBrand(product.brand),
-        databaseBrand: product.brand,
-        price: getProductPrice(product),
-        inventory: money(product.inventory),
-        category: product.categoryRef?.name || product.category || "Uncategorized",
-        collection: product.collection?.name || "No Collection",
+
+        name:
+          product.name ||
+          "Unnamed Product",
+
+        brand:
+          normalizeBrand(product.brand),
+
+        databaseBrand:
+          product.brand,
+
+        /*
+         * ALWAYS expose the actual product price.
+         */
+        price:
+          getProductPrice(product),
+
+        inventory:
+          money(product.inventory),
+
+        category:
+          product.categoryRef?.name ||
+          product.category ||
+          "Uncategorized",
+
+        collection:
+          product.collection?.name ||
+          "No Collection",
+
         unitsSold: 0,
+
         revenue: 0,
+
         orders: 0,
+
         status:
           money(product.inventory) <= 0
             ? "out_of_stock"
             : money(product.inventory) <= 5
               ? "low_stock"
               : "in_stock",
-        image: product.images || "",
+
+        image:
+          product.images || "",
       });
     }
 
     /* ========================================================
-       7. ORDERS & BRAND ORDER ITEMS
+       11. ORDERS
     ======================================================== */
+
+    const productIds =
+      products.map(
+        (product) => product.id
+      );
 
     let orders = [];
 
     if (productIds.length > 0) {
-      orders = await prisma.order.findMany({
-        where: {
-          createdAt: {
-            gte: start,
-            lte: end,
-          },
-          items: {
-            some: {
-              productId: {
-                in: productIds,
-              },
+      orders =
+        await prisma.order.findMany({
+          where: {
+            createdAt: {
+              gte: start,
+              lte: end,
             },
-          },
-        },
-        include: {
-          user: true,
-          items: {
-            include: {
-              product: {
-                include: {
-                  categoryRef: true,
-                  collection: true,
+
+            items: {
+              some: {
+                productId: {
+                  in: productIds,
                 },
               },
             },
           },
-        },
-        orderBy: { createdAt: "desc" },
-      });
+
+          include: {
+            user: true,
+
+            items: {
+              include: {
+                product: {
+                  include: {
+                    categoryRef: true,
+                    collection: true,
+                  },
+                },
+              },
+            },
+          },
+
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
     }
+
+    /* ========================================================
+       12. BRAND ORDER ITEMS
+    ======================================================== */
 
     const brandOrders = [];
     const brandOrderItems = [];
 
     for (const order of orders) {
-      const itemsForBrand = order.items.filter(
-        (item) => normalizeBrand(item.product?.brand) === brand
-      );
+      const itemsForBrand =
+        order.items.filter(
+          (item) =>
+            normalizeBrand(
+              item.product?.brand
+            ) === brand
+        );
 
-      if (itemsForBrand.length === 0) {
+      if (
+        itemsForBrand.length === 0
+      ) {
         continue;
       }
 
@@ -417,375 +540,627 @@ export async function GET(request) {
       for (const item of itemsForBrand) {
         brandOrderItems.push({
           ...item,
-          orderStatus: order.status,
-          orderCreatedAt: order.createdAt,
-          customerId: order.userId,
+
+          orderStatus:
+            order.status,
+
+          orderCreatedAt:
+            order.createdAt,
+
+          customerId:
+            order.userId,
         });
       }
     }
 
-    const validOrders = brandOrders.filter(
-      (order) => !isCancelledStatus(order.status)
-    );
+    /* ========================================================
+       13. VALID ORDERS
+    ======================================================== */
 
-    const validOrderItems = brandOrderItems.filter(
-      (item) => !isCancelledStatus(item.orderStatus)
-    );
+    const validOrders =
+      brandOrders.filter(
+        (order) =>
+          !isCancelledStatus(
+            order.status
+          )
+      );
+
+    const validOrderItems =
+      brandOrderItems.filter(
+        (item) =>
+          !isCancelledStatus(
+            item.orderStatus
+          )
+      );
 
     /* ========================================================
-       8. REVENUE & UNITS SOLD CALCULATIONS
+       14. REVENUE
     ======================================================== */
 
     let revenue = 0;
     let unitsSold = 0;
 
     for (const item of validOrderItems) {
-      const quantity = money(item.quantity);
-      const price = getItemPrice(item);
-      const itemRevenue = price * quantity;
+      const quantity =
+        money(item.quantity);
+
+      const price =
+        getItemPrice(item);
+
+      const itemRevenue =
+        price * quantity;
 
       unitsSold += quantity;
+
       revenue += itemRevenue;
 
-      const existing = productStats.get(item.productId);
+      const existing =
+        productStats.get(
+          item.productId
+        );
+
       if (existing) {
-        existing.unitsSold += quantity;
-        existing.revenue += itemRevenue;
+        existing.unitsSold +=
+          quantity;
+
+        existing.revenue +=
+          itemRevenue;
+
         existing.orders += 1;
       }
     }
 
-    const orderCount = validOrders.length;
-    const averageOrderValue = orderCount > 0 ? revenue / orderCount : 0;
+    const orderCount =
+      validOrders.length;
+
+    const averageOrderValue =
+      orderCount > 0
+        ? revenue / orderCount
+        : 0;
 
     /* ========================================================
-       9. CUSTOMER ANALYTICS BREAKDOWN
-       - New Registered Customers: Users registered within range
-       - First-Time Buyers: Customers whose first ever valid order for this brand fell in range
-       - Returning Buyers: Customers with a valid order in range who also ordered before range
+       15. CUSTOMERS
     ======================================================== */
 
-    const newRegisteredCustomers = await prisma.user.count({
-      where: {
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
-      },
-    });
+    const customerIds =
+      new Set(
+        validOrders
+          .map(
+            (order) =>
+              order.userId
+          )
+          .filter(Boolean)
+      );
 
-    const currentPeriodCustomerIds = Array.from(
-      new Set(validOrders.map((o) => o.userId).filter(Boolean))
-    );
+    const customerCount =
+      customerIds.size;
 
-    let firstTimeBuyers = 0;
-    let returningBuyers = 0;
+    /* ========================================================
+       16. PRODUCT PERFORMANCE
+    ======================================================== */
 
-    if (currentPeriodCustomerIds.length > 0) {
-      // Find all prior valid orders for these customers for this brand prior to `start`
-      const priorOrdersCount = await prisma.order.groupBy({
-        by: ["userId"],
-        where: {
-          userId: { in: currentPeriodCustomerIds },
-          createdAt: { lt: start },
-          items: {
-            some: {
-              productId: { in: productIds },
-            },
-          },
-          status: {
-            notIn: [
-              "cancelled", "canceled", "refunded", "refund", "failed", "rejected",
-            ],
-          },
-        },
-        _count: { id: true },
-      });
-
-      const priorUserSet = new Set(priorOrdersCount.map((p) => p.userId));
-
-      for (const customerId of currentPeriodCustomerIds) {
-        if (priorUserSet.has(customerId)) {
-          returningBuyers += 1;
-        } else {
-          firstTimeBuyers += 1;
+    const productPerformance =
+      Array.from(
+        productStats.values()
+      ).sort((a, b) => {
+        if (
+          b.revenue !==
+          a.revenue
+        ) {
+          return (
+            b.revenue -
+            a.revenue
+          );
         }
-      }
-    }
 
-    const customerOverview = {
-      totalActiveCustomers: currentPeriodCustomerIds.length,
-      newRegistered: newRegisteredCustomers,
-      firstTimeBuyers,
-      returningBuyers,
-    };
-
-    /* ========================================================
-       10. PRE-ORDER / WAITING LIST STATS
-    ======================================================== */
-
-    let waitingListStats = {
-      totalRequests: 0,
-      topProducts: [],
-    };
-
-    if (productIds.length > 0) {
-      const waitingListEntries = await prisma.waitingList.findMany({
-        where: {
-          productId: { in: productIds },
-          createdAt: { gte: start, lte: end },
-        },
-        include: {
-          product: true,
-          variant: true,
-        },
-        orderBy: { createdAt: "desc" },
+        return (
+          b.unitsSold -
+          a.unitsSold
+        );
       });
 
-      waitingListStats.totalRequests = waitingListEntries.length;
-
-      const wlMap = new Map();
-      for (const entry of waitingListEntries) {
-        const pId = entry.productId;
-        const existing = wlMap.get(pId) || {
-          id: pId,
-          name: entry.product?.name || "Product",
-          count: 0,
-          image: entry.product?.images || "",
-          price: getProductPrice(entry.product),
-        };
-        existing.count += 1;
-        wlMap.set(pId, existing);
-      }
-
-      waitingListStats.topProducts = Array.from(wlMap.values())
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-    }
-
     /* ========================================================
-       11. PRODUCT PERFORMANCE & BEST SELLERS
+       17. BEST SELLERS
     ======================================================== */
 
-    const productPerformance = Array.from(productStats.values()).sort((a, b) => {
-      if (b.revenue !== a.revenue) {
-        return b.revenue - a.revenue;
-      }
-      return b.unitsSold - a.unitsSold;
-    });
-
-    const bestSellers = productPerformance
-      .filter((product) => product.unitsSold > 0)
-      .slice(0, 10);
+    const bestSellers =
+      productPerformance
+        .filter(
+          (product) =>
+            product.unitsSold > 0
+        )
+        .slice(0, 10);
 
     /* ========================================================
-       12. DAILY TIME-SERIES ANALYTICS (WAT)
+       18. DAILY ANALYTICS
     ======================================================== */
 
-    const dailyMap = new Map();
+    const dailyMap =
+      new Map();
 
-    // Fill daily buckets from `start` to `end` in WAT
-    const currDate = new Date(start);
-    while (currDate <= end) {
-      const key = getWATDateString(currDate);
+    for (
+      let date = new Date(start);
+      date <= end;
+      date.setDate(
+        date.getDate() + 1
+      )
+    ) {
+      const key =
+        formatDate(date);
+
       dailyMap.set(key, {
         date: key,
-        label: formatDayWAT(currDate),
+
+        label:
+          formatDay(date),
+
         revenue: 0,
+
         orders: 0,
+
         unitsSold: 0,
-        aov: 0,
       });
-      currDate.setDate(currDate.getDate() + 1);
     }
 
     for (const order of validOrders) {
-      const key = getWATDateString(order.createdAt);
-      const day = dailyMap.get(key);
+      const key =
+        formatDate(
+          order.createdAt
+        );
+
+      const day =
+        dailyMap.get(key);
+
       if (day) {
         day.orders += 1;
       }
     }
 
     for (const item of validOrderItems) {
-      const key = getWATDateString(item.orderCreatedAt);
-      const day = dailyMap.get(key);
-      if (day) {
-        const quantity = money(item.quantity);
-        const price = getItemPrice(item);
-        day.unitsSold += quantity;
-        day.revenue += price * quantity;
+      const key =
+        formatDate(
+          item.orderCreatedAt
+        );
+
+      const day =
+        dailyMap.get(key);
+
+      if (!day) {
+        continue;
       }
+
+      const quantity =
+        money(item.quantity);
+
+      const price =
+        getItemPrice(item);
+
+      day.unitsSold += quantity;
+
+      day.revenue +=
+        price * quantity;
     }
 
-    // Compute daily AOV
-    const dailyAnalytics = Array.from(dailyMap.values()).map((day) => ({
-      ...day,
-      aov: day.orders > 0 ? day.revenue / day.orders : 0,
-    }));
+    const dailyAnalytics =
+      Array.from(
+        dailyMap.values()
+      );
 
     /* ========================================================
-       13. CATEGORY PERFORMANCE
+       19. CATEGORIES
     ======================================================== */
 
-    const categoryMap = new Map();
+    const categoryMap =
+      new Map();
 
     for (const item of validOrderItems) {
       const category =
-        item.product?.categoryRef?.name ||
+        item.product
+          ?.categoryRef?.name ||
         item.product?.category ||
         "Uncategorized";
 
-      const quantity = money(item.quantity);
-      const price = getItemPrice(item);
+      const quantity =
+        money(item.quantity);
 
-      const existing = categoryMap.get(category) || {
-        name: category,
-        unitsSold: 0,
-        revenue: 0,
-      };
+      const price =
+        getItemPrice(item);
 
-      existing.unitsSold += quantity;
-      existing.revenue += price * quantity;
-      categoryMap.set(category, existing);
+      const existing =
+        categoryMap.get(
+          category
+        ) || {
+          name: category,
+          unitsSold: 0,
+          revenue: 0,
+        };
+
+      existing.unitsSold +=
+        quantity;
+
+      existing.revenue +=
+        price * quantity;
+
+      categoryMap.set(
+        category,
+        existing
+      );
     }
 
-    const topCategories = Array.from(categoryMap.values())
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 10);
+    const topCategories =
+      Array.from(
+        categoryMap.values()
+      )
+        .sort(
+          (a, b) =>
+            b.revenue -
+            a.revenue
+        )
+        .slice(0, 10);
 
     /* ========================================================
-       14. ORDER STATUS BREAKDOWN
+       20. COLLECTIONS
     ======================================================== */
 
-    const statusMap = new Map();
+    const collectionMap =
+      new Map();
+
+    for (const item of validOrderItems) {
+      const collection =
+        item.product
+          ?.collection?.name ||
+        "No Collection";
+
+      const quantity =
+        money(item.quantity);
+
+      const price =
+        getItemPrice(item);
+
+      const existing =
+        collectionMap.get(
+          collection
+        ) || {
+          name: collection,
+          unitsSold: 0,
+          revenue: 0,
+        };
+
+      existing.unitsSold +=
+        quantity;
+
+      existing.revenue +=
+        price * quantity;
+
+      collectionMap.set(
+        collection,
+        existing
+      );
+    }
+
+    const topCollections =
+      Array.from(
+        collectionMap.values()
+      )
+        .sort(
+          (a, b) =>
+            b.revenue -
+            a.revenue
+        )
+        .slice(0, 10);
+
+    /* ========================================================
+       21. ORDER STATUSES
+    ======================================================== */
+
+    const statusMap =
+      new Map();
 
     for (const order of brandOrders) {
-      const status = String(order.status || "pending").toLowerCase();
-      statusMap.set(status, (statusMap.get(status) || 0) + 1);
+      const status =
+        String(
+          order.status ||
+            "pending"
+        ).toLowerCase();
+
+      statusMap.set(
+        status,
+        (statusMap.get(status) || 0) +
+          1
+      );
     }
 
-    const orderStatuses = Array.from(statusMap.entries()).map(
-      ([status, count]) => ({
-        status,
-        count,
-      })
-    );
+    const orderStatuses =
+      Array.from(
+        statusMap.entries()
+      ).map(
+        ([status, count]) => ({
+          status,
+          count,
+        })
+      );
 
     /* ========================================================
-       15. RECENT ORDERS
+       22. RECENT ORDERS
     ======================================================== */
 
-    const recentOrders = brandOrders.slice(0, 10).map((order) => {
-      let total = 0;
-      let units = 0;
+    const recentOrders =
+      brandOrders
+        .slice(0, 10)
+        .map((order) => {
+          let total = 0;
+          let units = 0;
 
-      for (const item of order.items) {
-        const quantity = money(item.quantity);
-        const price = getItemPrice(item);
-        units += quantity;
-        total += price * quantity;
-      }
+          for (const item of order.items) {
+            const quantity =
+              money(item.quantity);
 
-      return {
-        id: order.id,
-        status: order.status,
-        total,
-        units,
-        customer: {
-          id: order.user?.id || null,
-          name: order.user?.name || "Customer",
-          email: order.user?.email || "",
-        },
-        createdAt: order.createdAt,
-      };
-    });
+            const price =
+              getItemPrice(item);
+
+            units += quantity;
+
+            total +=
+              price * quantity;
+          }
+
+          return {
+            id: order.id,
+
+            status:
+              order.status,
+
+            total,
+
+            units,
+
+            customer: {
+              id:
+                order.user?.id ||
+                null,
+
+              name:
+                order.user?.name ||
+                "Customer",
+
+              email:
+                order.user?.email ||
+                "",
+            },
+
+            createdAt:
+              order.createdAt,
+          };
+        });
 
     /* ========================================================
-       16. RESPONSE (BACKWARDS COMPATIBLE + UPGRADED)
+       23. RESPONSE
     ======================================================== */
 
     return NextResponse.json(
       {
         success: true,
-        brand,
-        range,
-        period: { start, end },
 
-        // Maintain compatibility for StatsBar & existing consumers
-        overview: {
-          revenue,
-          orders: orderCount,
-          unitsSold,
-          averageOrderValue,
-          customers: customerOverview.totalActiveCustomers,
-          products: totalProducts,
-          activeProducts,
-          outOfStock,
-          lowStock: lowStockProducts.length,
-          inventoryValue,
-          totalInventoryUnits,
-          stockHealth,
-          // StatsBar mappings
-          totalRevenue: revenue,
-          totalOrders: orderCount,
-          totalProducts: totalProducts,
-          totalCustomers: customerOverview.totalActiveCustomers,
-          totalSubscribers: 0,
+        brand,
+
+        range,
+
+        period: {
+          start,
+          end,
         },
 
-        customers: customerOverview,
+        /*
+         * THIS IS THE STRUCTURE USED BY THE DASHBOARD.
+         */
+        overview: {
+          revenue,
 
-        waitingList: waitingListStats,
+          orders:
+            orderCount,
+
+          unitsSold,
+
+          averageOrderValue,
+
+          customers:
+            customerCount,
+
+          products:
+            totalProducts,
+
+          activeProducts,
+
+          outOfStock,
+
+          lowStock:
+            lowStockProducts.length,
+
+          inventoryValue,
+
+          totalInventoryUnits,
+
+          stockHealth,
+        },
 
         analytics: {
-          daily: dailyAnalytics,
+          daily:
+            dailyAnalytics,
+
           orderStatuses,
+
           bestSellers,
+
           topCategories,
+
+          topCollections,
         },
 
         inventory: {
-          lowStock: lowStockProducts.map((product) => ({
-            id: product.id,
-            name: product.name,
-            inventory: money(product.inventory),
-            price: getProductPrice(product),
-            image: product.images || "",
-          })),
+          lowStock:
+            lowStockProducts.map(
+              (product) => ({
+                id: product.id,
+
+                name:
+                  product.name,
+
+                inventory:
+                  money(
+                    product.inventory
+                  ),
+
+                price:
+                  getProductPrice(
+                    product
+                  ),
+
+                image:
+                  product.images || "",
+              })
+            ),
+
           outOfStock,
-          outOfStockProducts: outOfStockProducts.map((product) => ({
-            id: product.id,
-            name: product.name,
-            inventory: money(product.inventory),
-            price: getProductPrice(product),
-            image: product.images || "",
-          })),
+
+          outOfStockProducts:
+            outOfStockProducts.map(
+              (product) => ({
+                id: product.id,
+
+                name:
+                  product.name,
+
+                inventory:
+                  money(
+                    product.inventory
+                  ),
+
+                price:
+                  getProductPrice(
+                    product
+                  ),
+
+                image:
+                  product.images || "",
+              })
+            ),
         },
 
-        products: productPerformance,
+        products:
+          productPerformance,
+
         recentOrders,
-        generatedAt: new Date(),
+
+        /*
+         * ======================================================
+         * DEBUG
+         * ======================================================
+         */
+
+        debug: {
+          databaseProductCount:
+            allProducts.length,
+
+          matchingBrandProductCount:
+            products.length,
+
+          requestedBrand:
+            requestedBrand || null,
+
+          normalizedBrand:
+            brand,
+
+          adminBrand,
+
+          databaseBrandsFound:
+            [
+              ...new Set(
+                allProducts
+                  .map(
+                    (product) =>
+                      product.brand
+                  )
+                  .filter(Boolean)
+              ),
+            ],
+
+          matchingProducts:
+            products.map(
+              (product) => ({
+                id:
+                  product.id,
+
+                name:
+                  product.name,
+
+                brand:
+                  product.brand,
+
+                normalizedBrand:
+                  normalizeBrand(
+                    product.brand
+                  ),
+
+                /*
+                 * THIS SHOULD NOW MATCH THE
+                 * ACTUAL PRODUCT PRICE.
+                 */
+                price:
+                  getProductPrice(
+                    product
+                  ),
+
+                inventory:
+                  money(
+                    product.inventory
+                  ),
+
+                inventoryValue:
+                  money(
+                    product.inventory
+                  ) *
+                  getProductPrice(
+                    product
+                  ),
+              })
+            ),
+        },
+
+        generatedAt:
+          new Date(),
       },
       {
         headers: {
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          "Cache-Control":
+            "no-store, no-cache, must-revalidate, proxy-revalidate",
+
           Pragma: "no-cache",
+
           Expires: "0",
         },
       }
     );
   } catch (error) {
-    console.error("ADMIN ANALYTICS ERROR:", error);
+    console.error(
+      "ADMIN ANALYTICS ERROR:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Failed to load analytics.",
+
+        error:
+          error?.message ||
+          "Failed to load analytics.",
       },
       {
         status: 500,
-        headers: { "Cache-Control": "no-store" },
+
+        headers: {
+          "Cache-Control":
+            "no-store",
+        },
       }
     );
   }
