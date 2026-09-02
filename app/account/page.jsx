@@ -98,10 +98,10 @@ export default function AccountPage() {
                 Welcome to VÉRANE
               </p>
               <h2 className="text-2xl font-black mt-2">
-                Your private account is active, {user.name}.
+                Your private account is active, {user?.name || "Valued Member"}.
               </h2>
               <p className="text-xs text-neutral-300 mt-2 leading-relaxed">
-                Thank you for joining VÉRANE. A welcome email has been sent to <strong>{user.email}</strong>.
+                Thank you for joining VÉRANE. A welcome email has been sent to <strong>{user?.email || "your inbox"}</strong>.
               </p>
             </div>
           )}

@@ -822,52 +822,59 @@ export default function ProductDetail() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {variants.map(
-                    (variant) => {
-                      const label =
-                        getVariantLabel(
-                          variant
-                        );
-
-                      const available =
-                        isVariantAvailable(
-                          variant
-                        );
-
-                      const active =
+                  {Array.from(
+                    new Set(
+                      variants.map(
+                        (v) =>
+                          v.size ||
+                          v.name ||
+                          v.value ||
+                          v.label
+                      ).filter(Boolean)
+                    )
+                  ).map((sizeLabel) => {
+                    const matchingVariant = variants.find(
+                      (v) =>
                         String(
-                          selectedSize
-                        ) ===
-                        String(label);
+                          v.size ||
+                            v.name ||
+                            v.value ||
+                            v.label
+                        ) === String(sizeLabel) &&
+                        (!selectedColor ||
+                          !v.colorId ||
+                          String(v.colorId) === String(selectedColor))
+                    );
 
-                      return (
-                        <button
-                          key={
-                            variant.id ||
-                            label
-                          }
-                          type="button"
-                          disabled={
-                            !available
-                          }
-                          onClick={() =>
-                            setSelectedSize(
-                              label
-                            )
-                          }
-                          className={`min-w-[52px] px-4 py-3 rounded-xl border text-xs font-bold transition-all ${
-                            !available
-                              ? "border-white/5 text-neutral-700 line-through cursor-not-allowed"
-                              : active
-                              ? "border-amber-400 bg-amber-400 text-black"
-                              : "border-white/10 text-neutral-300 hover:border-white/30"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    }
-                  )}
+                    const available =
+                      matchingVariant &&
+                      (matchingVariant.stock === undefined ||
+                        matchingVariant.stock === null ||
+                        Number(matchingVariant.stock) > 0);
+
+                    const active =
+                      String(selectedSize) === String(sizeLabel);
+
+                    return (
+                      <button
+                        key={sizeLabel}
+                        type="button"
+                        disabled={!available}
+                        onClick={() =>
+                          setSelectedSize(sizeLabel)
+                        }
+                        className={`min-w-[52px] px-4 py-3 rounded-xl border text-xs font-bold transition-all ${
+                          !available
+                            ? "border-white/5 text-neutral-700 line-through cursor-not-allowed"
+                            : active
+                            ? "border-amber-400 bg-amber-400 text-black"
+                            : "border-white/10 text-neutral-300 hover:border-white/30"
+                        }`}
+                      >
+                        {sizeLabel}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {isFootwear && (

@@ -301,9 +301,27 @@ function ProductCard({ product }) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
           <div className="absolute left-3 top-3 flex flex-col gap-1 z-10">
-            {product.preOrderEnabled && (
+            {product.preOrderEnabled ? (
               <span className="rounded-full border border-amber-400/40 bg-amber-400 text-black px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]">
                 Pre-Order
+              </span>
+            ) : (
+              <span className={`rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] backdrop-blur-md ${
+                Number(product.inventory ?? 0) <= 0
+                  ? "border-red-500/40 bg-black/80 text-red-400"
+                  : Number(product.inventory ?? 0) <= 10
+                  ? "border-orange-400/40 bg-black/80 text-orange-400"
+                  : Number(product.inventory ?? 0) <= 40
+                  ? "border-amber-400/40 bg-black/80 text-amber-400"
+                  : "border-emerald-400/40 bg-black/80 text-emerald-400"
+              }`}>
+                {Number(product.inventory ?? 0) <= 0
+                  ? "Sold Out"
+                  : Number(product.inventory ?? 0) <= 10
+                  ? "Few Left"
+                  : Number(product.inventory ?? 0) <= 40
+                  ? "Almost Sold Out"
+                  : "Available"}
               </span>
             )}
             <span className="rounded-full border border-white/10 bg-black/60 backdrop-blur-md px-3 py-1.5 text-[8px] font-bold uppercase tracking-[0.18em] text-white/80">

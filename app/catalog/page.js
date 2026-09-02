@@ -884,16 +884,29 @@ console.log("CATALOG PRODUCTS:", productsData);
                         )}
                       </Link>
 
-                      {/* PRE-ORDER / SOLD OUT BADGES */}
+                      {/* PRE-ORDER / STOCK BADGES */}
                       <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-1">
-                        {product.preOrderEnabled && (
+                        {product.preOrderEnabled ? (
                           <span className="rounded-full bg-amber-400 text-black px-3 py-1 text-[9px] font-black uppercase tracking-wider">
                             Pre-Order
                           </span>
-                        )}
-                        {isOutOfStock && (
-                          <span className="rounded-full bg-black/80 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-white backdrop-blur border border-white/10">
-                            Sold Out
+                        ) : (
+                          <span className={`rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-wider backdrop-blur border ${
+                            inventory <= 0
+                              ? "bg-black/80 text-red-400 border-red-500/30"
+                              : inventory <= 10
+                              ? "bg-black/80 text-orange-400 border-orange-400/30"
+                              : inventory <= 40
+                              ? "bg-black/80 text-amber-400 border-amber-400/30"
+                              : "bg-black/80 text-emerald-400 border-emerald-400/30"
+                          }`}>
+                            {inventory <= 0
+                              ? "Sold Out"
+                              : inventory <= 10
+                              ? "Few Left"
+                              : inventory <= 40
+                              ? "Almost Sold Out"
+                              : "Available"}
                           </span>
                         )}
                       </div>
