@@ -170,22 +170,20 @@ export default function ProductDetail() {
     hasSizes && !isPreOrder;
 
   const selectedVariant = variants.find((variant) => {
-    const variantSize = String(
+    const variantSize =
       variant.size ||
-        variant.name ||
-        variant.value ||
-        variant.label ||
-        ""
-    );
+      variant.name ||
+      variant.value ||
+      variant.label ||
+      null;
 
-    const sizeMatches =
-      !selectedSize ||
-      variantSize === String(selectedSize);
+    const sizeMatches = selectedSize
+      ? Boolean(variantSize) && String(variantSize) === String(selectedSize)
+      : true;
 
-    const colorMatches =
-      !selectedColor ||
-      !variant.colorId ||
-      String(variant.colorId) === String(selectedColor);
+    const colorMatches = selectedColor
+      ? Boolean(variant.colorId) && String(variant.colorId) === String(selectedColor)
+      : true;
 
     return sizeMatches && colorMatches;
   }) || null;
@@ -321,33 +319,24 @@ export default function ProductDetail() {
    *
    * to exist independently.
    */
-  const exactVariant = variants.find(
-    (variant) => {
-      const variantSize = String(
-        variant.size ||
-          variant.name ||
-          variant.value ||
-          variant.label ||
-          ""
-      );
+  const exactVariant = variants.find((variant) => {
+    const variantSize =
+      variant.size ||
+      variant.name ||
+      variant.value ||
+      variant.label ||
+      null;
 
-      const sizeMatches =
-        !selectedSize ||
-        variantSize ===
-          String(selectedSize);
+    const sizeMatches = selectedSize
+      ? Boolean(variantSize) && String(variantSize) === String(selectedSize)
+      : true;
 
-      const colorMatches =
-        !selectedColor ||
-        !variant.colorId ||
-        String(variant.colorId) ===
-          String(selectedColor);
+    const colorMatches = selectedColor
+      ? Boolean(variant.colorId) && String(variant.colorId) === String(selectedColor)
+      : true;
 
-      return (
-        sizeMatches &&
-        colorMatches
-      );
-    }
-  ) || null;
+    return sizeMatches && colorMatches;
+  }) || null;
 
   const cartColor =
     selectedColorObject?.name ||
@@ -833,18 +822,23 @@ export default function ProductDetail() {
                       ).filter(Boolean)
                     )
                   ).map((sizeLabel) => {
-                    const matchingVariant = variants.find(
-                      (v) =>
-                        String(
-                          v.size ||
-                            v.name ||
-                            v.value ||
-                            v.label
-                        ) === String(sizeLabel) &&
-                        (!selectedColor ||
-                          !v.colorId ||
-                          String(v.colorId) === String(selectedColor))
-                    );
+                    const matchingVariant = variants.find((v) => {
+                      const vSize =
+                        v.size ||
+                        v.name ||
+                        v.value ||
+                        v.label ||
+                        null;
+
+                      const sizeMatches =
+                        Boolean(vSize) && String(vSize) === String(sizeLabel);
+
+                      const colorMatches = selectedColor
+                        ? Boolean(v.colorId) && String(v.colorId) === String(selectedColor)
+                        : true;
+
+                      return sizeMatches && colorMatches;
+                    });
 
                     const available =
                       matchingVariant &&
