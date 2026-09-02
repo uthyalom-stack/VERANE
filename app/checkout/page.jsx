@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -13,11 +14,12 @@ export default function CheckoutPage() {
   // Delivery options & calculation state
   const [deliveryOptions, setDeliveryOptions] = useState({
     countries: ["Nigeria", "International"],
-    states: [],
+    states: NIGERIAN_STATES,
     cities: [],
   });
 
   const [shippingFee, setShippingFee] = useState(0);
+  const [matchedLocationName, setMatchedLocationName] = useState("");
 
   const [form, setForm] = useState({
     firstName: "",
@@ -50,15 +52,37 @@ export default function CheckoutPage() {
     }
   }, []);
 
-  // Fetch delivery options whenever location selections change
+  // Update available states and cities when location form inputs change
+  useEffect(() => {
+    if (form.country.toLowerCase() === "nigeria") {
+      const states = NIGERIAN_STATES;
+      const cities = form.state && NIGERIA_LOCATIONS[form.state] ? NIGERIA_LOCATIONS[form.state] : [];
+
+      setDeliveryOptions((prev) => ({
+        ...prev,
+        states,
+        cities,
+      }));
+    } else {
+      setDeliveryOptions((prev) => ({
+        ...prev,
+        states: [],
+        cities: [],
+      }));
+    }
+  }, [form.country, form.state]);
+
+  // Fetch location shipping fee whenever location changes
   useEffect(() => {
     async function loadDeliveryFee() {
+      if (!form.country) return;
+
       try {
         const params = new URLSearchParams({
           country: form.country,
-          state: form.state,
-          city: form.city,
-          zone: form.zone,
+          state: form.state || "",
+          city: form.city || "",
+          zone: form.zone || "",
         });
 
         const res = await fetch(`/api/delivery?${params.toString()}`);
@@ -66,28 +90,42 @@ export default function CheckoutPage() {
 
         if (data.success) {
           setShippingFee(Number(data.fee || 0));
-          if (data.options) {
+          if (data.matchedLocationName) {
+            setMatchedLocationName(data.matchedLocationName);
+          }
+          if (data.options?.countries?.length) {
             setDeliveryOptions((prev) => ({
               ...prev,
-              countries: data.options.countries?.length ? data.options.countries : prev.countries,
-              states: data.options.states || [],
-              cities: data.options.cities || [],
+              countries: data.options.countries,
             }));
           }
         }
       } catch (err) {
-        console.error("Delivery rate error:", err);
+        console.error("Delivery rate calculation error:", err);
       }
     }
 
-    if (form.country) {
-      loadDeliveryFee();
-    }
+    loadDeliveryFee();
   }, [form.country, form.state, form.city, form.zone]);
 
   const updateField = (event) => {
     const { name, value } = event.target;
-    setForm((previous) => ({ ...previous, [name]: value }));
+
+    setForm((previous) => {
+      const next = { ...previous, [name]: value };
+
+      // Reset city if state changes
+      if (name === "state") {
+        next.city = "";
+      }
+      // Reset state & city if country changes
+      if (name === "country") {
+        next.state = "";
+        next.city = "";
+      }
+
+      return next;
+    });
   };
 
   const getImages = (images) => {
@@ -104,7 +142,7 @@ export default function CheckoutPage() {
 
   const placeOrder = async () => {
     if (!form.firstName || !form.email || !form.address || !form.state || !form.city) {
-      alert("Please fill in all required contact and delivery fields.");
+      alert("Please fill in all required contact and delivery fields (State and City/LGA are required).");
       return;
     }
 
@@ -223,10 +261,10 @@ export default function CheckoutPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">City *</label>
+                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">City / LGA *</label>
                     {deliveryOptions.cities.length > 0 ? (
                       <select name="city" value={form.city} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
-                        <option value="">Select City</option>
+                        <option value="">Select City / LGA</option>
                         {deliveryOptions.cities.map((c) => (
                           <option key={c} value={c} className="bg-neutral-900">{c}</option>
                         ))}
@@ -303,6 +341,12 @@ export default function CheckoutPage() {
                   </span>
                 </div>
 
+                {matchedLocationName && (
+                  <p className="text-[10px] text-neutral-500 italic">
+                    Rate: {matchedLocationName}
+                  </p>
+                )}
+
                 <div className="border-t border-white/10 pt-4 flex justify-between items-baseline">
                   <span className="font-bold text-base">Total</span>
                   <span className="text-2xl font-black text-amber-400">
@@ -321,7 +365,7 @@ export default function CheckoutPage() {
               </button>
 
               <p className="text-[10px] text-neutral-500 text-center mt-4 leading-relaxed">
-                Calculated based on selected city & zone rate.
+                Calculated based on selected state, city & zone rate.
               </p>
             </div>
           </aside>

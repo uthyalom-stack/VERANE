@@ -161,6 +161,36 @@ model DeliveryLocation {
   @@index([city])
 }
 
+model DeliveryState {
+  id          String         @id @default(cuid())
+  country     String         @default("Nigeria")
+  state       String         @unique
+  pricingMode String         @default("STATE_DEFAULT") // "STATE_DEFAULT" or "CITY_SPECIFIC"
+  defaultFee  Float          @default(0)
+  enabled     Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  cities      DeliveryCity[]
+
+  @@index([country])
+  @@index([state])
+}
+
+model DeliveryCity {
+  id        String        @id @default(cuid())
+  stateId   String
+  city      String
+  fee       Float         @default(0)
+  enabled   Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  state     DeliveryState @relation(fields: [stateId], references: [id], onDelete: Cascade)
+
+  @@unique([stateId, city])
+  @@index([stateId])
+  @@index([city])
+}
+
 model OrderItem {
   id                 String          @id @default(cuid())
   orderId            String
