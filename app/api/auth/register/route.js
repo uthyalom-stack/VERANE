@@ -97,14 +97,12 @@ export async function POST(request) {
     const session =
       createCustomerSession(user);
 
-    // Send welcome email asynchronously
+    // Send welcome email
     try {
       const { sendWelcomeEmail } = await import("@/lib/email");
-      sendWelcomeEmail({ email: user.email, name: user.name }).catch((e) =>
-        console.error("Welcome email async error:", e)
-      );
+      await sendWelcomeEmail({ email: user.email, name: user.name });
     } catch (e) {
-      console.error("Import email module error:", e);
+      console.error("Welcome email execution error:", e);
     }
 
     const response = NextResponse.json({

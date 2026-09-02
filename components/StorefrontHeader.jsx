@@ -503,14 +503,34 @@ async function loadSettings() {
 
               <nav className="flex flex-col gap-1">
 
+                {/* HOME */}
+
+                <Link
+                  href="/"
+                  onClick={closeMenu}
+                  className="px-4 py-4 text-xs uppercase tracking-[0.2em] text-white border-b border-white/5"
+                >
+                  Home
+                </Link>
+
                 {/* SHOP */}
 
                 <Link
                   href="/catalog"
                   onClick={closeMenu}
-                  className="px-4 py-4 text-xs uppercase tracking-[0.2em] text-white border-b border-white/5"
+                  className="px-4 py-4 text-xs uppercase tracking-[0.2em] text-neutral-400 hover:text-white border-b border-white/5"
                 >
                   Shop
+                </Link>
+
+                {/* COLLABORATIONS */}
+
+                <Link
+                  href="/collaborations"
+                  onClick={closeMenu}
+                  className="px-4 py-4 text-xs uppercase tracking-[0.2em] text-neutral-400 hover:text-white border-b border-white/5"
+                >
+                  Collaborations
                 </Link>
 
                 {/* UTHY */}

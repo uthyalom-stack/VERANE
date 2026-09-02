@@ -91,15 +91,22 @@ export async function POST(request) {
           });
         });
 
-        // Send PDF receipt email asynchronously
+        // Send PDF receipt email asynchronously with full order details
         try {
-          const { generateOrderReceiptPDF } = await import("@/lib/receipt-pdf");
-          const { sendOrderReceiptEmail } = await import("@/lib/email");
+          const fullOrder = await prisma.order.findUnique({
+            where: { id: existingOrder.id },
+            include: { items: { include: { product: true } } },
+          });
 
-          const pdfBuffer = await generateOrderReceiptPDF(existingOrder.id);
-          sendOrderReceiptEmail({ order: existingOrder, pdfBuffer }).catch((e) =>
-            console.error("Webhook receipt email async error:", e)
-          );
+          if (fullOrder) {
+            const { generateOrderReceiptPDF } = await import("@/lib/receipt-pdf");
+            const { sendOrderReceiptEmail } = await import("@/lib/email");
+
+            const pdfBuffer = await generateOrderReceiptPDF(fullOrder.id);
+            sendOrderReceiptEmail({ order: fullOrder, pdfBuffer }).catch((e) =>
+              console.error("Webhook receipt email async error:", e)
+            );
+          }
         } catch (e) {
           console.error("Webhook receipt PDF error:", e);
         }
