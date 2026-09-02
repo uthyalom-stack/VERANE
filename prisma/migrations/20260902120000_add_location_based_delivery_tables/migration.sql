@@ -1,5 +1,23 @@
 -- Migration: 20260902120000_add_location_based_delivery_tables
--- Create DeliveryState and DeliveryCity tables for location-based shipping pricing.
+-- Create DeliveryLocation, DeliveryState and DeliveryCity tables for location-based shipping pricing.
+
+CREATE TABLE IF NOT EXISTS "DeliveryLocation" (
+    "id" TEXT NOT NULL,
+    "country" TEXT NOT NULL DEFAULT 'Nigeria',
+    "state" TEXT NOT NULL,
+    "city" TEXT NOT NULL,
+    "zone" TEXT,
+    "fee" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "enabled" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DeliveryLocation_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "DeliveryLocation_country_idx" ON "DeliveryLocation"("country");
+CREATE INDEX IF NOT EXISTS "DeliveryLocation_state_idx" ON "DeliveryLocation"("state");
+CREATE INDEX IF NOT EXISTS "DeliveryLocation_city_idx" ON "DeliveryLocation"("city");
 
 CREATE TABLE IF NOT EXISTS "DeliveryState" (
     "id" TEXT NOT NULL,

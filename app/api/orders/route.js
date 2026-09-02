@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
-import prisma from "../../../lib/prisma";
+import { cookies } from "next/headers";
+import prisma from "@/lib/prisma";
+import { verifyCustomerSession, getCustomerCookieName } from "@/lib/auth/customer";
 
-async function getSession(request) {
-  const response = await fetch(
-    new URL("/api/auth/session", request.url),
-    {
-      headers: {
-        cookie: request.headers.get("cookie") || "",
-      },
-      cache: "no-store",
+async function getSession() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(getCustomerCookieName())?.value;
+    const user = verifyCustomerSession(token);
+    if (user) {
+      return { authenticated: true, user };
     }
-  );
-
-  return response.json();
+  } catch (err) {
+    console.error("Direct session verification error in /api/orders:", err);
+  }
+  return { authenticated: false, user: null };
 }
 
 function generateOrderNumber() {
@@ -30,7 +32,7 @@ function generateOrderNumber() {
 
 export async function GET(request) {
   try {
-    const session = await getSession(request);
+    const session = await getSession();
 
     if (!session.authenticated || !session.user?.id) {
       return NextResponse.json(
@@ -81,7 +83,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const session = await getSession(request);
+    const session = await getSession();
 
     if (!session.authenticated || !session.user?.id) {
       return NextResponse.json(

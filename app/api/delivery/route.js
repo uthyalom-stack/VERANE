@@ -41,13 +41,18 @@ export async function GET(request) {
     if (country.toLowerCase() === "nigeria") {
       availableStates = NIGERIAN_STATES;
 
-      if (state && NIGERIA_LOCATIONS[state]) {
-        availableCities = NIGERIA_LOCATIONS[state];
+      // Find exact or case-insensitive state key in NIGERIA_LOCATIONS
+      const matchedStateKey = state
+        ? NIGERIAN_STATES.find((s) => s.toLowerCase() === state.trim().toLowerCase())
+        : null;
+
+      if (matchedStateKey && NIGERIA_LOCATIONS[matchedStateKey]) {
+        availableCities = NIGERIA_LOCATIONS[matchedStateKey];
 
         try {
           // Find saved DeliveryState for this state if DB is accessible
           const dbState = await prisma.deliveryState.findUnique({
-            where: { state },
+            where: { state: matchedStateKey },
             include: {
               cities: {
                 where: { enabled: true },

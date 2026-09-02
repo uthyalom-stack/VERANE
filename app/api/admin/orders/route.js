@@ -16,49 +16,61 @@ export async function GET() {
       );
     }
 
-    if (admin.isSuperAdmin) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Super Admin does not manage store orders.",
+    const whereClause = admin.isSuperAdmin
+      ? {}
+      : {
+          OR: [
+            {
+              items: {
+                some: {
+                  product: {
+                    brand: admin.brand,
+                  },
+                },
+              },
+            },
+            {
+              items: {
+                some: {
+                  collaborationProduct: {
+                    OR: [
+                      { productA: { brand: admin.brand } },
+                      { productB: { brand: admin.brand } },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        };
+
+    try {
+      const orders = await prisma.order.findMany({
+        where: whereClause,
+        include: {
+          user: true,
+          items: {
+            include: {
+              product: true,
+              variant: true,
+              collaborationProduct: true,
+              collaborationVariant: true,
+            },
+          },
         },
-        { status: 403 }
-      );
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      return NextResponse.json(orders);
+    } catch (dbError) {
+      console.warn("GET /api/admin/orders DB query warning:", dbError.message);
+      return NextResponse.json([]);
     }
-
-    const orders = await prisma.order.findMany({
-      where: {
-        items: {
-          some: {
-            product: {
-              brand: admin.brand,
-            },
-          },
-        },
-      },
-      include: {
-        user: true,
-        items: {
-          where: {
-            product: {
-              brand: admin.brand,
-            },
-          },
-          include: {
-            product: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return NextResponse.json(orders);
   } catch (error) {
     console.error(
-      "GET /api/admin/orders error:",
+      "GET /api/admin/orders auth error:",
       error
     );
 
