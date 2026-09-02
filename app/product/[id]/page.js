@@ -166,7 +166,9 @@ export default function ProductDetail() {
       String(product?.category || "").toLowerCase()
     );
 
-  const hasSizes = variants.length > 0;
+  const hasSizes = variants.some(
+    (v) => Boolean(v.size || v.name || v.value || v.label)
+  );
 
   const needsSizeSelection =
     hasSizes && !isPreOrder;
@@ -795,13 +797,13 @@ export default function ProductDetail() {
                           color
                         );
 
+                      const isSelectedInCollection = selectedVariants.some(
+                        (v) => String(v.colorId) === String(colorId)
+                      );
+
                       const active =
-                        String(
-                          selectedColor
-                        ) ===
-                        String(
-                          colorId
-                        );
+                        String(selectedColor) === String(colorId) ||
+                        (!hasSizes && isSelectedInCollection);
 
                       return (
                         <button
