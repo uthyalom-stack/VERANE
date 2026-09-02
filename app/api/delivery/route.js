@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
 
 /*
 |--------------------------------------------------------------------------
@@ -11,84 +12,113 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
 
-    const country = searchParams.get("country");
-    const state = searchParams.get("state");
-    const city = searchParams.get("city");
-    const zone = searchParams.get("zone");
+    const country = searchParams.get("country") || "Nigeria";
+    const state = searchParams.get("state") || "";
+    const city = searchParams.get("city") || "";
 
-    // Fetch enabled locations
-    const locations = await prisma.deliveryLocation.findMany({
-      where: { enabled: true },
-      orderBy: [
-        { country: "asc" },
-        { state: "asc" },
-        { city: "asc" },
-      ],
-    });
-
-    // If specific country/state/city provided, calculate matching fee
     let fee = 0;
-    let matchedLocation = null;
+    let pricingMode = "STATE_DEFAULT";
+    let matchedLocationName = "";
 
-    if (country && state && city) {
-      matchedLocation = locations.find((loc) => {
-        const countryMatch = loc.country.toLowerCase() === country.toLowerCase();
-        const stateMatch = loc.state.toLowerCase() === state.toLowerCase();
-        const cityMatch = loc.city.toLowerCase() === city.toLowerCase();
+    // Options for checkout dropdowns
+    let availableCountries = ["Nigeria", "International"];
+    let availableStates = [];
+    let availableCities = [];
 
-        if (zone && loc.zone) {
-          return countryMatch && stateMatch && cityMatch && loc.zone.toLowerCase() === zone.toLowerCase();
-        }
-
-        return countryMatch && stateMatch && cityMatch;
+    // Fetch international locations if database is connected
+    try {
+      const intlLocations = await prisma.deliveryLocation.findMany({
+        where: { enabled: true, country: { not: "Nigeria" } },
+        select: { country: true },
       });
 
-      // Fallback 1: match state default
-      if (!matchedLocation) {
-        matchedLocation = locations.find((loc) =>
-          loc.country.toLowerCase() === country.toLowerCase() &&
-          loc.state.toLowerCase() === state.toLowerCase()
-        );
-      }
-
-      // Fallback 2: match country default
-      if (!matchedLocation) {
-        matchedLocation = locations.find((loc) =>
-          loc.country.toLowerCase() === country.toLowerCase()
-        );
-      }
-
-      // Default fallback fee for Nigeria is ₦3,500 if no record exists yet
-      fee = matchedLocation ? matchedLocation.fee : country.toLowerCase() === "nigeria" ? 3500 : 15000;
+      const customIntlCountries = Array.from(new Set(intlLocations.map((l) => l.country)));
+      availableCountries = Array.from(new Set([...availableCountries, ...customIntlCountries]));
+    } catch (dbErr) {
+      console.warn("Delivery API DB lookup warning (intl locations):", dbErr.message);
     }
 
-    // Return unique dropdown options
-    const countries = Array.from(new Set(locations.map((l) => l.country))).concat(["Nigeria", "International"]);
-    const uniqueCountries = Array.from(new Set(countries));
+    if (country.toLowerCase() === "nigeria") {
+      availableStates = NIGERIAN_STATES;
 
-    const states = country
-      ? Array.from(new Set(locations.filter((l) => l.country.toLowerCase() === country.toLowerCase()).map((l) => l.state)))
-      : [];
+      if (state && NIGERIA_LOCATIONS[state]) {
+        availableCities = NIGERIA_LOCATIONS[state];
 
-    const cities = country && state
-      ? Array.from(new Set(locations.filter((l) => l.country.toLowerCase() === country.toLowerCase() && l.state.toLowerCase() === state.toLowerCase()).map((l) => l.city)))
-      : [];
+        try {
+          // Find saved DeliveryState for this state if DB is accessible
+          const dbState = await prisma.deliveryState.findUnique({
+            where: { state },
+            include: {
+              cities: {
+                where: { enabled: true },
+              },
+            },
+          });
+
+          if (dbState && dbState.enabled) {
+            pricingMode = dbState.pricingMode;
+
+            if (pricingMode === "CITY_SPECIFIC" && city) {
+              const matchedCity = dbState.cities.find(
+                (c) => c.city.toLowerCase() === city.toLowerCase()
+              );
+
+              if (matchedCity && Number(matchedCity.fee) >= 0) {
+                fee = Number(matchedCity.fee);
+                matchedLocationName = `${state} - ${matchedCity.city} (City Rate)`;
+              } else {
+                fee = Number(dbState.defaultFee || 0);
+                matchedLocationName = `${state} (State Default Fallback)`;
+              }
+            } else {
+              fee = Number(dbState.defaultFee || 0);
+              matchedLocationName = `${state} (State Default Rate)`;
+            }
+          }
+        } catch (dbErr) {
+          console.warn("Delivery API DB lookup warning (state/city rate):", dbErr.message);
+        }
+      }
+    } else {
+      try {
+        const matchedIntl = await prisma.deliveryLocation.findFirst({
+          where: {
+            country: { equals: country, mode: "insensitive" },
+            enabled: true,
+          },
+        });
+
+        fee = matchedIntl ? Number(matchedIntl.fee || 0) : 15000;
+        matchedLocationName = matchedIntl ? `${country} (International Rate)` : `${country} (Standard International Rate)`;
+      } catch {
+        fee = 15000;
+        matchedLocationName = `${country} (Standard International Rate)`;
+      }
+    }
 
     return NextResponse.json({
       success: true,
       fee,
-      matchedLocation,
+      pricingMode,
+      matchedLocationName,
       options: {
-        countries: uniqueCountries,
-        states,
-        cities,
+        countries: availableCountries,
+        states: availableStates,
+        cities: availableCities,
       },
     });
   } catch (error) {
     console.error("GET /api/delivery error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to load delivery rates." },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: true,
+      fee: 0,
+      pricingMode: "STATE_DEFAULT",
+      matchedLocationName: "Standard Rate",
+      options: {
+        countries: ["Nigeria", "International"],
+        states: NIGERIAN_STATES,
+        cities: [],
+      },
+    });
   }
 }
