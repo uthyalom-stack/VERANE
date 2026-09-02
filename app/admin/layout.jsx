@@ -148,6 +148,7 @@ export default function AdminLayout({ children }) {
 
   const links = [
     { href: "/admin", label: "Dashboard", show: true },
+    { href: "/admin/analytics", label: "Analytics", show: isStoreAdmin },
     { href: "/admin/products", label: "Products", show: isStoreAdmin },
     { href: "/admin/categories", label: "Categories", show: isStoreAdmin },
     { href: "/admin/collections", label: "Collections", show: isStoreAdmin },

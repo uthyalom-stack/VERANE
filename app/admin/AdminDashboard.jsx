@@ -90,6 +90,14 @@ export default function AdminDashboard({ admin }) {
 
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <AdminLink
+                title="Analytics"
+                description="View store sales & statistics"
+                onClick={() =>
+                  router.push("/admin/analytics")
+                }
+              />
+
+              <AdminLink
                 title="Products"
                 description="Manage your catalog"
                 onClick={() =>
@@ -222,14 +230,6 @@ export default function AdminDashboard({ admin }) {
                 description="Manage global site settings"
                 onClick={() =>
                   router.push("/admin/settings")
-                }
-              />
-
-              <AdminLink
-                title="Analytics"
-                description="View platform analytics"
-                onClick={() =>
-                  router.push("/admin")
                 }
               />
             </div>

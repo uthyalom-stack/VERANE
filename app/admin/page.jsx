@@ -77,12 +77,6 @@ export default function AdminDashboard() {
   const isAlomziee = admin.role === "ALOMZIEE";
   const isSuperAdmin = admin.role === "SUPERADMIN";
 
-  /*
-   * IMPORTANT:
-   * Super Admin is intentionally left on its existing dashboard.
-   * The lightweight replacement below only applies to the two
-   * brand administrators.
-   */
   if (isSuperAdmin) {
     return (
       <SuperAdminDashboard admin={admin} onLogout={logout} router={router} />
@@ -122,10 +116,6 @@ export default function AdminDashboard() {
 
 /* ============================================================
    BRAND ADMIN DASHBOARD
-   Lightweight dashboard.
-   No analytics polling.
-   No collaboration notification polling.
-   No chart dependency.
 ============================================================ */
 
 function BrandDashboard({
@@ -138,7 +128,6 @@ function BrandDashboard({
   router,
 }) {
   const isUthy = accent === "amber";
-
   const productBrand = brand === "UTHY" ? "UTHY_LUXURY" : "ALOMZIEE_FOOTIES";
 
   const accentClasses = isUthy
@@ -164,7 +153,6 @@ function BrandDashboard({
   return (
     <main className="min-h-screen bg-[#070707] text-white">
       {/* BACKGROUND */}
-
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div
           className={`absolute -top-40 ${
@@ -173,19 +161,13 @@ function BrandDashboard({
               : "left-[-120px] bg-violet-500/[0.035]"
           } w-[500px] h-[500px] rounded-full blur-[150px]`}
         />
-
         <div className="absolute bottom-[-200px] right-[15%] w-[450px] h-[450px] rounded-full bg-white/[0.012] blur-[140px]" />
       </div>
 
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
-
+      {/* HEADER */}
       <header className="relative z-20 border-b border-white/[0.07] bg-black/70 backdrop-blur-xl">
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 py-5">
           <div className="flex items-center justify-between gap-5">
-            {/* BRAND */}
-
             <div className="flex items-center gap-4 min-w-0">
               <div
                 className={`w-11 h-11 shrink-0 rounded-2xl border flex items-center justify-center ${accentClasses.border} ${accentClasses.soft}`}
@@ -199,21 +181,17 @@ function BrandDashboard({
                 <p className="text-sm font-black tracking-tight truncate">
                   {brandName}
                 </p>
-
                 <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600 mt-0.5">
                   {subtitle} · Admin
                 </p>
               </div>
             </div>
 
-            {/* ADMIN */}
-
             <div className="flex items-center gap-3">
               <div className="hidden sm:block text-right">
                 <p className="text-xs font-bold">
                   {admin.name || "Administrator"}
                 </p>
-
                 <p className="text-[9px] uppercase tracking-wider text-neutral-600 mt-0.5">
                   {admin.email || "Administrator"}
                 </p>
@@ -231,15 +209,9 @@ function BrandDashboard({
         </div>
       </header>
 
-      {/* ======================================================
-          CONTENT
-      ====================================================== */}
-
+      {/* CONTENT */}
       <div className="relative z-10 max-w-[1400px] mx-auto px-5 sm:px-8 py-8 md:py-10">
-        {/* ====================================================
-            WELCOME
-        ==================================================== */}
-
+        {/* WELCOME */}
         <section className="mb-10">
           <p
             className={`text-[9px] uppercase tracking-[0.35em] font-bold ${accentClasses.text}`}
@@ -253,7 +225,6 @@ function BrandDashboard({
                 Welcome back
                 {admin.name ? `, ${admin.name.split(" ")[0]}` : ""}.
               </h1>
-
               <p className="text-sm text-neutral-500 mt-3 max-w-xl">
                 Manage your {brandName} store from one place.
               </p>
@@ -261,32 +232,36 @@ function BrandDashboard({
 
             <button
               type="button"
-              onClick={() => go(`/admin/products?brand=${productBrand}`)}
+              onClick={() => go("/admin/analytics")}
               className={`rounded-2xl px-6 py-3.5 text-xs font-black text-black transition ${accentClasses.bg} ${accentClasses.hover}`}
             >
-              Manage Products →
+              View Analytics →
             </button>
           </div>
         </section>
 
-        {/* ====================================================
-            MAIN WORKSPACE
-        ==================================================== */}
-
+        {/* MAIN WORKSPACE CARDS */}
         <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {/* PRODUCTS */}
+          {/* ANALYTICS */}
+          <DashboardCard
+            icon="analytics"
+            title="Analytics"
+            description="View brand sales, revenue trends, customer acquisition and inventory performance."
+            accent={accent}
+            onClick={() => go("/admin/analytics")}
+            primary
+          />
 
+          {/* PRODUCTS */}
           <DashboardCard
             icon="products"
             title="Products"
             description="Add, edit and manage products for your store."
             accent={accent}
             onClick={() => go(`/admin/products?brand=${productBrand}`)}
-            primary
           />
 
           {/* CATEGORIES */}
-
           <DashboardCard
             icon="categories"
             title="Categories"
@@ -296,7 +271,6 @@ function BrandDashboard({
           />
 
           {/* COLLECTIONS */}
-
           <DashboardCard
             icon="collections"
             title="Collections"
@@ -306,7 +280,6 @@ function BrandDashboard({
           />
 
           {/* ORDERS */}
-
           <DashboardCard
             icon="orders"
             title="Orders"
@@ -316,7 +289,6 @@ function BrandDashboard({
           />
 
           {/* COLLABORATIONS */}
-
           <DashboardCard
             icon="collaboration"
             title="Collaborations"
@@ -324,30 +296,15 @@ function BrandDashboard({
             accent={accent}
             onClick={() => go("/admin/collaborations")}
           />
-
-          {/* SUBSCRIBERS */}
-
-          <DashboardCard
-            icon="subscribers"
-            title="Subscribers"
-            description="View subscribers connected to your brand."
-            accent={accent}
-            onClick={() => go(`/admin/subscribers?brand=${productBrand}`)}
-          />
         </section>
 
-        {/* ====================================================
-            QUICK ACTIONS
-        ==================================================== */}
-
+        {/* QUICK ACTIONS */}
         <section className="rounded-[1.75rem] border border-white/[0.08] bg-white/[0.025] overflow-hidden mb-8">
           <div className="p-6 border-b border-white/[0.06]">
             <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600">
               Workspace
             </p>
-
             <h2 className="text-lg font-black mt-1">Quick Actions</h2>
-
             <p className="text-xs text-neutral-600 mt-2">
               Common actions for {brandName}.
             </p>
@@ -355,26 +312,23 @@ function BrandDashboard({
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4">
             <QuickActionButton
+              title="Store Analytics"
+              description="Review revenue & charts"
+              accent={accent}
+              onClick={() => go("/admin/analytics")}
+            />
+            <QuickActionButton
               title="Add Product"
               description="Create a new product"
               accent={accent}
               onClick={() => go("/admin/products/add")}
             />
-
-            <QuickActionButton
-              title="View Products"
-              description="Open your catalog"
-              accent={accent}
-              onClick={() => go(`/admin/products?brand=${productBrand}`)}
-            />
-
             <QuickActionButton
               title="View Orders"
               description="Check customer orders"
               accent={accent}
               onClick={() => go("/admin/orders")}
             />
-
             <QuickActionButton
               title="Collaborate"
               description="Manage collaborations"
@@ -384,96 +338,14 @@ function BrandDashboard({
           </div>
         </section>
 
-        {/* ====================================================
-            STORE MANAGEMENT
-        ==================================================== */}
-
-        <section className="grid lg:grid-cols-2 gap-4">
-          {/* STORE */}
-
-          <div className="rounded-[1.75rem] border border-white/[0.08] bg-white/[0.025] p-6">
-            <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600">
-              Store Management
-            </p>
-
-            <h2 className="text-lg font-black mt-1">{brandName}</h2>
-
-            <div className="space-y-2 mt-6">
-              <SimpleLink
-                title="Products"
-                onClick={() => go(`/admin/products?brand=${productBrand}`)}
-                accent={accent}
-              />
-
-              <SimpleLink
-                title="Categories"
-                onClick={() => go(`/admin/categories?brand=${productBrand}`)}
-                accent={accent}
-              />
-
-              <SimpleLink
-                title="Collections"
-                onClick={() => go(`/admin/collections?brand=${productBrand}`)}
-                accent={accent}
-              />
-
-              <SimpleLink
-                title="Orders"
-                onClick={() => go("/admin/orders")}
-                accent={accent}
-              />
-
-              <SimpleLink
-                title="Subscribers"
-                onClick={() => go(`/admin/subscribers?brand=${productBrand}`)}
-                accent={accent}
-              />
-            </div>
-          </div>
-
-          {/* COLLABORATION */}
-
-          <div className="rounded-[1.75rem] border border-white/[0.08] bg-white/[0.025] p-6">
-            <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600">
-              Brand Collaboration
-            </p>
-
-            <h2 className="text-lg font-black mt-1">
-              Work with the other brand
-            </h2>
-
-            <p className="text-sm text-neutral-500 leading-relaxed mt-4 max-w-md">
-              Create and manage collaborations between {brandName} and the other
-              VÉRANE brand.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => go("/admin/collaborations")}
-              className={`mt-6 rounded-2xl border px-5 py-3 text-xs font-black transition ${
-                isUthy
-                  ? "border-amber-400/20 text-amber-400 hover:bg-amber-400/[0.06]"
-                  : "border-violet-300/20 text-violet-300 hover:bg-violet-300/[0.06]"
-              }`}
-            >
-              Open Collaborations →
-            </button>
-          </div>
-        </section>
-
-        {/* ====================================================
-            STATUS
-        ==================================================== */}
-
+        {/* STATUS */}
         <div className="mt-8 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-
             <span className="text-[9px] uppercase tracking-[0.25em] text-neutral-700">
               Admin workspace ready
             </span>
           </div>
-
           <p className="text-[9px] text-neutral-800 uppercase tracking-wider">
             VÉRANE Commerce Platform
           </p>
@@ -530,17 +402,12 @@ function DashboardCard({
       </div>
 
       <h3 className="text-base font-black mt-6">{title}</h3>
-
       <p className="text-xs text-neutral-500 leading-relaxed mt-2">
         {description}
       </p>
     </button>
   );
 }
-
-/* ============================================================
-   QUICK ACTION BUTTON
-============================================================ */
 
 function QuickActionButton({ title, description, onClick, accent }) {
   const isUthy = accent === "amber";
@@ -554,10 +421,8 @@ function QuickActionButton({ title, description, onClick, accent }) {
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black">{title}</p>
-
           <p className="text-[10px] text-neutral-600 mt-1">{description}</p>
         </div>
-
         <span
           className={`text-sm ${isUthy ? "text-amber-400" : "text-violet-300"}`}
         >
@@ -568,31 +433,17 @@ function QuickActionButton({ title, description, onClick, accent }) {
   );
 }
 
-/* ============================================================
-   SIMPLE LINK
-============================================================ */
-
-function SimpleLink({ title, onClick, accent }) {
-  const isUthy = accent === "amber";
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center justify-between rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-left hover:bg-white/[0.035] hover:border-white/[0.12] transition"
-    >
-      <span className="text-xs font-bold">{title}</span>
-
-      <span className={isUthy ? "text-amber-400" : "text-violet-300"}>→</span>
-    </button>
-  );
-}
-
-/* ============================================================
-   ICONS
-============================================================ */
-
 function DashboardIcon({ type }) {
+  if (type === "analytics") {
+    return (
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
+        <path d="M18 20V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M12 20V4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M6 20V14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
   if (type === "products") {
     return (
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
@@ -616,42 +467,10 @@ function DashboardIcon({ type }) {
   if (type === "categories") {
     return (
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
-        <rect
-          x="4"
-          y="4"
-          width="6"
-          height="6"
-          rx="1"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-        <rect
-          x="14"
-          y="4"
-          width="6"
-          height="6"
-          rx="1"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-        <rect
-          x="4"
-          y="14"
-          width="6"
-          height="6"
-          rx="1"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
-        <rect
-          x="14"
-          y="14"
-          width="6"
-          height="6"
-          rx="1"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        />
+        <rect x="4" y="4" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="14" y="4" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="4" y="14" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="14" y="14" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" />
       </svg>
     );
   }
@@ -660,18 +479,8 @@ function DashboardIcon({ type }) {
     return (
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
         <path d="M5 5H19V19H5V5Z" stroke="currentColor" strokeWidth="1.5" />
-        <path
-          d="M8 9H16"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M8 13H16"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
+        <path d="M8 9H16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M8 13H16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     );
   }
@@ -679,24 +488,9 @@ function DashboardIcon({ type }) {
   if (type === "orders") {
     return (
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M5 7H19V20H5V7Z"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M9 7C9 4.79086 10.3431 3 12 3C13.6569 3 15 4.79086 15 7"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M9 12H15"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
+        <path d="M5 7H19V20H5V7Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        <path d="M9 7C9 4.79086 10.3431 3 12 3C13.6569 3 15 4.79086 15 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M9 12H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     );
   }
@@ -706,18 +500,8 @@ function DashboardIcon({ type }) {
       <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
         <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
         <circle cx="16" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
-        <path
-          d="M3 19C3 16.2386 5.23858 14 8 14C10.7614 14 13 16.2386 13 19"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M11 19C11 16.2386 13.2386 14 16 14C18.7614 14 21 16.2386 21 19"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
+        <path d="M3 19C3 16.2386 5.23858 14 8 14C10.7614 14 13 16.2386 13 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M11 19C11 16.2386 13.2386 14 16 14C18.7614 14 21 16.2386 21 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     );
   }
@@ -725,26 +509,16 @@ function DashboardIcon({ type }) {
   return (
     <svg width="19" height="19" viewBox="0 0 24 24" fill="none">
       <path d="M4 6H20V18H4V6Z" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M4 7L12 13L20 7"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
+      <path d="M4 7L12 13L20 7" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
     </svg>
   );
 }
-
-/* ============================================================
-   LOADING
-============================================================ */
 
 function LoadingScreen() {
   return (
     <main className="min-h-screen bg-[#070707] text-white flex items-center justify-center">
       <div className="text-center">
         <div className="w-8 h-8 rounded-full border border-white/10 border-t-white animate-spin mx-auto" />
-
         <p className="text-[9px] uppercase tracking-[0.3em] text-neutral-600 mt-5">
           Loading workspace
         </p>
@@ -754,26 +528,16 @@ function LoadingScreen() {
 }
 
 /* ============================================================
-   SUPER ADMIN
-   IMPORTANT:
-   This is intentionally NOT being rebuilt.
-   Replace this function with the exact existing SuperAdminDashboard
-   from your backed-up page if your current file does not already
-   contain it.
+   SUPER ADMIN DASHBOARD
 ============================================================ */
 
 function SuperAdminDashboard({ admin, onLogout, router }) {
   return (
     <main className="min-h-screen bg-[#070707] text-white">
-      {/* BACKGROUND */}
-
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-60 left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full bg-amber-400/[0.035] blur-[160px]" />
-
         <div className="absolute bottom-[-250px] left-[-100px] w-[600px] h-[600px] rounded-full bg-white/[0.015] blur-[150px]" />
       </div>
-
-      {/* HEADER */}
 
       <header className="relative z-10 border-b border-white/[0.07] bg-black/60 backdrop-blur-xl">
         <div className="max-w-[1500px] mx-auto px-5 sm:px-8 py-5 flex items-center justify-between">
@@ -781,10 +545,8 @@ function SuperAdminDashboard({ admin, onLogout, router }) {
             <div className="w-11 h-11 rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] flex items-center justify-center">
               <span className="text-amber-400 font-black">V</span>
             </div>
-
             <div>
               <p className="text-sm font-black">VÉRANE</p>
-
               <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-600 mt-0.5">
                 Platform Control
               </p>
@@ -800,25 +562,18 @@ function SuperAdminDashboard({ admin, onLogout, router }) {
         </div>
       </header>
 
-      {/* CONTENT */}
-
       <div className="relative z-10 max-w-[1500px] mx-auto px-5 sm:px-8 py-10">
         <section className="mb-10">
           <p className="text-[9px] uppercase tracking-[0.35em] text-amber-400 font-bold">
             Super Administration
           </p>
-
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-[-0.05em] mt-2">
             Control the experience.
           </h1>
-
           <p className="text-sm text-neutral-500 mt-4 max-w-xl leading-relaxed">
-            Manage the VÉRANE storefront, content, navigation, branding and
-            platform systems from one place.
+            Manage the VÉRANE storefront, content, navigation, branding and platform systems from one place.
           </p>
         </section>
-
-        {/* SITE CONTROLS */}
 
         <section className="mb-10">
           <div className="flex items-end justify-between mb-5">
@@ -826,72 +581,21 @@ function SuperAdminDashboard({ admin, onLogout, router }) {
               <p className="text-[9px] uppercase tracking-[0.3em] text-neutral-600">
                 Storefront
               </p>
-
               <h2 className="text-xl font-black mt-1">Website Management</h2>
             </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            <ControlCard
-              title="Homepage"
-              description="Hero, sections & featured content"
-              icon="⌂"
-              featured
-              onClick={() => router.push("/admin/homepage")}
-            />
-
-            <ControlCard
-              title="Navigation"
-              description="Menus, links & structure"
-              icon="≡"
-              onClick={() => router.push("/admin/navigation")}
-            />
-
-            <ControlCard
-              title="Pages"
-              description="About, FAQ & custom pages"
-              icon="▤"
-              onClick={() => router.push("/admin/pages")}
-            />
-
-            <ControlCard
-              title="Footer"
-              description="Footer content & links"
-              icon="⌄"
-              onClick={() => router.push("/admin/footer")}
-            />
-
-            <ControlCard
-              title="Media"
-              description="Website imagery & assets"
-              icon="◈"
-              onClick={() => router.push("/admin/media")}
-            />
-
-            <ControlCard
-              title="Brands"
-              description="Brand identity & configuration"
-              icon="◇"
-              onClick={() => router.push("/admin/brands")}
-            />
-
-            <ControlCard
-              title="Collections"
-              description="Storefront collections"
-              icon="□"
-              onClick={() => router.push("/admin/collections")}
-            />
-
-            <ControlCard
-              title="Settings"
-              description="Global website settings"
-              icon="⚙"
-              onClick={() => router.push("/admin/settings")}
-            />
+            <ControlCard title="Homepage" description="Hero, sections & featured content" icon="⌂" featured onClick={() => router.push("/admin/homepage")} />
+            <ControlCard title="Navigation" description="Menus, links & structure" icon="≡" onClick={() => router.push("/admin/navigation")} />
+            <ControlCard title="Pages" description="About, FAQ & custom pages" icon="▤" onClick={() => router.push("/admin/pages")} />
+            <ControlCard title="Footer" description="Footer content & links" icon="⌄" onClick={() => router.push("/admin/footer")} />
+            <ControlCard title="Media" description="Website imagery & assets" icon="◈" onClick={() => router.push("/admin/media")} />
+            <ControlCard title="Brands" description="Brand identity & configuration" icon="◇" onClick={() => router.push("/admin/brands")} />
+            <ControlCard title="Collections" description="Storefront collections" icon="□" onClick={() => router.push("/admin/collections")} />
+            <ControlCard title="Settings" description="Global website settings" icon="⚙" onClick={() => router.push("/admin/settings")} />
           </div>
         </section>
-
-        {/* PLATFORM SYSTEMS */}
 
         <section>
           <p className="text-[9px] uppercase tracking-[0.3em] text-neutral-600 mb-5">
@@ -899,46 +603,21 @@ function SuperAdminDashboard({ admin, onLogout, router }) {
           </p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <ControlCard
-              title="Discounts"
-              description="Promotions & discount rules"
-              icon="%"
-              onClick={() => router.push("/admin/discounts")}
-            />
-
-            <ControlCard
-              title="Subscribers"
-              description="Email subscribers"
-              icon="✉"
-              onClick={() => router.push("/admin/subscribers")}
-            />
-
-            <ControlCard
-              title="Orders"
-              description="Platform order management"
-              icon="◌"
-              onClick={() => router.push("/admin/orders")}
-            />
-
-            <ControlCard
-              title="Collaborations"
-              description="Manage brand collaboration requests"
-              icon="⇄"
-              featured
-              onClick={() => router.push("/admin/collaborations")}
-            />
+            <ControlCard title="Discounts" description="Promotions & discount rules" icon="%" onClick={() => router.push("/admin/discounts")} />
+            <ControlCard title="Subscribers" description="Email subscribers" icon="✉" onClick={() => router.push("/admin/subscribers")} />
+            <ControlCard title="Orders" description="Platform order management" icon="◌" onClick={() => router.push("/admin/orders")} />
+            <ControlCard title="Delivery" description="Manage countries, cities & rates" icon="✈" onClick={() => router.push("/admin/delivery")} />
+            <ControlCard title="Collaborations" description="Manage brand collaboration requests" icon="⇄" featured onClick={() => router.push("/admin/collaborations")} />
           </div>
         </section>
 
         <div className="mt-10 pt-6 border-t border-white/[0.06] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-
             <span className="text-[9px] uppercase tracking-[0.25em] text-neutral-700">
               Platform operational
             </span>
           </div>
-
           <p className="text-[9px] text-neutral-800 uppercase tracking-wider">
             VÉRANE Super Admin
           </p>
@@ -947,10 +626,6 @@ function SuperAdminDashboard({ admin, onLogout, router }) {
     </main>
   );
 }
-
-/* ============================================================
-   SUPER ADMIN ACTION
-============================================================ */
 
 function ControlCard({ title, description, icon, onClick, featured }) {
   return (
@@ -972,14 +647,12 @@ function ControlCard({ title, description, icon, onClick, featured }) {
         >
           {icon}
         </span>
-
         <span className="text-neutral-700 group-hover:text-neutral-400 transition">
           ↗
         </span>
       </div>
 
       <p className="text-sm font-black mt-7">{title}</p>
-
       <p className="text-[9px] leading-relaxed text-neutral-600 mt-1">
         {description}
       </p>
