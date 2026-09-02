@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { initializePaystackTransaction } from "@/lib/paystack";
+import { verifyCustomerSession, getCustomerCookieName } from "@/lib/auth/customer";
 
-async function getSession(request) {
-  const response = await fetch(new URL("/api/auth/session", request.url), {
-    headers: { cookie: request.headers.get("cookie") || "" },
-    cache: "no-store",
-  });
-  return response.json();
+async function getSession() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(getCustomerCookieName())?.value;
+    const user = verifyCustomerSession(token);
+    if (user) {
+      return { authenticated: true, user };
+    }
+  } catch (err) {
+    console.error("Direct session verification error:", err);
+  }
+  return { authenticated: false, user: null };
 }
 
 function generateReference() {
@@ -18,13 +26,32 @@ function generateReference() {
 
 export async function POST(request) {
   try {
-    const session = await getSession(request);
+    const session = await getSession();
 
-    if (!session.authenticated || !session.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Please login before completing checkout." },
-        { status: 401 }
-      );
+    let userId = session.user?.id || null;
+
+    // If user is guest/unauthenticated, create or locate a user record using guest email
+    if (!userId) {
+      const bodyPreview = await request.clone().json().catch(() => ({}));
+      const guestEmail = String(bodyPreview.email || "").trim().toLowerCase();
+      if (!guestEmail) {
+        return NextResponse.json(
+          { success: false, error: "Email address is required for checkout." },
+          { status: 400 }
+        );
+      }
+
+      let guestUser = await prisma.user.findUnique({ where: { email: guestEmail } });
+      if (!guestUser) {
+        guestUser = await prisma.user.create({
+          data: {
+            email: guestEmail,
+            name: [bodyPreview.firstName, bodyPreview.lastName].filter(Boolean).join(" ") || "Guest Customer",
+            password: "GUEST_CHECKOUT_ACCOUNT",
+          },
+        });
+      }
+      userId = guestUser.id;
     }
 
     const body = await request.json();
@@ -82,7 +109,7 @@ export async function POST(request) {
 
     await prisma.order.create({
       data: {
-        userId: session.user.id,
+        userId,
         orderNumber: reference.replace("VR-REF-", "VR-"),
         paymentReference: reference,
         paymentStatus: "pending",
@@ -110,7 +137,7 @@ export async function POST(request) {
       callbackUrl,
       metadata: {
         reference,
-        userId: session.user.id,
+        userId,
         email,
         shippingFee,
       },

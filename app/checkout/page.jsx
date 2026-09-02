@@ -56,7 +56,10 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (form.country.toLowerCase() === "nigeria") {
       const states = NIGERIAN_STATES;
-      const cities = form.state && NIGERIA_LOCATIONS[form.state] ? NIGERIA_LOCATIONS[form.state] : [];
+      const matchedStateKey = form.state
+        ? NIGERIAN_STATES.find((s) => s.toLowerCase() === form.state.trim().toLowerCase())
+        : null;
+      const cities = matchedStateKey && NIGERIA_LOCATIONS[matchedStateKey] ? NIGERIA_LOCATIONS[matchedStateKey] : [];
 
       setDeliveryOptions((prev) => ({
         ...prev,

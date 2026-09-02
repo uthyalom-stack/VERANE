@@ -105,25 +105,25 @@ export async function GET(request) {
       });
     });
 
-    // Refetch full order with newly created orderItems for receipt generation and email dispatch
-    try {
-      const fullOrder = await prisma.order.findUnique({
-        where: { id: existingOrder.id },
-        include: { items: { include: { product: true } } },
-      });
+    // Asynchronously trigger receipt PDF generation and email dispatch without blocking response
+    (async () => {
+      try {
+        const fullOrder = await prisma.order.findUnique({
+          where: { id: existingOrder.id },
+          include: { items: { include: { product: true } } },
+        });
 
-      if (fullOrder) {
-        const { generateOrderReceiptPDF } = await import("@/lib/receipt-pdf");
-        const { sendOrderReceiptEmail } = await import("@/lib/email");
+        if (fullOrder) {
+          const { generateOrderReceiptPDF } = await import("@/lib/receipt-pdf");
+          const { sendOrderReceiptEmail } = await import("@/lib/email");
 
-        const pdfBuffer = await generateOrderReceiptPDF(fullOrder.id);
-        sendOrderReceiptEmail({ order: fullOrder, pdfBuffer }).catch((e) =>
-          console.error("Order receipt email async error:", e)
-        );
+          const pdfBuffer = await generateOrderReceiptPDF(fullOrder.id);
+          await sendOrderReceiptEmail({ order: fullOrder, pdfBuffer });
+        }
+      } catch (e) {
+        console.error("Async receipt generation or email send error:", e);
       }
-    } catch (e) {
-      console.error("Generate receipt email error:", e);
-    }
+    })().catch((err) => console.error("Background task error:", err));
 
     return NextResponse.redirect(`${origin}/orders?order=${existingOrder.orderNumber}&paid=true`);
   } catch (error) {
