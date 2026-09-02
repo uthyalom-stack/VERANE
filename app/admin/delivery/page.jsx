@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
 
+import { useRouter } from "next/navigation";
+
 export default function AdminDeliveryPage() {
+  const router = useRouter();
   const [mainTab, setMainTab] = useState("nigeria"); // "nigeria" | "international"
   const [states, setStates] = useState([]);
   const [internationalLocations, setInternationalLocations] = useState([]);
@@ -39,8 +42,25 @@ export default function AdminDeliveryPage() {
   const [savingIntl, setSavingIntl] = useState(false);
 
   useEffect(() => {
-    fetchDeliveryData();
-  }, []);
+    async function verifyAndFetch() {
+      try {
+        const sessionRes = await fetch("/api/admin/session", { cache: "no-store", credentials: "include" });
+        const sessionData = await sessionRes.json().catch(() => null);
+
+        if (!sessionRes.ok || !sessionData?.authenticated || sessionData?.admin?.role !== "SUPERADMIN") {
+          router.replace("/admin");
+          return;
+        }
+
+        await fetchDeliveryData();
+      } catch (err) {
+        console.error("Admin verification error:", err);
+        router.replace("/admin");
+      }
+    }
+
+    verifyAndFetch();
+  }, [router]);
 
   async function fetchDeliveryData() {
     try {
@@ -52,6 +72,8 @@ export default function AdminDeliveryPage() {
       if (res.ok && data.success) {
         setStates(data.states || []);
         setInternationalLocations(data.internationalLocations || []);
+      } else if (res.status === 403) {
+        router.replace("/admin");
       } else {
         setErrorMessage(data.error || "Failed to load delivery configuration.");
       }
@@ -76,14 +98,14 @@ export default function AdminDeliveryPage() {
     }
 
     const officialLgas = NIGERIA_LOCATIONS[stateName] || [];
-    const foundState = states.find((s) => s.state === stateName);
+    const foundState = states.find((s) => s.state.trim().toLowerCase() === stateName.trim().toLowerCase());
 
     const savedCitiesMap = new Map(
-      (foundState?.cities || []).map((c) => [c.city, c])
+      (foundState?.cities || []).map((c) => [c.city.trim().toLowerCase(), c])
     );
 
     const cities = officialLgas.map((cityName) => {
-      const savedCity = savedCitiesMap.get(cityName);
+      const savedCity = savedCitiesMap.get(cityName.trim().toLowerCase());
       return {
         city: cityName,
         fee: savedCity ? Number(savedCity.fee || 0) : 0,
@@ -528,7 +550,7 @@ export default function AdminDeliveryPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredStatesList.map((stName) => {
-                    const st = states.find((s) => s.state === stName);
+                    const st = states.find((s) => s.state.trim().toLowerCase() === stName.trim().toLowerCase());
                     const isCitySpecific = st?.pricingMode === "CITY_SPECIFIC";
                     const lgas = NIGERIA_LOCATIONS[stName] || [];
                     const configuredCitiesCount = (st?.cities || []).filter((c) => Number(c.fee) > 0).length;

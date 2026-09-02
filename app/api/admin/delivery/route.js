@@ -28,20 +28,22 @@ export async function GET() {
       orderBy: { state: "asc" },
     });
 
-    const savedStatesMap = new Map(savedStates.map((s) => [s.state, s]));
+    const savedStatesMap = new Map(
+      savedStates.map((s) => [s.state.trim().toLowerCase(), s])
+    );
 
     // Build complete states list for all 36 Nigerian states + FCT
     const statesData = NIGERIAN_STATES.map((stateName) => {
-      const dbState = savedStatesMap.get(stateName);
+      const dbState = savedStatesMap.get(stateName.trim().toLowerCase());
       const officialLgas = NIGERIA_LOCATIONS[stateName] || [];
 
       const savedCitiesMap = new Map(
-        (dbState?.cities || []).map((c) => [c.city, c])
+        (dbState?.cities || []).map((c) => [c.city.trim().toLowerCase(), c])
       );
 
       // Map official LGAs with their saved fee or default 0
       const cities = officialLgas.map((cityName) => {
-        const savedCity = savedCitiesMap.get(cityName);
+        const savedCity = savedCitiesMap.get(cityName.trim().toLowerCase());
         return {
           id: savedCity?.id || null,
           city: cityName,
@@ -80,7 +82,7 @@ export async function GET() {
   } catch (error) {
     console.error("GET /api/admin/delivery error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch delivery locations." },
+      { success: false, error: String(error?.message || error) },
       { status: 500 }
     );
   }

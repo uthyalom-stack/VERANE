@@ -11,6 +11,13 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState({ items: [], total: 0 });
   const [loaded, setLoaded] = useState(false);
 
+  // Customer session & saved addresses state
+  const [customer, setCustomer] = useState(null);
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [addressMode, setAddressMode] = useState("saved"); // "saved" | "manual"
+  const [selectedAddressId, setSelectedAddressId] = useState("");
+  const [saveNewAddressToAccount, setSaveNewAddressToAccount] = useState(false);
+
   // Delivery options & calculation state
   const [deliveryOptions, setDeliveryOptions] = useState({
     countries: ["Nigeria", "International"],
@@ -50,7 +57,90 @@ export default function CheckoutPage() {
     } finally {
       setLoaded(true);
     }
+
+    loadCustomerSessionAndAddresses();
   }, []);
+
+  async function loadCustomerSessionAndAddresses() {
+    try {
+      const sessionRes = await fetch("/api/auth/session", { cache: "no-store" });
+      const sessionData = await sessionRes.json();
+
+      if (sessionData.authenticated && sessionData.user) {
+        setCustomer(sessionData.user);
+
+        // Fetch saved addresses
+        const addrRes = await fetch("/api/account/addresses", { cache: "no-store" });
+        const addrData = await addrRes.json();
+
+        if (addrRes.ok && addrData.success && Array.isArray(addrData.addresses) && addrData.addresses.length > 0) {
+          const addrs = addrData.addresses;
+          setSavedAddresses(addrs);
+          setAddressMode("saved");
+
+          const defaultAddr = addrs.find((a) => a.isDefault) || addrs[0];
+          setSelectedAddressId(defaultAddr.id);
+          applySavedAddressToForm(defaultAddr, sessionData.user);
+        } else {
+          setAddressMode("manual");
+          setForm((prev) => ({
+            ...prev,
+            firstName: sessionData.user.name?.split(" ")[0] || sessionData.user.name || "",
+            lastName: sessionData.user.name?.split(" ").slice(1).join(" ") || "",
+            email: sessionData.user.email || "",
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load customer checkout session:", err);
+    }
+  }
+
+  function applySavedAddressToForm(addr, cust) {
+    if (!addr) return;
+
+    const names = addr.fullName ? addr.fullName.split(" ") : [cust?.name || ""];
+    const firstName = names[0] || "";
+    const lastName = names.slice(1).join(" ") || "";
+
+    setForm({
+      firstName,
+      lastName,
+      email: cust?.email || form.email || "",
+      phone: addr.phone || "",
+      country: addr.country || "Nigeria",
+      state: addr.state || "",
+      city: addr.city || "",
+      zone: "",
+      address: addr.streetAddress || "",
+    });
+  }
+
+  function handleSelectSavedAddress(addrId) {
+    setSelectedAddressId(addrId);
+    const selected = savedAddresses.find((a) => a.id === addrId);
+    if (selected) {
+      applySavedAddressToForm(selected, customer);
+    }
+  }
+
+  function handleSwitchToManual() {
+    setAddressMode("manual");
+    setForm((prev) => ({
+      ...prev,
+      firstName: customer?.name?.split(" ")[0] || prev.firstName,
+      lastName: customer?.name?.split(" ").slice(1).join(" ") || prev.lastName,
+      email: customer?.email || prev.email,
+    }));
+  }
+
+  function handleSwitchToSaved() {
+    setAddressMode("saved");
+    if (savedAddresses.length > 0) {
+      const activeAddr = savedAddresses.find((a) => a.id === selectedAddressId) || savedAddresses[0];
+      applySavedAddressToForm(activeAddr, customer);
+    }
+  }
 
   // Update available states and cities when location form inputs change
   useEffect(() => {
@@ -152,6 +242,27 @@ export default function CheckoutPage() {
     try {
       setProcessing(true);
 
+      // If customer opted to save new manual address to account
+      if (addressMode === "manual" && customer && saveNewAddressToAccount) {
+        try {
+          await fetch("/api/account/addresses", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fullName: `${form.firstName} ${form.lastName}`.trim(),
+              phone: form.phone,
+              country: form.country,
+              state: form.state,
+              city: form.city,
+              streetAddress: form.address,
+              isDefault: false,
+            }),
+          });
+        } catch (addrErr) {
+          console.error("Failed to auto-save address to account:", addrErr);
+        }
+      }
+
       const response = await fetch("/api/paystack/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -222,74 +333,166 @@ export default function CheckoutPage() {
 
         <div className="grid lg:grid-cols-[1fr_420px] gap-10 lg:gap-14">
           <section>
-            <div className="border border-white/10 bg-neutral-950 rounded-[2rem] p-6 md:p-8">
+            <div className="border border-white/10 bg-neutral-950 rounded-[2rem] p-6 md:p-8 space-y-8">
+
+              {/* LOGGED-IN CUSTOMER SAVED ADDRESS SELECTOR */}
+              {customer && savedAddresses.length > 0 && (
+                <div className="p-6 rounded-2xl bg-black border border-amber-500/30 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4">
+                    <div>
+                      <p className="text-[10px] text-amber-400 uppercase tracking-[0.2em] font-bold">SAVED ADDRESSES</p>
+                      <h2 className="text-sm font-bold text-white mt-0.5">Use your default / saved address</h2>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSwitchToSaved}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                          addressMode === "saved"
+                            ? "bg-amber-500 text-black shadow-lg"
+                            : "bg-neutral-900 text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        Use Saved Address
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSwitchToManual}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                          addressMode === "manual"
+                            ? "bg-amber-500 text-black shadow-lg"
+                            : "bg-neutral-900 text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        Use Another Address
+                      </button>
+                    </div>
+                  </div>
+
+                  {addressMode === "saved" && (
+                    <div className="space-y-3">
+                      <p className="text-xs text-neutral-400">Select an address from your VÉRANE account:</p>
+                      <div className="grid grid-cols-1 gap-3">
+                        {savedAddresses.map((addr) => {
+                          const isSelected = addr.id === selectedAddressId;
+                          return (
+                            <div
+                              key={addr.id}
+                              onClick={() => handleSelectSavedAddress(addr.id)}
+                              className={`p-4 rounded-xl border cursor-pointer transition ${
+                                isSelected
+                                  ? "border-amber-400 bg-amber-400/10 text-white"
+                                  : "border-white/10 bg-neutral-900 text-neutral-300 hover:border-white/20"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold">{addr.fullName}</span>
+                                {addr.isDefault && (
+                                  <span className="text-[9px] font-black uppercase tracking-wider bg-amber-500 text-black px-2 py-0.5 rounded-full">
+                                    DEFAULT
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-neutral-400 mt-1">{addr.phone}</p>
+                              <p className="text-xs text-neutral-300 mt-2">
+                                {addr.streetAddress}, {addr.city}, {addr.state}, {addr.country}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* CONTACT DETAILS */}
-              <p className="text-[10px] text-amber-400 uppercase tracking-[0.25em] font-bold">1. Contact Information</p>
-              <div className="grid sm:grid-cols-2 gap-4 mt-6">
-                <input name="firstName" value={form.firstName} onChange={updateField} placeholder="First name *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                <input name="lastName" value={form.lastName} onChange={updateField} placeholder="Last name" className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                <input name="email" type="email" value={form.email} onChange={updateField} placeholder="Email address *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                <input name="phone" value={form.phone} onChange={updateField} placeholder="Phone number *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+              <div>
+                <p className="text-[10px] text-amber-400 uppercase tracking-[0.25em] font-bold">1. Contact Information</p>
+                <div className="grid sm:grid-cols-2 gap-4 mt-6">
+                  <input name="firstName" value={form.firstName} onChange={updateField} placeholder="First name *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                  <input name="lastName" value={form.lastName} onChange={updateField} placeholder="Last name" className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                  <input name="email" type="email" value={form.email} onChange={updateField} placeholder="Email address *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                  <input name="phone" value={form.phone} onChange={updateField} placeholder="Phone number *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                </div>
               </div>
 
               {/* DELIVERY LOCATION SELECTOR */}
-              <p className="text-[10px] text-amber-400 uppercase tracking-[0.25em] font-bold mt-10">2. Delivery Location & Address</p>
-              <div className="space-y-4 mt-6">
+              <div>
+                <p className="text-[10px] text-amber-400 uppercase tracking-[0.25em] font-bold">2. Delivery Location & Address</p>
+                <div className="space-y-4 mt-6">
 
-                {/* COUNTRY */}
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Country *</label>
-                  <select name="country" value={form.country} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
-                    {deliveryOptions.countries.map((c) => (
-                      <option key={c} value={c} className="bg-neutral-900">{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* STATE & CITY */}
-                <div className="grid sm:grid-cols-2 gap-4">
+                  {/* COUNTRY */}
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">State / Region *</label>
-                    {deliveryOptions.states.length > 0 ? (
-                      <select name="state" value={form.state} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
-                        <option value="">Select State</option>
-                        {deliveryOptions.states.map((s) => (
-                          <option key={s} value={s} className="bg-neutral-900">{s}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input name="state" value={form.state} onChange={updateField} placeholder="e.g. Lagos" className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                    )}
+                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Country *</label>
+                    <select name="country" value={form.country} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
+                      {deliveryOptions.countries.map((c) => (
+                        <option key={c} value={c} className="bg-neutral-900">{c}</option>
+                      ))}
+                    </select>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">City / LGA *</label>
-                    {deliveryOptions.cities.length > 0 ? (
-                      <select name="city" value={form.city} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
-                        <option value="">Select City / LGA</option>
-                        {deliveryOptions.cities.map((c) => (
-                          <option key={c} value={c} className="bg-neutral-900">{c}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input name="city" value={form.city} onChange={updateField} placeholder="e.g. Ikeja" className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                    )}
+                  {/* STATE & CITY */}
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">State / Region *</label>
+                      {deliveryOptions.states.length > 0 ? (
+                        <select name="state" value={form.state} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
+                          <option value="">Select State</option>
+                          {deliveryOptions.states.map((s) => (
+                            <option key={s} value={s} className="bg-neutral-900">{s}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input name="state" value={form.state} onChange={updateField} placeholder="e.g. Lagos" className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">City / LGA *</label>
+                      {deliveryOptions.cities.length > 0 ? (
+                        <select name="city" value={form.city} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
+                          <option value="">Select City / LGA</option>
+                          {deliveryOptions.cities.map((c) => (
+                            <option key={c} value={c} className="bg-neutral-900">{c}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input name="city" value={form.city} onChange={updateField} placeholder="e.g. Ikeja" className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* ZONE / NEIGHBORHOOD */}
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Zone / Neighborhood (Optional)</label>
-                  <input name="zone" value={form.zone} onChange={updateField} placeholder="e.g. Lekki Phase 1, Victoria Island..." className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                </div>
+                  {/* ZONE / NEIGHBORHOOD */}
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Zone / Neighborhood (Optional)</label>
+                    <input name="zone" value={form.zone} onChange={updateField} placeholder="e.g. Lekki Phase 1, Victoria Island..." className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                  </div>
 
-                {/* FULL STREET ADDRESS */}
-                <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Complete Physical Address *</label>
-                  <textarea name="address" value={form.address} onChange={updateField} rows={3} placeholder="Street address, house number, apartment, suite, etc." className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50 resize-none" />
-                </div>
+                  {/* FULL STREET ADDRESS */}
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Complete Physical Address *</label>
+                    <textarea name="address" value={form.address} onChange={updateField} rows={3} placeholder="Street address, house number, apartment, suite, etc." className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50 resize-none" />
+                  </div>
 
+                  {/* AUTO SAVE ADDRESS CHECKBOX FOR MANUAL ENTRY */}
+                  {customer && addressMode === "manual" && (
+                    <div className="flex items-center gap-2 pt-2">
+                      <input
+                        type="checkbox"
+                        id="saveNewAddressToAccountCheck"
+                        checked={saveNewAddressToAccount}
+                        onChange={(e) => setSaveNewAddressToAccount(e.target.checked)}
+                        className="accent-amber-500"
+                      />
+                      <label htmlFor="saveNewAddressToAccountCheck" className="text-xs text-neutral-300">
+                        Save this new address to my VÉRANE account for future purchases
+                      </label>
+                    </div>
+                  )}
+
+                </div>
               </div>
 
               <div className="mt-8 border border-white/5 rounded-2xl p-5 bg-white/[0.02]">
