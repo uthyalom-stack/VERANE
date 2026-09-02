@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
 
 export default function AdminDeliveryPage() {
   const [mainTab, setMainTab] = useState("nigeria"); // "nigeria" | "international"
@@ -10,10 +11,11 @@ export default function AdminDeliveryPage() {
   const [loading, setLoading] = useState(true);
   const [savingState, setSavingState] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Search & Active State Selection
   const [stateSearch, setStateSearch] = useState("");
-  const [selectedState, setSelectedState] = useState(null);
+  const [selectedStateName, setSelectedStateName] = useState("");
 
   // Active State Edit State
   const [activeStateData, setActiveStateData] = useState({
@@ -43,39 +45,63 @@ export default function AdminDeliveryPage() {
   async function fetchDeliveryData() {
     try {
       setLoading(true);
-      const res = await fetch("/api/admin/delivery");
+      setErrorMessage("");
+      const res = await fetch("/api/admin/delivery", { cache: "no-store" });
       const data = await res.json();
-      if (data.success) {
+
+      if (res.ok && data.success) {
         setStates(data.states || []);
         setInternationalLocations(data.internationalLocations || []);
+      } else {
+        setErrorMessage(data.error || "Failed to load delivery configuration.");
       }
     } catch (error) {
       console.error("Failed to load delivery locations:", error);
+      setErrorMessage("An error occurred while connecting to delivery API.");
     } finally {
       setLoading(false);
     }
   }
 
-  function handleOpenState(st) {
-    setSelectedState(st.state);
-    setActiveStateData({
-      state: st.state,
-      pricingMode: st.pricingMode || "STATE_DEFAULT",
-      defaultFee: st.defaultFee || 0,
-      cities: (st.cities || []).map((c) => ({
-        city: c.city,
-        fee: c.fee || 0,
-        enabled: c.enabled !== false,
-      })),
-    });
-    setCitySearch("");
-    setSavedSuccess(false);
-  }
+  function handleSelectState(stateName) {
+    if (!stateName) {
+      setSelectedStateName("");
+      setActiveStateData({
+        state: "",
+        pricingMode: "STATE_DEFAULT",
+        defaultFee: 0,
+        cities: [],
+      });
+      return;
+    }
 
-  function handleCloseState() {
-    setSelectedState(null);
+    const officialLgas = NIGERIA_LOCATIONS[stateName] || [];
+    const foundState = states.find((s) => s.state === stateName);
+
+    const savedCitiesMap = new Map(
+      (foundState?.cities || []).map((c) => [c.city, c])
+    );
+
+    const cities = officialLgas.map((cityName) => {
+      const savedCity = savedCitiesMap.get(cityName);
+      return {
+        city: cityName,
+        fee: savedCity ? Number(savedCity.fee || 0) : 0,
+        enabled: savedCity ? savedCity.enabled !== false : true,
+      };
+    });
+
+    setSelectedStateName(stateName);
+    setActiveStateData({
+      state: stateName,
+      pricingMode: foundState?.pricingMode || "STATE_DEFAULT",
+      defaultFee: foundState ? Number(foundState.defaultFee || 0) : 0,
+      cities,
+    });
+
     setCitySearch("");
     setSavedSuccess(false);
+    setErrorMessage("");
   }
 
   function updateCityFee(cityName, newFee) {
@@ -100,8 +126,14 @@ export default function AdminDeliveryPage() {
 
   async function handleSaveStateConfig(e) {
     if (e) e.preventDefault();
+    if (!activeStateData.state) {
+      alert("Please select a Nigerian state first.");
+      return;
+    }
+
     setSavingState(true);
     setSavedSuccess(false);
+    setErrorMessage("");
 
     try {
       const res = await fetch("/api/admin/delivery", {
@@ -122,11 +154,15 @@ export default function AdminDeliveryPage() {
         await fetchDeliveryData();
         setTimeout(() => setSavedSuccess(false), 3000);
       } else {
-        alert(data.error || "Failed to save state delivery settings.");
+        const err = data.error || "Failed to save state delivery settings.";
+        setErrorMessage(err);
+        alert(`Save failed: ${err}`);
       }
     } catch (error) {
       console.error("Save state delivery error:", error);
-      alert("An error occurred while saving delivery settings.");
+      const err = "An error occurred while saving delivery settings.";
+      setErrorMessage(err);
+      alert(err);
     } finally {
       setSavingState(false);
     }
@@ -180,8 +216,8 @@ export default function AdminDeliveryPage() {
     }
   }
 
-  const filteredStates = states.filter((s) =>
-    s.state.toLowerCase().includes(stateSearch.toLowerCase())
+  const filteredStatesList = NIGERIAN_STATES.filter((s) =>
+    s.toLowerCase().includes(stateSearch.toLowerCase())
   );
 
   const filteredCities = activeStateData.cities.filter((c) =>
@@ -205,16 +241,16 @@ export default function AdminDeliveryPage() {
           <div className="flex items-center gap-2 bg-neutral-900 p-1.5 rounded-2xl border border-white/10">
             <button
               type="button"
-              onClick={() => { setMainTab("nigeria"); setSelectedState(null); }}
+              onClick={() => { setMainTab("nigeria"); setSelectedStateName(""); }}
               className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition ${
                 mainTab === "nigeria" ? "bg-amber-500 text-black shadow-lg" : "text-neutral-400 hover:text-white"
               }`}
             >
-              🇳🇬 Nigeria ({states.length})
+              🇳🇬 Nigeria ({NIGERIAN_STATES.length})
             </button>
             <button
               type="button"
-              onClick={() => { setMainTab("international"); setSelectedState(null); }}
+              onClick={() => { setMainTab("international"); setSelectedStateName(""); }}
               className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition ${
                 mainTab === "international" ? "bg-amber-500 text-black shadow-lg" : "text-neutral-400 hover:text-white"
               }`}
@@ -223,6 +259,12 @@ export default function AdminDeliveryPage() {
             </button>
           </div>
         </div>
+
+        {errorMessage && (
+          <div className="mt-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold">
+            ⚠️ {errorMessage}
+          </div>
+        )}
 
         {/* LOADING STATE */}
         {loading ? (
@@ -233,78 +275,39 @@ export default function AdminDeliveryPage() {
           /* =========================================================================
              NIGERIA SECTION
              ========================================================================= */
-          <section className="mt-8">
-            {!selectedState ? (
-              /* STATE LIST VIEW */
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-neutral-950 p-6 rounded-3xl border border-white/10">
-                  <div>
-                    <h2 className="text-xl font-bold">Nigerian States & Territories</h2>
-                    <p className="text-xs text-neutral-400 mt-1">Select a state to set its default shipping fee or configure LGA-specific rates.</p>
-                  </div>
-
-                  <input
-                    type="text"
-                    placeholder="Search state..."
-                    value={stateSearch}
-                    onChange={(e) => setStateSearch(e.target.value)}
-                    className="w-full sm:w-64 rounded-xl border border-white/10 bg-black px-4 py-3 text-xs outline-none focus:border-amber-400"
-                  />
+          <section className="mt-8 space-y-8">
+            {/* STATE SELECTOR CONTROL */}
+            <div className="bg-neutral-950 p-6 md:p-8 rounded-3xl border border-white/10 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold">Select Nigerian State / Territory</h2>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    Choose a state to configure State Default Pricing (Mode A) or LGA Specific Pricing (Mode B).
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredStates.map((st) => {
-                    const isCitySpecific = st.pricingMode === "CITY_SPECIFIC";
-                    const configuredCitiesCount = (st.cities || []).filter((c) => Number(c.fee) > 0).length;
-
-                    return (
-                      <div
-                        key={st.state}
-                        onClick={() => handleOpenState(st)}
-                        className="group cursor-pointer rounded-2xl border border-white/10 bg-neutral-950 p-5 hover:border-amber-400/50 hover:bg-white/[0.02] transition flex flex-col justify-between space-y-4"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="text-lg font-bold group-hover:text-amber-400 transition">{st.state}</h3>
-                            <span className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
-                              {st.officialLgas.length} LGAs / Cities
-                            </span>
-                          </div>
-
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                              isCitySpecific
-                                ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                                : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                            }`}
-                          >
-                            {isCitySpecific ? "LGA Pricing" : "State Default"}
-                          </span>
-                        </div>
-
-                        <div className="border-t border-white/5 pt-3 flex items-center justify-between text-xs">
-                          <div>
-                            <span className="text-neutral-500 text-[10px] block uppercase">Default Fee</span>
-                            <span className="font-bold text-amber-400">₦{st.defaultFee.toLocaleString()}</span>
-                          </div>
-
-                          {isCitySpecific && (
-                            <div className="text-right">
-                              <span className="text-neutral-500 text-[10px] block uppercase">Custom Cities</span>
-                              <span className="font-bold text-purple-300">{configuredCitiesCount} configured</span>
-                            </div>
-                          )}
-
-                          <button type="button" className="text-xs font-bold text-neutral-400 group-hover:text-amber-400 transition">
-                            Manage →
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="w-full sm:w-80">
+                  <select
+                    value={selectedStateName}
+                    onChange={(e) => handleSelectState(e.target.value)}
+                    className="w-full rounded-2xl border border-amber-500/40 bg-black px-4 py-3.5 text-sm font-bold text-amber-400 outline-none focus:border-amber-400 shadow-lg"
+                  >
+                    <option value="">-- Choose a State (36 States + FCT) --</option>
+                    {NIGERIAN_STATES.map((stName) => {
+                      const savedSt = states.find((s) => s.state === stName);
+                      const modeBadge = savedSt?.pricingMode === "CITY_SPECIFIC" ? " [Mode B: LGA]" : " [Mode A: Default]";
+                      return (
+                        <option key={stName} value={stName} className="bg-neutral-900 text-white">
+                          {stName} {savedSt ? modeBadge : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
               </div>
-            ) : (
+            </div>
+
+            {selectedStateName ? (
               /* INDIVIDUAL STATE EDIT VIEW */
               <div className="space-y-6">
                 {/* STATE HEADER */}
@@ -312,13 +315,13 @@ export default function AdminDeliveryPage() {
                   <div className="flex items-center gap-4">
                     <button
                       type="button"
-                      onClick={handleCloseState}
+                      onClick={() => handleSelectState("")}
                       className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold hover:bg-white/10 transition"
                     >
-                      ← Back to All States
+                      ← Back to Overview
                     </button>
                     <div>
-                      <h2 className="text-2xl font-black">{activeStateData.state} State Delivery Pricing</h2>
+                      <h2 className="text-2xl font-black">{activeStateData.state} State Delivery Configuration</h2>
                       <p className="text-xs text-neutral-400 mt-0.5">
                         {activeStateData.cities.length} official Local Government Areas (LGAs)
                       </p>
@@ -337,7 +340,7 @@ export default function AdminDeliveryPage() {
                       disabled={savingState}
                       className="px-8 py-3 rounded-full bg-amber-500 text-black text-xs font-black uppercase tracking-wider hover:bg-amber-400 transition disabled:opacity-50"
                     >
-                      {savingState ? "Saving..." : "Save Changes"}
+                      {savingState ? "Saving..." : "Save Configuration"}
                     </button>
                   </div>
                 </div>
@@ -363,7 +366,7 @@ export default function AdminDeliveryPage() {
                         <span className="block text-xs font-black uppercase tracking-wider">MODE A</span>
                         <span className="block text-sm font-bold text-amber-400 mt-1">State Default Pricing</span>
                         <span className="block text-[11px] text-neutral-400 mt-1 leading-relaxed">
-                          One flat delivery price applies to all cities/LGAs in {activeStateData.state}.
+                          One flat shipping price applies to all LGAs in {activeStateData.state}.
                         </span>
                       </button>
 
@@ -379,7 +382,7 @@ export default function AdminDeliveryPage() {
                         <span className="block text-xs font-black uppercase tracking-wider">MODE B</span>
                         <span className="block text-sm font-bold text-purple-400 mt-1">City / LGA Pricing</span>
                         <span className="block text-[11px] text-neutral-400 mt-1 leading-relaxed">
-                          Set specific delivery prices for individual cities/LGAs.
+                          Set specific shipping prices for individual LGAs.
                         </span>
                       </button>
                     </div>
@@ -417,10 +420,10 @@ export default function AdminDeliveryPage() {
                 <div className="bg-neutral-950 p-6 md:p-8 rounded-3xl border border-white/10 space-y-6">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-5">
                     <div>
-                      <h3 className="text-lg font-bold">Official LGAs & Cities ({activeStateData.cities.length})</h3>
+                      <h3 className="text-lg font-bold">Official LGAs for {activeStateData.state} ({activeStateData.cities.length})</h3>
                       <p className="text-xs text-neutral-400 mt-0.5">
                         {activeStateData.pricingMode === "STATE_DEFAULT"
-                          ? "State Default Pricing is currently active. You can set individual LGA prices below; they will be saved and used if you switch to Mode B."
+                          ? "State Default Pricing is currently active. Individual LGA prices below will be saved and used if you switch to Mode B."
                           : "City/LGA Pricing is active. Customers selecting these specific LGAs will be charged the exact prices configured below."}
                       </p>
                     </div>
@@ -500,9 +503,81 @@ export default function AdminDeliveryPage() {
                       disabled={savingState}
                       className="px-8 py-3 rounded-full bg-amber-500 text-black text-xs font-black uppercase tracking-wider hover:bg-amber-400 transition disabled:opacity-50"
                     >
-                      {savingState ? "Saving..." : "Save Delivery Settings"}
+                      {savingState ? "Saving..." : "Save Configuration"}
                     </button>
                   </div>
+                </div>
+              </div>
+            ) : (
+              /* ALL STATES OVERVIEW GRID */
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-neutral-950 p-6 rounded-3xl border border-white/10">
+                  <div>
+                    <h2 className="text-xl font-bold">All 36 Nigerian States & FCT</h2>
+                    <p className="text-xs text-neutral-400 mt-1">Click any state card or select from the dropdown above to manage shipping rates.</p>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Search state..."
+                    value={stateSearch}
+                    onChange={(e) => setStateSearch(e.target.value)}
+                    className="w-full sm:w-64 rounded-xl border border-white/10 bg-black px-4 py-3 text-xs outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredStatesList.map((stName) => {
+                    const st = states.find((s) => s.state === stName);
+                    const isCitySpecific = st?.pricingMode === "CITY_SPECIFIC";
+                    const lgas = NIGERIA_LOCATIONS[stName] || [];
+                    const configuredCitiesCount = (st?.cities || []).filter((c) => Number(c.fee) > 0).length;
+
+                    return (
+                      <div
+                        key={stName}
+                        onClick={() => handleSelectState(stName)}
+                        className="group cursor-pointer rounded-2xl border border-white/10 bg-neutral-950 p-5 hover:border-amber-400/50 hover:bg-white/[0.02] transition flex flex-col justify-between space-y-4"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="text-lg font-bold group-hover:text-amber-400 transition">{stName}</h3>
+                            <span className="text-[10px] uppercase font-bold text-neutral-500 tracking-wider">
+                              {lgas.length} LGAs
+                            </span>
+                          </div>
+
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                              isCitySpecific
+                                ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                                : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            }`}
+                          >
+                            {isCitySpecific ? "LGA Pricing" : "State Default"}
+                          </span>
+                        </div>
+
+                        <div className="border-t border-white/5 pt-3 flex items-center justify-between text-xs">
+                          <div>
+                            <span className="text-neutral-500 text-[10px] block uppercase">Default Fee</span>
+                            <span className="font-bold text-amber-400">₦{Number(st?.defaultFee || 0).toLocaleString()}</span>
+                          </div>
+
+                          {isCitySpecific && (
+                            <div className="text-right">
+                              <span className="text-neutral-500 text-[10px] block uppercase">Custom LGAs</span>
+                              <span className="font-bold text-purple-300">{configuredCitiesCount} configured</span>
+                            </div>
+                          )}
+
+                          <button type="button" className="text-xs font-bold text-neutral-400 group-hover:text-amber-400 transition">
+                            Configure →
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
