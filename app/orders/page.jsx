@@ -15,11 +15,12 @@ export default function OrdersPage() {
       try {
         const response = await fetch("/api/orders", {
           cache: "no-store",
+          credentials: "include",
         });
 
         const data = await response.json();
 
-        if (!response.ok || !data.authenticated) {
+        if (!response.ok || data.authenticated === false) {
           router.replace("/login");
           return;
         }

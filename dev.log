@@ -1295,3 +1295,269 @@ Please make sure your database server is running at `localhost:5432`.
 }
  GET /api/admin/delivery 500 in 85ms (next.js: 8ms, proxy.ts: 8ms, application-code: 69ms)
  GET /api/admin/delivery 500 in 77ms (next.js: 10ms, proxy.ts: 6ms, application-code: 61ms)
+ GET /orders 200 in 636ms (next.js: 238ms, application-code: 398ms)
+ GET /api/auth/session 200 in 70ms (next.js: 8ms, application-code: 62ms)
+ GET /api/auth/session 200 in 54ms (next.js: 35ms, application-code: 19ms)
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:90:163
+
+  87 };
+  88 async function GET() {
+  89     try {
+→ 90         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at <unknown> (app/api/settings/route.js:22:43)
+    at async GET (app/api/settings/route.js:22:18)
+  20 | export async function GET() {
+  21 |   try {
+> 22 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  23 |
+  24 |     const settings = { ...DEFAULT_SETTINGS };
+  25 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:90:163
+
+  87 };
+  88 async function GET() {
+  89     try {
+→ 90         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at <unknown> (app/api/settings/route.js:22:43)
+    at async GET (app/api/settings/route.js:22:18)
+  20 | export async function GET() {
+  21 |   try {
+> 22 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  23 |
+  24 |     const settings = { ...DEFAULT_SETTINGS };
+  25 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ GET /api/settings 200 in 435ms (next.js: 87ms, application-code: 348ms)
+ GET /api/settings 200 in 322ms (next.js: 15ms, application-code: 308ms)
+ GET /api/orders 401 in 329ms (next.js: 271ms, application-code: 58ms)
+ GET /api/orders 401 in 326ms (next.js: 300ms, application-code: 26ms)
+ GET /login 200 in 179ms (next.js: 56ms, application-code: 123ms)
+ GET /login 200 in 75ms (next.js: 13ms, application-code: 62ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+[ADMIN AUTH] /admin/orders COOKIE FOUND
+ GET /admin/orders 200 in 343ms (next.js: 57ms, proxy.ts: 21ms, application-code: 265ms)
+ GET /api/auth/session 200 in 15ms (next.js: 8ms, application-code: 7ms)
+ GET /api/auth/session 200 in 20ms (next.js: 12ms, application-code: 7ms)
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:90:163
+
+  87 };
+  88 async function GET() {
+  89     try {
+→ 90         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at <unknown> (app/api/settings/route.js:22:43)
+    at async GET (app/api/settings/route.js:22:18)
+  20 | export async function GET() {
+  21 |   try {
+> 22 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  23 |
+  24 |     const settings = { ...DEFAULT_SETTINGS };
+  25 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:90:163
+
+  87 };
+  88 async function GET() {
+  89     try {
+→ 90         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at <unknown> (app/api/settings/route.js:22:43)
+    at async GET (app/api/settings/route.js:22:18)
+  20 | export async function GET() {
+  21 |   try {
+> 22 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  23 |
+  24 |     const settings = { ...DEFAULT_SETTINGS };
+  25 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ GET /api/settings 200 in 79ms (next.js: 4ms, application-code: 75ms)
+ GET /api/settings 200 in 52ms (next.js: 5ms, application-code: 48ms)
+ GET /api/admin/session 200 in 89ms (next.js: 39ms, proxy.ts: 32ms, application-code: 18ms)
+ GET /api/admin/session 200 in 90ms (next.js: 42ms, proxy.ts: 34ms, application-code: 14ms)
+GET /api/admin/orders DB query warning:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].order.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__0-erz9z._.js:120:163
+
+  117     ]
+  118 };
+  119 try {
+→ 120     const orders = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].order.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+GET /api/admin/orders DB query warning:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].order.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__0-erz9z._.js:120:163
+
+  117     ]
+  118 };
+  119 try {
+→ 120     const orders = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].order.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+GET /api/admin/notifications error: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].adminNotification.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__0er8vql._.js:95:178
+
+  92         unreadCount: 0
+  93     });
+  94 }
+→ 95 const notifications = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].adminNotification.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at <unknown> (app/api/admin/notifications/route.js:28:38)
+    at async GET (app/api/admin/notifications/route.js:28:7)
+  26 |
+  27 |     const notifications =
+> 28 |       await prisma.adminNotification.findMany({
+     |                                      ^
+  29 |         where: {
+  30 |           recipientBrand: admin.brand,
+  31 |         }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ GET /api/admin/orders 200 in 213ms (next.js: 127ms, proxy.ts: 10ms, application-code: 76ms)
+ GET /api/admin/orders 200 in 201ms (next.js: 131ms, proxy.ts: 21ms, application-code: 49ms)
+ GET /api/admin/notifications 500 in 185ms (next.js: 18ms, proxy.ts: 133ms, application-code: 35ms)
+[browser] Notifications request failed: 500
+    at loadNotifications (app/admin/layout.jsx:83:17)
+  81 |
+  82 |       if (!response.ok) {
+> 83 |         console.error("Notifications request failed:", response.status);
+     |                 ^
+  84 |         return;
+  85 |       }
+  86 | (app/admin/layout.jsx:83:17)
+ GET /welcome 200 in 1457ms (next.js: 1372ms, application-code: 85ms)
+ GET /api/auth/session 200 in 12ms (next.js: 6ms, application-code: 6ms)
+ GET /api/auth/session 200 in 26ms (next.js: 17ms, application-code: 9ms)
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:90:163
+
+  87 };
+  88 async function GET() {
+  89     try {
+→ 90         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at <unknown> (app/api/settings/route.js:22:43)
+    at async GET (app/api/settings/route.js:22:18)
+  20 | export async function GET() {
+  21 |   try {
+> 22 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  23 |
+  24 |     const settings = { ...DEFAULT_SETTINGS };
+  25 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:90:163
+
+  87 };
+  88 async function GET() {
+  89     try {
+→ 90         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at <unknown> (app/api/settings/route.js:22:43)
+    at async GET (app/api/settings/route.js:22:18)
+  20 | export async function GET() {
+  21 |   try {
+> 22 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  23 |
+  24 |     const settings = { ...DEFAULT_SETTINGS };
+  25 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:90:163
+
+  87 };
+  88 async function GET() {
+  89     try {
+→ 90         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at <unknown> (app/api/settings/route.js:22:43)
+    at async GET (app/api/settings/route.js:22:18)
+  20 | export async function GET() {
+  21 |   try {
+> 22 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  23 |
+  24 |     const settings = { ...DEFAULT_SETTINGS };
+  25 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ GET /api/settings 200 in 89ms (next.js: 4ms, application-code: 85ms)
+ GET /api/settings 200 in 54ms (next.js: 7ms, application-code: 47ms)
+ GET /api/settings 200 in 51ms (next.js: 11ms, application-code: 40ms)
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:90:163
+
+  87 };
+  88 async function GET() {
+  89     try {
+→ 90         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+Can't reach database server at `localhost:5432`
+
+Please make sure your database server is running at `localhost:5432`.
+    at <unknown> (app/api/settings/route.js:22:43)
+    at async GET (app/api/settings/route.js:22:18)
+  20 | export async function GET() {
+  21 |   try {
+> 22 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  23 |
+  24 |     const settings = { ...DEFAULT_SETTINGS };
+  25 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ GET /api/settings 200 in 69ms (next.js: 4ms, application-code: 65ms)
