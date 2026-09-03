@@ -1306,6 +1306,58 @@ export async function GET(request) {
           topCollections,
         },
 
+        marketingSummary: await (async () => {
+          const campaigns = await prisma.campaign.findMany({
+            where: { brand },
+            include: {
+              visits: { where: { createdAt: { gte: start, lte: end } } },
+              orders: {
+                where: { createdAt: { gte: start, lte: end } },
+                include: {
+                  order: { include: { items: { include: { product: true } } } },
+                },
+              },
+            },
+          });
+
+          let totalVisits = 0;
+          const visitorSet = new Set();
+          let attributedOrdersCount = 0;
+          let attributedRevenue = 0;
+
+          for (const c of campaigns) {
+            totalVisits += c.visits.length;
+            for (const v of c.visits) visitorSet.add(v.visitorId);
+
+            const validAttrs = c.orders.filter(
+              (o) => o.order && !isCancelledStatus(o.order.status)
+            );
+
+            attributedOrdersCount += validAttrs.length;
+
+            for (const attr of validAttrs) {
+              for (const item of attr.order.items) {
+                if (normalizeBrand(item.product?.brand) === brand) {
+                  const qty = money(item.quantity);
+                  const prc = getItemPrice(item);
+                  attributedRevenue += qty * prc;
+                }
+              }
+            }
+          }
+
+          const uniqueVisitors = visitorSet.size;
+          const conversionRate = uniqueVisitors > 0 ? ((attributedOrdersCount / uniqueVisitors) * 100).toFixed(1) : 0;
+
+          return {
+            visits: totalVisits,
+            uniqueVisitors,
+            orders: attributedOrdersCount,
+            revenue: attributedRevenue,
+            conversionRate,
+          };
+        })(),
+
         customersData: {
           list: customerPerformanceList,
           singleOrderCustomers,

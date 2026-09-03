@@ -159,6 +159,30 @@ export async function POST(request) {
       },
     });
 
+    // Record Campaign Attribution if attribution cookie is present
+    try {
+      const cookieStore = await cookies();
+      const attrCookie = cookieStore.get("verane_campaign_attr")?.value;
+
+      if (attrCookie) {
+        const attrData = JSON.parse(attrCookie);
+
+        if (attrData?.campaignId) {
+          await prisma.orderAttribution.create({
+            data: {
+              orderId: order.id,
+              campaignId: attrData.campaignId,
+              brand: attrData.brand || "UTHY",
+              visitorId: attrData.visitorId || null,
+              attributionModel: "last_touch",
+            },
+          });
+        }
+      }
+    } catch (attrErr) {
+      console.error("Order attribution creation error:", attrErr);
+    }
+
     return NextResponse.json({
       success: true,
       order,

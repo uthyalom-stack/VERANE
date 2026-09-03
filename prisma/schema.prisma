@@ -161,6 +161,7 @@ model Order {
   orderNumber         String      @unique
   user                User        @relation(fields: [userId], references: [id])
   items               OrderItem[]
+  attribution         OrderAttribution?
 }
 
 model DeliveryLocation {
@@ -455,4 +456,57 @@ model Wishlist {
   @@unique([userId, productId])
   @@index([userId])
   @@index([productId])
+}
+
+model Campaign {
+  id          String             @id @default(cuid())
+  brand       String
+  name        String
+  slug        String             @unique
+  platform    String             @default("Other")
+  source      String?
+  medium      String?
+  destination String             @default("/")
+  active      Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  visits      CampaignVisit[]
+  orders      OrderAttribution[]
+
+  @@index([brand])
+  @@index([slug])
+}
+
+model CampaignVisit {
+  id          String   @id @default(cuid())
+  campaignId  String
+  brand       String
+  visitorId   String
+  ipAddress   String?
+  userAgent   String?
+  destination String
+  createdAt   DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([brand])
+  @@index([visitorId])
+}
+
+model OrderAttribution {
+  id               String   @id @default(cuid())
+  orderId          String   @unique
+  campaignId       String
+  brand            String
+  visitorId        String?
+  attributionModel String   @default("last_touch")
+  createdAt        DateTime @default(now())
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([campaignId])
+  @@index([brand])
 }

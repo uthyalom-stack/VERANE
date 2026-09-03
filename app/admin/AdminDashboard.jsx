@@ -138,6 +138,14 @@ export default function AdminDashboard({ admin }) {
               />
 
               <AdminLink
+                title="Marketing"
+                description="Manage tracking links and campaigns"
+                onClick={() =>
+                  router.push("/admin/marketing")
+                }
+              />
+
+              <AdminLink
                 title="Analytics"
                 description="View brand performance dashboard"
                 onClick={() =>

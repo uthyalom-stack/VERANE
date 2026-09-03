@@ -386,17 +386,45 @@ export default function AdminAnalyticsPage() {
             </div>
 
             {/* 7. MARKETING & CAMPAIGN ATTRIBUTION */}
-            <div className="rounded-2xl border border-white/10 bg-neutral-950/50 p-6">
-              <div className="flex items-center justify-between">
+            <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-bold text-neutral-400">Marketing & Campaign Attribution</h3>
-                  <p className="text-[11px] text-neutral-600 mt-0.5">
-                    Link tracking, campaign traffic, and sales conversion attribution framework
+                  <h3 className="text-base font-bold text-white">Marketing & Campaign Attribution</h3>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">
+                    Live shareable tracking links, campaign traffic, and Last-Touch sales conversions
                   </p>
                 </div>
-                <span className="px-3 py-1 rounded-full border border-white/10 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
-                  Upcoming Module
-                </span>
+
+                <Link
+                  href="/admin/marketing"
+                  className="text-xs font-bold text-amber-400 hover:text-amber-300 transition flex items-center gap-1"
+                >
+                  View Campaign Analytics →
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                <div className="rounded-xl border border-white/5 bg-neutral-900/60 p-4">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Campaign Visits</span>
+                  <p className="text-xl font-black text-white mt-1">{data.marketingSummary?.visits || 0} clicks</p>
+                </div>
+
+                <div className="rounded-xl border border-white/5 bg-neutral-900/60 p-4">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Unique Visitors</span>
+                  <p className="text-xl font-black text-amber-400 mt-1">{data.marketingSummary?.uniqueVisitors || 0} unique</p>
+                </div>
+
+                <div className="rounded-xl border border-white/5 bg-neutral-900/60 p-4">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Attributed Revenue</span>
+                  <p className="text-xl font-black text-white mt-1">{formatMoney(data.marketingSummary?.revenue || 0)}</p>
+                </div>
+
+                <div className="rounded-xl border border-white/5 bg-neutral-900/60 p-4">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Conversion Rate</span>
+                  <p className="text-xl font-black text-emerald-400 mt-1">
+                    {data.marketingSummary?.conversionRate || 0}%
+                  </p>
+                </div>
               </div>
             </div>
 
