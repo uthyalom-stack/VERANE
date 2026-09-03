@@ -737,6 +737,73 @@ export async function GET(request) {
         .slice(0, 10);
 
     /* ========================================================
+       17B. PREVIOUS PERIOD COMPARISON
+    ======================================================== */
+
+    const durationMs = end.getTime() - start.getTime();
+    const prevEnd = new Date(start.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - durationMs);
+
+    let prevRevenue = 0;
+    let prevOrderCount = 0;
+    let prevUnitsSold = 0;
+
+    if (productIds.length > 0) {
+      const prevOrdersList = await prisma.order.findMany({
+        where: {
+          createdAt: {
+            gte: prevStart,
+            lte: prevEnd,
+          },
+          items: {
+            some: {
+              productId: {
+                in: productIds,
+              },
+            },
+          },
+        },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      });
+
+      const validPrevOrders = prevOrdersList.filter(
+        (o) => !isCancelledStatus(o.status)
+      );
+
+      prevOrderCount = validPrevOrders.length;
+
+      for (const po of validPrevOrders) {
+        for (const pi of po.items) {
+          if (normalizeBrand(pi.product?.brand) === brand) {
+            const qty = money(pi.quantity);
+            const prc = getItemPrice(pi);
+            prevUnitsSold += qty;
+            prevRevenue += qty * prc;
+          }
+        }
+      }
+    }
+
+    const prevAOV = prevOrderCount > 0 ? prevRevenue / prevOrderCount : 0;
+
+    const comparisons = {
+      prevRevenue,
+      prevOrders: prevOrderCount,
+      prevUnitsSold,
+      prevAOV,
+      revenueChange: prevRevenue > 0 ? ((revenue - prevRevenue) / prevRevenue) * 100 : null,
+      ordersChange: prevOrderCount > 0 ? ((orderCount - prevOrderCount) / prevOrderCount) * 100 : null,
+      unitsChange: prevUnitsSold > 0 ? ((unitsSold - prevUnitsSold) / prevUnitsSold) * 100 : null,
+      aovChange: prevAOV > 0 ? ((averageOrderValue - prevAOV) / prevAOV) * 100 : null,
+    };
+
+    /* ========================================================
        18. DAILY ANALYTICS
     ======================================================== */
 
@@ -1054,6 +1121,8 @@ export async function GET(request) {
           totalInventoryUnits,
 
           stockHealth,
+
+          comparisons,
         },
 
         analytics: {

@@ -185,9 +185,17 @@ export default function AdminAnalyticsPage() {
           <>
             {/* PRIMARY KPI OVERVIEW GRID */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-neutral-500 mb-3">
-                Financial & Order Performance
-              </p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-neutral-500">
+                  Financial & Order Performance
+                </p>
+                <Link
+                  href="/admin/analytics/sales"
+                  className="text-xs font-bold text-amber-400 hover:text-amber-300 transition flex items-center gap-1"
+                >
+                  View Detailed Sales Analytics →
+                </Link>
+              </div>
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="rounded-2xl border border-white/10 bg-neutral-950 p-5">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Total Revenue</p>
@@ -290,9 +298,12 @@ export default function AdminAnalyticsPage() {
                 </div>
 
                 <div className="mt-6 pt-4 border-t border-white/5 flex justify-end">
-                  <span className="text-xs font-bold text-neutral-500 cursor-default flex items-center gap-1">
-                    View Best Sellers <span className="text-[10px] text-neutral-600">(Phase 1B)</span> →
-                  </span>
+                  <Link
+                    href="/admin/analytics/products"
+                    className="text-xs font-bold text-amber-400 hover:text-amber-300 transition flex items-center gap-1"
+                  >
+                    View Best Sellers & Product Analytics →
+                  </Link>
                 </div>
               </div>
 
@@ -375,10 +386,10 @@ export default function AdminAnalyticsPage() {
 
                 <div className="mt-6 pt-4 border-t border-white/5 flex justify-end">
                   <Link
-                    href="/admin/products"
+                    href="/admin/analytics/categories"
                     className="text-xs font-bold text-amber-400 hover:text-amber-300 transition flex items-center gap-1"
                   >
-                    View Inventory Analytics →
+                    View Category & Collection Analytics →
                   </Link>
                 </div>
               </div>
