@@ -688,6 +688,76 @@ export async function GET(request) {
     }
 
     /* ========================================================
+       15A. DETAILED CUSTOMER DATASETS
+    ======================================================== */
+
+    // 1. Daily New User Registrations
+    const newUsersInRange = await prisma.user.findMany({
+      where: {
+        createdAt: { gte: start, lte: end },
+      },
+      select: { id: true, name: true, email: true, createdAt: true },
+    });
+
+    const userSignupDailyMap = new Map();
+    for (const u of newUsersInRange) {
+      const key = formatDate(u.createdAt);
+      userSignupDailyMap.set(key, (userSignupDailyMap.get(key) || 0) + 1);
+    }
+
+    // 2. Customer Performance Table Records
+    const customerPerformanceMap = new Map();
+
+    for (const order of validOrders) {
+      const uId = order.userId;
+      if (!uId) continue;
+
+      const existing = customerPerformanceMap.get(uId) || {
+        id: uId,
+        name: order.user?.name || order.firstName || "Customer",
+        email: order.user?.email || order.email || "No email",
+        orders: 0,
+        units: 0,
+        revenue: 0,
+        firstOrderDate: order.createdAt,
+        lastOrderDate: order.createdAt,
+      };
+
+      existing.orders += 1;
+
+      if (new Date(order.createdAt) < new Date(existing.firstOrderDate)) {
+        existing.firstOrderDate = order.createdAt;
+      }
+      if (new Date(order.createdAt) > new Date(existing.lastOrderDate)) {
+        existing.lastOrderDate = order.createdAt;
+      }
+
+      for (const item of order.items) {
+        if (normalizeBrand(item.product?.brand) === brand) {
+          const qty = money(item.quantity);
+          const prc = getItemPrice(item);
+          existing.units += qty;
+          existing.revenue += qty * prc;
+        }
+      }
+
+      customerPerformanceMap.set(uId, existing);
+    }
+
+    const customerPerformanceList = Array.from(customerPerformanceMap.values()).sort(
+      (a, b) => b.revenue - a.revenue
+    );
+
+    // Single-order vs Multi-order repeat customer breakdown
+    let singleOrderCustomers = 0;
+    let repeatOrderCustomers = 0;
+
+    for (const cp of customerPerformanceList) {
+      if (cp.orders === 1) singleOrderCustomers += 1;
+      else if (cp.orders > 1) repeatOrderCustomers += 1;
+    }
+
+    /* ========================================================
        15B. DEMAND / WAITING LIST
     ======================================================== */
 
@@ -831,6 +901,8 @@ export async function GET(request) {
         orders: 0,
 
         unitsSold: 0,
+
+        newSignups: userSignupDailyMap.get(key) || 0,
       });
     }
 
@@ -1136,6 +1208,14 @@ export async function GET(request) {
           topCategories,
 
           topCollections,
+        },
+
+        customersData: {
+          list: customerPerformanceList,
+          singleOrderCustomers,
+          repeatOrderCustomers,
+          avgOrdersPerCustomer: customerCount > 0 ? (orderCount / customerCount).toFixed(1) : 0,
+          avgSpendPerCustomer: customerCount > 0 ? revenue / customerCount : 0,
         },
 
         inventory: {

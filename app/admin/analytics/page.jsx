@@ -326,9 +326,12 @@ export default function AdminAnalyticsPage() {
                 </div>
               </div>
 
-              <span className="text-xs font-bold text-neutral-500 cursor-default">
-                View Customer Analytics <span className="text-[10px] text-neutral-600">(Phase 1C)</span> →
-              </span>
+              <Link
+                href="/admin/analytics/customers"
+                className="text-xs font-bold text-amber-400 hover:text-amber-300 transition flex items-center gap-1"
+              >
+                View Detailed Customer Analytics →
+              </Link>
             </div>
 
             {/* 5. STOCK & INVENTORY HEALTH */}
