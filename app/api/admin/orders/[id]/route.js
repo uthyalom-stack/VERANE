@@ -27,7 +27,12 @@ export async function GET(request, { params }) {
                 color: true,
               },
             },
-            collaborationProduct: true,
+            collaborationProduct: {
+              include: {
+                productA: true,
+                productB: true,
+              },
+            },
             collaborationVariant: true,
           },
         },
