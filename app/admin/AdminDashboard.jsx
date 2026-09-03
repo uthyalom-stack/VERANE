@@ -146,6 +146,14 @@ export default function AdminDashboard({ admin }) {
               />
 
               <AdminLink
+                title="Collaborations"
+                description="Co-create capsule drops"
+                onClick={() =>
+                  router.push("/admin/collaborations")
+                }
+              />
+
+              <AdminLink
                 title="Analytics"
                 description="View brand performance dashboard"
                 onClick={() =>
