@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import AnalyticsCharts from "@/components/admin/AnalyticsCharts";
+import { AreaTrendChart, VerticalColumnChart } from "@/components/admin/AnalyticsCharts";
 
 export default function SalesAnalyticsPage() {
   const [data, setData] = useState(null);
@@ -88,6 +88,8 @@ export default function SalesAnalyticsPage() {
       ? "ALOMZIEE FOOTIES"
       : "Brand Sales";
 
+  const dailyData = data?.analytics?.daily || [];
+
   return (
     <main className="min-h-screen bg-black text-white p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -102,10 +104,10 @@ export default function SalesAnalyticsPage() {
               ← Back to Analytics Overview
             </Link>
             <h1 className="text-2xl md:text-3xl font-black mt-2 tracking-tight">
-              {brandTitle} — Sales Analytics
+              {brandTitle} — Detailed Sales Analytics
             </h1>
             <p className="text-xs text-neutral-400 mt-1 max-w-2xl">
-              In-depth financial tracking, revenue trends, order metrics, and status distribution.
+              Visual financial tracking, revenue trends, order column volume, and unit dispatch metrics.
             </p>
           </div>
 
@@ -190,11 +192,11 @@ export default function SalesAnalyticsPage() {
             <p className="text-[10px] uppercase tracking-[0.3em] text-amber-400 animate-pulse">
               VÉRANE SALES ANALYTICS
             </p>
-            <p className="text-xs text-neutral-500 mt-2">Loading performance data...</p>
+            <p className="text-xs text-neutral-500 mt-2">Loading visual sales metrics...</p>
           </div>
         ) : data?.overview ? (
           <>
-            {/* KPI METRICS WITH COMPARISON BADGES */}
+            {/* KPI METRICS WITH SHIFT BADGES */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="rounded-2xl border border-white/10 bg-neutral-950 p-5 space-y-2">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-amber-400">Total Revenue</p>
@@ -221,10 +223,33 @@ export default function SalesAnalyticsPage() {
               </div>
             </div>
 
-            {/* PERFORMANCE CHART */}
-            <AnalyticsCharts dailyData={data.analytics?.daily || []} />
+            {/* MAIN VISUAL 1: LARGE AREA TREND CHART */}
+            <AreaTrendChart
+              dailyData={dailyData}
+              title="Revenue & Performance Trend Chart"
+              subtitle="Line / area visualization over selected date range"
+            />
 
-            {/* ORDER STATUS & RECENT ORDERS GRID */}
+            {/* MAIN VISUAL 2: SIDE-BY-SIDE COLUMN CHARTS */}
+            <div className="grid lg:grid-cols-2 gap-6">
+              <VerticalColumnChart
+                data={dailyData}
+                title="Order Volume Column Chart"
+                subtitle="Daily order count distribution"
+                isCurrency={false}
+                valueKey="orders"
+              />
+
+              <VerticalColumnChart
+                data={dailyData}
+                title="Units Dispatched Column Chart"
+                subtitle="Daily units sold volume"
+                isCurrency={false}
+                valueKey="unitsSold"
+              />
+            </div>
+
+            {/* SUPPORTING CONTEXT: ORDER STATUS & RECENT ORDERS TABLE */}
             <div className="grid lg:grid-cols-3 gap-6">
 
               {/* ORDER STATUS DISTRIBUTION */}
@@ -256,7 +281,7 @@ export default function SalesAnalyticsPage() {
               <div className="lg:col-span-2 rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-base font-bold text-white">Recent Orders</h2>
+                    <h2 className="text-base font-bold text-white">Recent Order Records</h2>
                     <p className="text-[11px] text-neutral-400">Latest valid brand orders in period</p>
                   </div>
                   <Link

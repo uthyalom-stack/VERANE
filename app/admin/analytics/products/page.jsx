@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { HorizontalBarChart } from "@/components/admin/AnalyticsCharts";
+import { HorizontalBarChart, DonutChart, VerticalColumnChart } from "@/components/admin/AnalyticsCharts";
 
 export default function ProductAnalyticsPage() {
   const [data, setData] = useState(null);
@@ -55,6 +55,7 @@ export default function ProductAnalyticsPage() {
   );
 
   const top10 = sortedProducts.slice(0, 10);
+  const topCategories = data?.analytics?.topCategories || [];
 
   const brandTitle =
     data?.brand === "UTHY"
@@ -80,7 +81,7 @@ export default function ProductAnalyticsPage() {
               {brandTitle} — Product Performance & Best Sellers
             </h1>
             <p className="text-xs text-neutral-400 mt-1 max-w-2xl">
-              Visual rankings, revenue generation, unit sales, and stock metrics for individual catalog items.
+              Visual rankings, category distribution charts, revenue generation, and inventory status.
             </p>
           </div>
 
@@ -112,24 +113,42 @@ export default function ProductAnalyticsPage() {
             <p className="text-[10px] uppercase tracking-[0.3em] text-amber-400 animate-pulse">
               VÉRANE PRODUCT ANALYTICS
             </p>
-            <p className="text-xs text-neutral-500 mt-2">Loading product metrics...</p>
+            <p className="text-xs text-neutral-500 mt-2">Loading visual product metrics...</p>
           </div>
         ) : data ? (
           <>
-            {/* VISUAL HORIZONTAL BAR CHART - TOP RANKINGS */}
+            {/* MAIN VISUAL 1: PROMINENT BEST SELLER HORIZONTAL BAR CHART */}
             <HorizontalBarChart
               items={top10}
-              title="Best Seller Performance Ranking Chart"
-              subtitle="Interactive bar visualization of top performing catalog items"
+              title="Best Seller Product Rankings Chart"
+              subtitle="Horizontal bar visualization ranking top performing catalog items"
               isCurrency={true}
             />
 
-            {/* PRODUCT PERFORMANCE TABLE */}
+            {/* MAIN VISUAL 2: CATEGORY SHARE & COLUMN VISUALIZATIONS */}
+            <div className="grid lg:grid-cols-2 gap-6">
+              <DonutChart
+                items={topCategories}
+                title="Category Revenue Share Chart"
+                subtitle="Proptional revenue distribution across catalog categories"
+                isCurrency={true}
+              />
+
+              <VerticalColumnChart
+                data={topCategories}
+                title="Category Volume Column Chart"
+                subtitle="Units sold volume across brand categories"
+                isCurrency={false}
+                valueKey="unitsSold"
+              />
+            </div>
+
+            {/* SUPPORTING: COMPLETE PRODUCT PERFORMANCE TABLE */}
             <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-base font-bold text-white">Complete Product Performance Table</h2>
-                  <p className="text-[11px] text-neutral-400">All brand products and stock status</p>
+                  <h2 className="text-base font-bold text-white">Complete Product Performance Data</h2>
+                  <p className="text-[11px] text-neutral-400">All brand products with inventory levels</p>
                 </div>
 
                 <div className="flex items-center gap-3">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { HorizontalBarChart } from "@/components/admin/AnalyticsCharts";
+import { VerticalColumnChart, DonutChart, HorizontalBarChart } from "@/components/admin/AnalyticsCharts";
 
 export default function CategoryAnalyticsPage() {
   const [data, setData] = useState(null);
@@ -97,28 +97,109 @@ export default function CategoryAnalyticsPage() {
             <p className="text-[10px] uppercase tracking-[0.3em] text-amber-400 animate-pulse">
               VÉRANE CATEGORY ANALYTICS
             </p>
-            <p className="text-xs text-neutral-500 mt-2">Loading category and collection data...</p>
+            <p className="text-xs text-neutral-500 mt-2">Loading category and collection metrics...</p>
           </div>
         ) : data ? (
-          <div className="grid lg:grid-cols-2 gap-8">
+          <>
+            {/* VISUAL ROW 1: CATEGORY COLUMN CHART & CATEGORY DONUT CHART */}
+            <div className="grid lg:grid-cols-2 gap-8">
+              <VerticalColumnChart
+                data={topCategories}
+                title="Category Revenue Column Chart"
+                subtitle="Visual category revenue comparison"
+                isCurrency={true}
+                valueKey="revenue"
+              />
 
-            {/* CATEGORY VISUAL CHART */}
-            <HorizontalBarChart
-              items={topCategories}
-              title="Category Performance Visualization"
-              subtitle="Breakdown by Revenue, Units Sold, and Order volume"
-              isCurrency={true}
-            />
+              <DonutChart
+                items={topCategories}
+                title="Category Revenue Share Donut Chart"
+                subtitle="Proportional share of category sales"
+                isCurrency={true}
+              />
+            </div>
 
-            {/* COLLECTION VISUAL CHART */}
-            <HorizontalBarChart
-              items={topCollections}
-              title="Collection Performance Visualization"
-              subtitle="Breakdown by Revenue, Units Sold, and Order volume"
-              isCurrency={true}
-            />
+            {/* VISUAL ROW 2: COLLECTION COLUMN CHART & RANKING CHART */}
+            <div className="grid lg:grid-cols-2 gap-8">
+              <VerticalColumnChart
+                data={topCollections}
+                title="Collection Revenue Column Chart"
+                subtitle="Visual collection performance comparison"
+                isCurrency={true}
+                valueKey="revenue"
+              />
 
-          </div>
+              <HorizontalBarChart
+                items={topCollections}
+                title="Collection Ranking Chart"
+                subtitle="Interactive collection ranking by key metrics"
+                isCurrency={true}
+              />
+            </div>
+
+            {/* SUPPORTING SUMMARY DATA TABLES */}
+            <div className="grid lg:grid-cols-2 gap-8">
+
+              {/* CATEGORY SUMMARY TABLE */}
+              <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-4">
+                <h2 className="text-base font-bold text-white">Category Performance Summary</h2>
+                {topCategories.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-white/10 text-[10px] uppercase tracking-wider text-neutral-500">
+                          <th className="pb-3 font-semibold">Category Name</th>
+                          <th className="pb-3 font-semibold">Units Sold</th>
+                          <th className="pb-3 font-semibold text-right">Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {topCategories.map((cat, i) => (
+                          <tr key={cat.name || i} className="hover:bg-white/[0.02]">
+                            <td className="py-3 font-bold text-white">{cat.name}</td>
+                            <td className="py-3 text-neutral-300">{cat.unitsSold}</td>
+                            <td className="py-3 font-black text-amber-400 text-right">{formatMoney(cat.revenue)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-xs text-neutral-500 py-6">No category sales recorded for this period.</p>
+                )}
+              </div>
+
+              {/* COLLECTION SUMMARY TABLE */}
+              <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-4">
+                <h2 className="text-base font-bold text-white">Collection Performance Summary</h2>
+                {topCollections.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-white/10 text-[10px] uppercase tracking-wider text-neutral-500">
+                          <th className="pb-3 font-semibold">Collection Name</th>
+                          <th className="pb-3 font-semibold">Units Sold</th>
+                          <th className="pb-3 font-semibold text-right">Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {topCollections.map((col, i) => (
+                          <tr key={col.name || i} className="hover:bg-white/[0.02]">
+                            <td className="py-3 font-bold text-white">{col.name}</td>
+                            <td className="py-3 text-neutral-300">{col.unitsSold}</td>
+                            <td className="py-3 font-black text-amber-400 text-right">{formatMoney(col.revenue)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-xs text-neutral-500 py-6">No collection sales recorded for this period.</p>
+                )}
+              </div>
+
+            </div>
+          </>
         ) : null}
       </div>
     </main>
