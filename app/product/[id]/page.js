@@ -209,9 +209,9 @@ export default function ProductDetail() {
 
   const stockStatus = isOutOfStock
     ? "Sold Out"
-    : inventory <= 10
+    : stockPercentage <= 25
     ? "Few Left"
-    : inventory <= 40
+    : stockPercentage <= 50
     ? "Almost Sold Out"
     : "Available";
 
