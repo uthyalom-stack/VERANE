@@ -92,9 +92,11 @@ export async function POST(request) {
       },
     });
 
+    const bucketName = process.env.R2_BUCKET_NAME || "verane";
+
     await s3.send(
       new PutObjectCommand({
-        Bucket: "verane",
+        Bucket: bucketName,
         Key: key,
         Body: buffer,
         ContentType: contentType,
