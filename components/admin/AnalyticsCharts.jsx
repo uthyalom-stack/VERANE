@@ -273,7 +273,7 @@ export function VerticalColumnChart({ data = [], title = "Volume Breakdown", sub
 /* ====================================================================
    3. HORIZONTAL BAR CHART (Best Sellers / Catalog Item Rankings)
 ==================================================================== */
-export function HorizontalBarChart({ items = [], title, subtitle, isCurrency = true }) {
+export function HorizontalBarChart({ items = [], title, subtitle, isCurrency = true, valueKey = null, hideMetricSelector = false }) {
   const [metric, setMetric] = useState("revenue"); // "revenue" | "unitsSold" | "orders"
 
   if (!items || items.length === 0) {
@@ -284,11 +284,12 @@ export function HorizontalBarChart({ items = [], title, subtitle, isCurrency = t
     );
   }
 
-  const sortedItems = [...items].sort((a, b) => Number(b[metric] || 0) - Number(a[metric] || 0));
-  const maxVal = Math.max(...sortedItems.map((i) => Number(i[metric] || 0)), 1);
+  const activeKey = valueKey || metric;
+  const sortedItems = [...items].sort((a, b) => Number(b[activeKey] || 0) - Number(a[activeKey] || 0));
+  const maxVal = Math.max(...sortedItems.map((i) => Number(i[activeKey] || 0)), 1);
 
   function formatVal(val) {
-    if (metric === "revenue" && isCurrency) {
+    if ((activeKey === "revenue" || activeKey === "valuation") && isCurrency) {
       return "₦" + Number(val || 0).toLocaleString("en-NG");
     }
     return Number(val || 0).toLocaleString("en-NG");
@@ -302,31 +303,33 @@ export function HorizontalBarChart({ items = [], title, subtitle, isCurrency = t
           {subtitle && <p className="text-[11px] text-neutral-400 mt-0.5">{subtitle}</p>}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-neutral-900 p-1">
-          {[
-            { key: "revenue", label: "Revenue" },
-            { key: "unitsSold", label: "Units Sold" },
-            { key: "orders", label: "Orders" },
-          ].map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              onClick={() => setMetric(m.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                metric === m.key
-                  ? "bg-amber-500 text-black shadow"
-                  : "text-neutral-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+        {!hideMetricSelector && (
+          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-neutral-900 p-1">
+            {[
+              { key: "revenue", label: "Revenue" },
+              { key: "unitsSold", label: "Units Sold" },
+              { key: "orders", label: "Orders" },
+            ].map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => setMetric(m.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  metric === m.key
+                    ? "bg-amber-500 text-black shadow"
+                    : "text-neutral-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">
         {sortedItems.map((item, index) => {
-          const val = Number(item[metric] || 0);
+          const val = Number(item[activeKey] || 0);
           const pct = Math.max((val / maxVal) * 100, 2);
 
           return (

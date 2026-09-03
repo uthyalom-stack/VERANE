@@ -377,9 +377,12 @@ export default function AdminAnalyticsPage() {
                 </div>
               </div>
 
-              <span className="text-xs font-bold text-neutral-500 cursor-default">
-                View Demand Analytics <span className="text-[10px] text-neutral-600">(Phase 1C)</span> →
-              </span>
+              <Link
+                href="/admin/analytics/inventory"
+                className="text-xs font-bold text-amber-400 hover:text-amber-300 transition flex items-center gap-1"
+              >
+                View Inventory & Demand Analytics →
+              </Link>
             </div>
 
             {/* 7. MARKETING & CAMPAIGN ATTRIBUTION */}

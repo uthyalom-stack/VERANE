@@ -341,37 +341,24 @@ export async function GET(request) {
       });
 
     /* ========================================================
-       7. PRODUCT COUNTS
+       7. PRODUCT COUNTS & INVENTORY THRESHOLDS
     ======================================================== */
 
-    const totalProducts =
-      products.length;
+    const totalProducts = products.length;
 
-    const activeProducts =
-      products.filter(
-        (product) =>
-          money(product.inventory) > 0
-      ).length;
+    // Thresholds: 0 = Sold Out, 1–10 = Few Left, 11–40 = Almost Sold Out, 41+ = Available
+    const outOfStockProducts = products.filter((p) => money(p.inventory) <= 0);
+    const fewLeftProducts = products.filter((p) => money(p.inventory) >= 1 && money(p.inventory) <= 10);
+    const almostSoldOutProducts = products.filter((p) => money(p.inventory) >= 11 && money(p.inventory) <= 40);
+    const availableProducts = products.filter((p) => money(p.inventory) >= 41);
 
-    const outOfStockProducts =
-      products.filter(
-        (product) =>
-          money(product.inventory) <= 0
-      );
+    const activeProducts = products.filter((p) => money(p.inventory) > 0).length;
+    const outOfStock = outOfStockProducts.length;
 
-    const outOfStock =
-      outOfStockProducts.length;
-
-    const lowStockProducts =
-      products.filter((product) => {
-        const inventory =
-          money(product.inventory);
-
-        return (
-          inventory > 0 &&
-          inventory <= 5
-        );
-      });
+    const lowStockProducts = products.filter((product) => {
+      const inventory = money(product.inventory);
+      return inventory > 0 && inventory <= 10;
+    });
 
     /* ========================================================
        8. INVENTORY
@@ -758,17 +745,103 @@ export async function GET(request) {
     }
 
     /* ========================================================
-       15B. DEMAND / WAITING LIST
+       15B. DEMAND & WAITING LIST ANALYTICS
     ======================================================== */
 
-    let waitingListCount = 0;
+    let waitingListEntries = [];
     if (productIds.length > 0) {
-      waitingListCount = await prisma.waitingList.count({
+      waitingListEntries = await prisma.waitingList.findMany({
         where: {
           productId: { in: productIds },
         },
+        include: {
+          product: {
+            include: { categoryRef: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
       });
     }
+
+    const waitingListCount = waitingListEntries.length;
+
+    // Aggregate demand per product
+    const waitingListByProductMap = new Map();
+    const waitingListByCategoryMap = new Map();
+
+    for (const entry of waitingListEntries) {
+      const pId = entry.productId;
+      const pName = entry.product?.name || "Product";
+      const catName = entry.product?.categoryRef?.name || entry.product?.category || "Uncategorized";
+
+      waitingListByProductMap.set(pId, {
+        id: pId,
+        name: pName,
+        count: (waitingListByProductMap.get(pId)?.count || 0) + 1,
+      });
+
+      waitingListByCategoryMap.set(catName, {
+        name: catName,
+        count: (waitingListByCategoryMap.get(catName)?.count || 0) + 1,
+      });
+    }
+
+    const demandByProduct = Array.from(waitingListByProductMap.values()).sort((a, b) => b.count - a.count);
+    const demandByCategory = Array.from(waitingListByCategoryMap.values()).sort((a, b) => b.count - a.count);
+
+    /* ========================================================
+       15C. RESTOCK PRIORITY RANKING
+    ======================================================== */
+
+    // Priority Score formula: (Waiting List Count * 5) + (Units Sold in Period * 2) - Current Inventory
+    const restockPriorityList = products.map((prod) => {
+      const pId = prod.id;
+      const pName = prod.name;
+      const inv = money(prod.inventory);
+      const stats = productStats.get(pId) || { unitsSold: 0, revenue: 0 };
+      const demand = waitingListByProductMap.get(pId)?.count || 0;
+
+      const priorityScore = demand * 5 + stats.unitsSold * 2 - inv;
+
+      return {
+        id: pId,
+        name: pName,
+        category: prod.categoryRef?.name || prod.category || "Uncategorized",
+        inventory: inv,
+        price: getProductPrice(prod),
+        unitsSold: stats.unitsSold,
+        revenue: stats.revenue,
+        waitingListDemand: demand,
+        priorityScore,
+        urgencyBadge: inv <= 0 && demand > 0 ? "Critical Restock" : inv <= 10 ? "Low Stock Risk" : "Normal",
+      };
+    }).sort((a, b) => b.priorityScore - a.priorityScore);
+
+    // Top Inventory Holdings
+    const topInventoryHoldings = products
+      .map((prod) => ({
+        id: prod.id,
+        name: prod.name,
+        inventory: money(prod.inventory),
+        valuation: money(prod.inventory) * getProductPrice(prod),
+      }))
+      .sort((a, b) => b.inventory - a.inventory)
+      .slice(0, 10);
+
+    // Units Sold vs Current Stock Velocity
+    const velocityComparison = products
+      .map((prod) => {
+        const stats = productStats.get(prod.id) || { unitsSold: 0 };
+        return {
+          id: prod.id,
+          name: prod.name,
+          unitsSold: stats.unitsSold,
+          currentStock: money(prod.inventory),
+        };
+      })
+      .filter((p) => p.unitsSold > 0 || p.currentStock > 0)
+      .sort((a, b) => b.unitsSold - a.unitsSold)
+      .slice(0, 10);
 
     /* ========================================================
        16. PRODUCT PERFORMANCE
@@ -1185,6 +1258,15 @@ export async function GET(request) {
 
           outOfStock,
 
+          fewLeft:
+            fewLeftProducts.length,
+
+          almostSoldOut:
+            almostSoldOutProducts.length,
+
+          available:
+            availableProducts.length,
+
           lowStock:
             lowStockProducts.length,
 
@@ -1195,6 +1277,20 @@ export async function GET(request) {
           stockHealth,
 
           comparisons,
+        },
+
+        inventoryData: {
+          statusBreakdown: [
+            { name: "Sold Out", value: outOfStock },
+            { name: "Few Left (1–10)", value: fewLeftProducts.length },
+            { name: "Almost Sold Out (11–40)", value: almostSoldOutProducts.length },
+            { name: "Available (41+)", value: availableProducts.length },
+          ],
+          topHoldings: topInventoryHoldings,
+          velocityComparison,
+          restockPriority: restockPriorityList,
+          demandByProduct,
+          demandByCategory,
         },
 
         analytics: {
