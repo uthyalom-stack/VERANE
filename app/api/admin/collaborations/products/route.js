@@ -44,430 +44,264 @@ function normalizeBrand(value) {
 |
 */
 
+import { getAdminSession } from "@/lib/admin-auth";
+
 export async function POST(request) {
   try {
-    const body =
-      await request.json();
+    const session = await getAdminSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
 
-    const collaborationId =
-      String(
-        body?.collaborationId || ""
-      ).trim();
+    if (session.role !== "UTHY" && session.role !== "ALOMZIEE") {
+      return NextResponse.json(
+        { success: false, error: "Forbidden. Brand admin session required." },
+        { status: 403 }
+      );
+    }
 
-    const productAId =
-      String(
-        body?.productAId || ""
-      ).trim();
+    const adminBrand = session.role; // "UTHY" or "ALOMZIEE"
 
-    const productBId =
-      String(
-        body?.productBId || ""
-      ).trim();
+    const body = await request.json();
 
-    const name =
-      String(
-        body?.name || ""
-      ).trim();
-
-    const description =
-      String(
-        body?.description || ""
-      ).trim();
-
-    const price =
-      Number(body?.price);
-
-    const status =
-      String(
-        body?.status || "draft"
-      )
-        .trim()
-        .toLowerCase();
-
-    /*
-     * ----------------------------------------------------------
-     * VALIDATION
-     * ----------------------------------------------------------
-     */
+    const collaborationId = String(body?.collaborationId || "").trim();
+    const productAId = String(body?.productAId || "").trim();
+    const productBId = String(body?.productBId || "").trim();
+    const name = String(body?.name || "").trim();
+    const description = String(body?.description || "").trim();
+    const price = Number(body?.price);
+    const requestedStatus = String(body?.status || "published").trim().toLowerCase();
+    const status = requestedStatus === "draft" ? "draft" : "published";
 
     if (!collaborationId) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Collaboration ID is required.",
-        },
+        { success: false, error: "Collaboration ID is required." },
         { status: 400 }
       );
     }
 
     if (!productAId) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Product A is required.",
-        },
+        { success: false, error: "Product A is required." },
         { status: 400 }
       );
     }
 
     if (!productBId) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Product B is required.",
-        },
+        { success: false, error: "Product B is required." },
         { status: 400 }
       );
     }
 
     if (!name) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Collaboration product name is required.",
-        },
+        { success: false, error: "Collaboration product name is required." },
         { status: 400 }
       );
     }
 
-    if (
-      Number.isNaN(price) ||
-      price <= 0
-    ) {
+    if (Number.isNaN(price) || price <= 0) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "A valid collaboration price is required.",
-        },
+        { success: false, error: "A valid collaboration price is required." },
         { status: 400 }
       );
     }
 
-    /*
-     * ----------------------------------------------------------
-     * LOAD COLLABORATION
-     * ----------------------------------------------------------
-     */
-
-    const collaboration =
-      await prisma.collaboration.findUnique(
-        {
-          where: {
-            id: collaborationId,
-          },
-        }
-      );
+    const collaboration = await prisma.collaboration.findUnique({
+      where: { id: collaborationId },
+    });
 
     if (!collaboration) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Collaboration not found.",
-        },
+        { success: false, error: "Collaboration not found." },
         { status: 404 }
       );
     }
 
-    if (
-      collaboration.status !==
-        "active" &&
-      collaboration.status !==
-        "accepted"
-    ) {
+    // Verify brand admin is allowed to manage this collaboration
+    const collabBrandA = normalizeBrand(collaboration.brandA);
+    const collabBrandB = normalizeBrand(collaboration.brandB);
+
+    if (collabBrandA !== adminBrand && collabBrandB !== adminBrand) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "The collaboration must be active before creating a collaboration product.",
-        },
+        { success: false, error: "Forbidden. You can only manage collaboration products for your brand's collaborations." },
+        { status: 403 }
+      );
+    }
+
+    if (collaboration.status !== "active" && collaboration.status !== "accepted") {
+      return NextResponse.json(
+        { success: false, error: "The collaboration must be active before creating a collaboration product." },
         { status: 400 }
       );
     }
 
-    /*
-     * ----------------------------------------------------------
-     * LOAD BOTH PRODUCTS
-     * ----------------------------------------------------------
-     */
-
-    const [
-      productA,
-      productB,
-    ] = await Promise.all([
-      prisma.product.findUnique({
-        where: {
-          id: productAId,
-        },
-      }),
-
-      prisma.product.findUnique({
-        where: {
-          id: productBId,
-        },
-      }),
+    const [productA, productB] = await Promise.all([
+      prisma.product.findUnique({ where: { id: productAId } }),
+      prisma.product.findUnique({ where: { id: productBId } }),
     ]);
 
     if (!productA) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Product A could not be found.",
-        },
+        { success: false, error: "Product A could not be found." },
         { status: 404 }
       );
     }
 
     if (!productB) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Product B could not be found.",
-        },
+        { success: false, error: "Product B could not be found." },
         { status: 404 }
       );
     }
 
-    /*
-     * ----------------------------------------------------------
-     * VERIFY THE PRODUCTS ACTUALLY BELONG
-     * TO THE TWO COLLABORATING BRANDS
-     * ----------------------------------------------------------
-     */
-
-    const brandA =
-      normalizeBrand(
-        collaboration.brandA
-      );
-
-    const brandB =
-      normalizeBrand(
-        collaboration.brandB
-      );
-
-    const productABrand =
-      normalizeBrand(
-        productA.brand
-      );
-
-    const productBBrand =
-      normalizeBrand(
-        productB.brand
-      );
+    const productABrand = normalizeBrand(productA.brand);
+    const productBBrand = normalizeBrand(productB.brand);
 
     const validPair =
-      (
-        productABrand === brandA &&
-        productBBrand === brandB
-      ) ||
-      (
-        productABrand === brandB &&
-        productBBrand === brandA
-      );
+      (productABrand === collabBrandA && productBBrand === collabBrandB) ||
+      (productABrand === collabBrandB && productBBrand === collabBrandA);
 
     if (!validPair) {
       return NextResponse.json(
-        {
-          success: false,
-          error:
-            "The selected products must come from the two brands in this collaboration.",
-        },
+        { success: false, error: "The selected products must come from the two brands in this collaboration." },
         { status: 400 }
       );
     }
 
-    /*
-     * ----------------------------------------------------------
-     * PREVENT DUPLICATE PAIRS
-     * ----------------------------------------------------------
-     */
-
-    const existing =
-      await prisma.collaborationProduct.findFirst(
-        {
-          where: {
-            collaborationId,
-            OR: [
-              {
-                productAId,
-                productBId,
-              },
-              {
-                productAId:
-                  productBId,
-                productBId:
-                  productAId,
-              },
-            ],
-          },
-        }
-      );
+    const existing = await prisma.collaborationProduct.findFirst({
+      where: {
+        collaborationId,
+        OR: [
+          { productAId, productBId },
+          { productAId: productBId, productBId: productAId },
+        ],
+      },
+    });
 
     if (existing) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "This product combination already exists in this collaboration.",
-          product:
-            existing,
+          error: "This product combination already exists in this collaboration.",
+          product: existing,
         },
         { status: 409 }
       );
     }
 
-    /*
-     * ----------------------------------------------------------
-     * CREATE COLLABORATION PRODUCT
-     * ----------------------------------------------------------
-     */
+    const imagesList = [];
+    if (productA.images) {
+      try {
+        const parsed = JSON.parse(productA.images);
+        if (Array.isArray(parsed)) imagesList.push(...parsed);
+        else if (typeof parsed === "string") imagesList.push(parsed);
+      } catch {
+        imagesList.push(productA.images);
+      }
+    }
 
-    const collaborationProduct =
-      await prisma.collaborationProduct.create(
-        {
-          data: {
-            collaborationId,
+    if (productB.images) {
+      try {
+        const parsed = JSON.parse(productB.images);
+        if (Array.isArray(parsed)) imagesList.push(...parsed);
+        else if (typeof parsed === "string") imagesList.push(parsed);
+      } catch {
+        imagesList.push(productB.images);
+      }
+    }
 
-            productAId,
-
-            productBId,
-
-            name,
-
-            description:
-              description || null,
-
-            price,
-
-            images: JSON.stringify(
-              [
-                productA.images,
-                productB.images,
-              ]
-            ),
-
-            status:
-              status === "published"
-                ? "published"
-                : "draft",
-          },
-
-          include: {
-            collaboration: true,
-            productA: true,
-            productB: true,
-          },
-        }
-      );
+    const collaborationProduct = await prisma.collaborationProduct.create({
+      data: {
+        collaborationId,
+        productAId,
+        productBId,
+        name,
+        description: description || null,
+        price,
+        images: JSON.stringify(imagesList),
+        status,
+      },
+      include: {
+        collaboration: true,
+        productA: true,
+        productB: true,
+      },
+    });
 
     return NextResponse.json(
       {
         success: true,
-
-        product:
-          collaborationProduct,
-
+        product: collaborationProduct,
         collaborationProduct,
       },
-      {
-        status: 201,
-      }
+      { status: 201 }
     );
   } catch (error) {
-    console.error(
-      "CREATE COLLABORATION PRODUCT ERROR:",
-      error
-    );
+    console.error("CREATE COLLABORATION PRODUCT ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Failed to create collaboration product.",
+        error: error?.message || "Failed to create collaboration product.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
 
-
-/*
-|--------------------------------------------------------------------------
-| GET
-|--------------------------------------------------------------------------
-|
-| Returns all collaboration products.
-|
-| Optional:
-|
-| ?collaborationId=...
-|
-*/
-
 export async function GET(request) {
   try {
-    const { searchParams } =
-      new URL(request.url);
-
-    const collaborationId =
-      searchParams.get(
-        "collaborationId"
+    const session = await getAdminSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
       );
+    }
 
-    const products =
-      await prisma.collaborationProduct.findMany(
-        {
-          where:
-            collaborationId
-              ? {
-                  collaborationId,
-                }
-              : undefined,
+    const { searchParams } = new URL(request.url);
+    const collaborationId = searchParams.get("collaborationId");
 
-          include: {
-            collaboration: true,
-            productA: true,
-            productB: true,
-          },
+    const products = await prisma.collaborationProduct.findMany({
+      where: collaborationId ? { collaborationId } : undefined,
+      include: {
+        collaboration: true,
+        productA: true,
+        productB: true,
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
 
-          orderBy: {
-            updatedAt: "desc",
-          },
-        }
+    // Filter products if brand admin
+    let filteredProducts = products;
+    if (session.role !== "SUPERADMIN") {
+      filteredProducts = products.filter(
+        (p) =>
+          normalizeBrand(p.collaboration.brandA) === session.role ||
+          normalizeBrand(p.collaboration.brandB) === session.role
       );
+    }
 
-    return NextResponse.json(
-      {
-        success: true,
-        products,
-      }
-    );
+    return NextResponse.json({
+      success: true,
+      products: filteredProducts,
+    });
   } catch (error) {
-    console.error(
-      "GET COLLABORATION PRODUCTS ERROR:",
-      error
-    );
+    console.error("GET COLLABORATION PRODUCTS ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Failed to load collaboration products.",
+        error: error?.message || "Failed to load collaboration products.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }

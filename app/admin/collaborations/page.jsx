@@ -81,28 +81,10 @@ export default function CollaborationsPage() {
       const currentAdmin =
         sessionData.admin;
 
-      if (
-        currentAdmin.role !== "UTHY" &&
-        currentAdmin.role !== "ALOMZIEE"
-      ) {
-        router.replace("/admin");
-        return;
-      }
-
       setAdmin(currentAdmin);
 
-      /*
-       * IMPORTANT:
-       * We now explicitly send the brand.
-       */
-
-      const brand =
-        normalizeBrand(currentAdmin.role);
-
       const response = await fetch(
-        `/api/admin/collaborations?brand=${encodeURIComponent(
-          brand
-        )}`,
+        `/api/admin/collaborations`,
         {
           cache: "no-store",
           credentials: "include",
@@ -1043,7 +1025,7 @@ function CollaborationProductModal({
 
     if (
       !price ||
-      Number(price) < 0
+      Number(price) <= 0
     ) {
       setError(
         "Enter a valid price."
@@ -1071,6 +1053,7 @@ function CollaborationProductModal({
             description:
               description.trim(),
             price: Number(price),
+            status: "published",
           }),
         }
       );

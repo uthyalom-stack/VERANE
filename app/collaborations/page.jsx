@@ -124,7 +124,9 @@ export default function CollaborationPage() {
     );
   }
 
-  const allCollabProducts = collaborations.flatMap((c) => c.products || []);
+  const activeCollabsWithProducts = collaborations.filter(
+    (c) => Array.isArray(c.products) && c.products.length > 0
+  );
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -138,24 +140,24 @@ export default function CollaborationPage() {
           </p>
 
           <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter mt-4 leading-[0.85]">
-            UTHY <span className="text-amber-400">×</span> ALOMZIEE
+            COLLABORATIONS
           </h1>
 
           <p className="mt-6 max-w-2xl text-neutral-400 text-base md:text-lg leading-relaxed">
-            Where luxury handmade apparel meets bespoke handcrafted footwear and accessories.
-            Each collaboration represents a unified expression crafted across both houses, purchased as one complete piece.
+            Where luxury apparel meets bespoke handcrafted footwear and accessories.
+            Each collaboration represents a unified expression co-created across both houses, purchased as one complete piece.
           </p>
         </div>
       </section>
 
-      {/* PRODUCTS LIST */}
+      {/* COLLABORATIONS LIST */}
       <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20">
-        {allCollabProducts.length === 0 ? (
+        {activeCollabsWithProducts.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-neutral-950 p-16 text-center">
             <p className="text-amber-400 text-[10px] font-bold uppercase tracking-[0.3em]">
               Limited Drops
             </p>
-            <h2 className="text-3xl font-black mt-3">No active collaborations at this time</h2>
+            <h2 className="text-3xl font-black mt-3">No active collaboration drops at this time</h2>
             <p className="text-neutral-500 text-sm mt-3 max-w-md mx-auto">
               Check back soon for exclusive capsule releases co-created by UTHY LUXURY and ALOMZIEE FOOTIES.
             </p>
@@ -167,8 +169,27 @@ export default function CollaborationPage() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-24">
-            {allCollabProducts.map((collabProduct) => {
+          <div className="space-y-32">
+            {activeCollabsWithProducts.map((collaboration) => (
+              <div key={collaboration.id} className="space-y-10">
+                {/* COLLABORATION HEADER */}
+                <div className="border-b border-white/10 pb-6">
+                  <p className="text-amber-400 text-xs font-bold uppercase tracking-[0.3em]">
+                    {collaboration.brandA} × {collaboration.brandB}
+                  </p>
+                  <h2 className="text-3xl sm:text-5xl font-black tracking-tight mt-2">
+                    {collaboration.name}
+                  </h2>
+                  {collaboration.description && (
+                    <p className="text-neutral-400 text-sm mt-3 max-w-3xl leading-relaxed">
+                      {collaboration.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* COLLABORATION PRODUCTS */}
+                <div className="space-y-16">
+                  {collaboration.products.map((collabProduct) => {
               const images = parseImages(collabProduct.images);
               const selectedVar = selections[collabProduct.id] || collabProduct.variants?.[0];
               const isAdded = addedIds[collabProduct.id];
@@ -314,6 +335,9 @@ export default function CollaborationPage() {
                 </div>
               );
             })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>
