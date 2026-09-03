@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getProductStockStatus } from "@/lib/product-options";
 
 export default function WishlistPage() {
 const router = useRouter();
@@ -288,12 +289,14 @@ My Account </Link>
                   </svg>
                 </button>
 
-                {Number(product.inventory || 0) <=
-                  0 && (
-                  <span className="absolute bottom-3 left-3 bg-black/80 backdrop-blur-md border border-white/10 text-neutral-300 px-3 py-1.5 rounded-full text-[8px] font-bold uppercase tracking-[0.15em]">
-                    Sold Out
-                  </span>
-                )}
+                {(() => {
+                  const stockStatus = getProductStockStatus(product);
+                  return (
+                    <span className={`absolute top-3 left-3 px-3 py-1.5 rounded-full text-[8px] font-bold uppercase tracking-[0.15em] border backdrop-blur-md ${stockStatus.colorClass}`}>
+                      {stockStatus.label}
+                    </span>
+                  );
+                })()}
               </div>
 
               <Link

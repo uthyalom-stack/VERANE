@@ -41,6 +41,7 @@ function toPublicProduct(product) {
     brand: product.brand,
     inventory: product.inventory,
     initialInventory: product.initialInventory,
+    preOrderEnabled: Boolean(product.preOrderEnabled || product.isPreOrder),
     images: getFirstImage(product.images) ? [getFirstImage(product.images)] : [],
     variants: product.variants || [],
     productColors: product.productColors || [],

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import StorefrontProductActions from "@/components/StorefrontProductActions";
+import { getProductStockStatus } from "@/lib/product-options";
 
 const VALID_BRANDS = ["UTHY_LUXURY", "ALOMZIEE_FOOTIES"];
 
@@ -25,11 +26,12 @@ function getProductImage(images) {
 
 function ProductCard({ product }) {
   const image = getProductImage(product.images);
+  const stockStatus = getProductStockStatus(product);
 
   return (
     <div className="group min-w-0">
       <Link href={`/product/${product.id}`} className="block">
-        <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-white/[0.04]">
+        <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-white/[0.04]">
           {image ? (
             <img
               src={image}
@@ -39,6 +41,12 @@ function ProductCard({ product }) {
           ) : (
             <div className="flex h-full items-center justify-center text-2xl text-white/10">V</div>
           )}
+
+          <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-1">
+            <span className={`rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] backdrop-blur-md ${stockStatus.colorClass}`}>
+              {stockStatus.label}
+            </span>
+          </div>
         </div>
       </Link>
 
