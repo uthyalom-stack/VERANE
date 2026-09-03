@@ -193,7 +193,7 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Campaign name is required" }, { status: 400 });
     }
 
-    const baseSlug = `${brand.toLowerCase()}-${slugify(platform || "campaign")}-${slugify(name)}`;
+    const baseSlug = `${brand.toLowerCase()}-${slugify(name)}`;
     let slug = baseSlug;
     let count = 1;
 

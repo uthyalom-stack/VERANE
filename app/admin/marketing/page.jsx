@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { HorizontalBarChart, DonutChart, AreaTrendChart } from "@/components/admin/AnalyticsCharts";
+import { HorizontalBarChart } from "@/components/admin/AnalyticsCharts";
 
 export default function MarketingAdminPage() {
   const [data, setData] = useState(null);
+  const [destinationsData, setDestinationsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copiedSlug, setCopiedSlug] = useState(null);
@@ -15,11 +16,15 @@ export default function MarketingAdminPage() {
   const [platform, setPlatform] = useState("Instagram");
   const [source, setSource] = useState("ig_bio");
   const [medium, setMedium] = useState("social");
-  const [destination, setDestination] = useState("/");
+
+  // Destination Dropdown State
+  const [destType, setDestType] = useState("static"); // "static" | "category" | "collection" | "product"
+  const [selectedSubDest, setSelectedSubDest] = useState("/");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchCampaigns();
+    fetchDestinations();
   }, []);
 
   async function fetchCampaigns() {
@@ -41,6 +46,36 @@ export default function MarketingAdminPage() {
     }
   }
 
+  async function fetchDestinations() {
+    try {
+      const res = await fetch("/api/admin/marketing/destinations");
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setDestinationsData(json.destinations);
+        if (json.destinations?.static?.length > 0) {
+          setSelectedSubDest(json.destinations.static[0].value);
+        }
+      }
+    } catch (err) {
+      console.error("Fetch destinations error:", err);
+    }
+  }
+
+  function handleDestTypeChange(type) {
+    setDestType(type);
+    if (type === "static" && destinationsData?.static?.length > 0) {
+      setSelectedSubDest(destinationsData.static[0].value);
+    } else if (type === "category" && destinationsData?.categories?.length > 0) {
+      setSelectedSubDest(destinationsData.categories[0].value);
+    } else if (type === "collection" && destinationsData?.collections?.length > 0) {
+      setSelectedSubDest(destinationsData.collections[0].value);
+    } else if (type === "product" && destinationsData?.products?.length > 0) {
+      setSelectedSubDest(destinationsData.products[0].value);
+    } else {
+      setSelectedSubDest("/");
+    }
+  }
+
   async function handleCreateCampaign(e) {
     e.preventDefault();
     if (!name.trim()) {
@@ -55,7 +90,13 @@ export default function MarketingAdminPage() {
       const res = await fetch("/api/admin/marketing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, platform, source, medium, destination }),
+        body: JSON.stringify({
+          name,
+          platform,
+          source,
+          medium,
+          destination: selectedSubDest,
+        }),
       });
 
       const json = await res.json();
@@ -142,94 +183,151 @@ export default function MarketingAdminPage() {
       <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-4">
         <h2 className="text-base font-bold text-white">Create Tracking Link / Campaign</h2>
 
-        <form onSubmit={handleCreateCampaign} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-          <div>
-            <label className="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">
-              Campaign Name
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. September Launch"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
-              required
-            />
+        <form onSubmit={handleCreateCampaign} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">
+                Campaign Name
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. ZK or September Launch"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">
+                Platform
+              </label>
+              <select
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+              >
+                <option value="Instagram">Instagram</option>
+                <option value="X">X (Twitter)</option>
+                <option value="Facebook">Facebook</option>
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="TikTok">TikTok</option>
+                <option value="Google">Google</option>
+                <option value="Influencer">Influencer</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">
+                Source
+              </label>
+              <input
+                type="text"
+                placeholder="ig_bio or newsletter"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">
+                Medium
+              </label>
+              <input
+                type="text"
+                placeholder="social or organic"
+                value={medium}
+                onChange={(e) => setMedium(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">
-              Platform
-            </label>
-            <select
-              value={platform}
-              onChange={(e) => setPlatform(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+          {/* DESTINATION DROPDOWNS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2 border-t border-white/5 items-end">
+            <div>
+              <label className="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">
+                Target Destination Type
+              </label>
+              <select
+                value={destType}
+                onChange={(e) => handleDestTypeChange(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+              >
+                <option value="static">Page / Storefront</option>
+                <option value="category">Product Category</option>
+                <option value="collection">Curated Collection</option>
+                <option value="product">Individual Product</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">
+                Select Destination Path
+              </label>
+              <select
+                value={selectedSubDest}
+                onChange={(e) => setSelectedSubDest(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs font-mono text-amber-400 focus:border-amber-400 focus:outline-none"
+              >
+                {destType === "static" &&
+                  destinationsData?.static?.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label} ({item.value})
+                    </option>
+                  ))}
+
+                {destType === "category" &&
+                  destinationsData?.categories?.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label} ({item.value})
+                    </option>
+                  ))}
+
+                {destType === "collection" &&
+                  destinationsData?.collections?.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label} ({item.value})
+                    </option>
+                  ))}
+
+                {destType === "product" &&
+                  destinationsData?.products?.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label} ({item.value})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full rounded-xl bg-amber-500 py-2.5 px-4 text-xs font-bold text-black transition hover:bg-amber-400 disabled:opacity-50"
             >
-              <option value="Instagram">Instagram</option>
-              <option value="X">X (Twitter)</option>
-              <option value="Facebook">Facebook</option>
-              <option value="WhatsApp">WhatsApp</option>
-              <option value="TikTok">TikTok</option>
-              <option value="Google">Google</option>
-              <option value="Influencer">Influencer</option>
-              <option value="Other">Other</option>
-            </select>
+              {submitting ? "Generating..." : "Generate Shareable Tracking Link"}
+            </button>
           </div>
-
-          <div>
-            <label className="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">
-              Source / Medium
-            </label>
-            <input
-              type="text"
-              placeholder="ig_bio / social"
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">
-              Target Destination
-            </label>
-            <input
-              type="text"
-              placeholder="/ or /storefront/uthy"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-amber-500 py-2 px-4 text-xs font-bold text-black transition hover:bg-amber-400 disabled:opacity-50"
-          >
-            {submitting ? "Generating..." : "Generate Shareable Link"}
-          </button>
         </form>
       </div>
 
-      {/* VISUAL CHARTS SECTION */}
+      {/* VISUAL CHARTS SECTION - HORIZONTAL BAR CHART */}
       {data?.campaigns?.length ? (
-        <div className="grid lg:grid-cols-2 gap-6">
-          <HorizontalBarChart
-            items={data.campaigns.map((c) => ({ id: c.id, name: c.name, revenue: c.revenue, unitsSold: c.clicks, orders: c.orders }))}
-            title="Campaign Revenue & Traffic Rankings Chart"
-            subtitle="Comparing campaign performance by Revenue, Clicks, and Orders"
-            isCurrency={true}
-          />
-
-          <DonutChart
-            items={data.campaigns.map((c) => ({ name: c.name, revenue: c.revenue || c.clicks }))}
-            title="Campaign Traffic & Revenue Distribution Chart"
-            subtitle="Proportional campaign contribution share"
-            isCurrency={data.campaigns.some((c) => c.revenue > 0)}
-          />
-        </div>
+        <HorizontalBarChart
+          items={data.campaigns.map((c) => ({
+            id: c.id,
+            name: `${c.name} (${c.platform})`,
+            revenue: c.revenue,
+            unitsSold: c.clicks,
+            orders: c.orders,
+          }))}
+          title="Campaign Revenue & Traffic Rankings Bar Chart"
+          subtitle="Interactive visual bar comparison across active marketing campaigns"
+          isCurrency={true}
+        />
       ) : null}
 
       {/* CAMPAIGN LIST */}
@@ -245,8 +343,8 @@ export default function MarketingAdminPage() {
                 <tr className="border-b border-white/10 text-[10px] uppercase tracking-wider text-neutral-500">
                   <th className="pb-3 font-semibold">Campaign / Platform</th>
                   <th className="pb-3 font-semibold">Clean Link</th>
+                  <th className="pb-3 font-semibold">Target Destination</th>
                   <th className="pb-3 font-semibold">Clicks</th>
-                  <th className="pb-3 font-semibold">Unique</th>
                   <th className="pb-3 font-semibold">Orders</th>
                   <th className="pb-3 font-semibold">Conv. Rate</th>
                   <th className="pb-3 font-semibold">Attributed Revenue</th>
@@ -269,8 +367,11 @@ export default function MarketingAdminPage() {
                       /r/{camp.slug}
                     </td>
 
+                    <td className="py-3 font-mono text-[10px] text-neutral-400 truncate max-w-[150px]">
+                      {camp.destination}
+                    </td>
+
                     <td className="py-3 font-semibold text-neutral-200">{camp.clicks}</td>
-                    <td className="py-3 font-semibold text-neutral-200">{camp.uniqueVisitors}</td>
                     <td className="py-3 font-semibold text-emerald-400">{camp.orders}</td>
                     <td className="py-3 font-bold text-white">{camp.conversionRate}%</td>
                     <td className="py-3 font-black text-amber-400">{formatMoney(camp.revenue)}</td>
