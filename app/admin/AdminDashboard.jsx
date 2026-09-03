@@ -136,6 +136,22 @@ export default function AdminDashboard({ admin }) {
                   router.push("/admin/subscribers")
                 }
               />
+
+              <AdminLink
+                title="Marketing"
+                description="Manage tracking links and campaigns"
+                onClick={() =>
+                  router.push("/admin/marketing")
+                }
+              />
+
+              <AdminLink
+                title="Analytics"
+                description="View brand performance dashboard"
+                onClick={() =>
+                  router.push("/admin/analytics")
+                }
+              />
             </div>
           </section>
         )}
@@ -222,14 +238,6 @@ export default function AdminDashboard({ admin }) {
                 description="Manage global site settings"
                 onClick={() =>
                   router.push("/admin/settings")
-                }
-              />
-
-              <AdminLink
-                title="Analytics"
-                description="View platform analytics"
-                onClick={() =>
-                  router.push("/admin")
                 }
               />
             </div>

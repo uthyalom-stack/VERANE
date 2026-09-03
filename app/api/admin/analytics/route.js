@@ -106,37 +106,55 @@ function getItemPrice(item) {
    DATE HELPERS
 ============================================================ */
 
-function getDateRange(range) {
+function getDateRange(range, customStartDate, customEndDate) {
   const now = new Date();
 
   const end = new Date(now);
   const start = new Date(now);
 
+  if (range === "custom" && customStartDate) {
+    const s = new Date(customStartDate);
+    if (!isNaN(s.getTime())) {
+      s.setHours(0, 0, 0, 0);
+      const e = customEndDate ? new Date(customEndDate) : new Date();
+      if (!isNaN(e.getTime())) {
+        e.setHours(23, 59, 59, 999);
+      } else {
+        e.setTime(now.getTime());
+      }
+      return { start: s, end: e };
+    }
+  }
+
   switch (range) {
     case "today":
       start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
       break;
 
     case "7d":
       start.setDate(start.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
       break;
 
     case "30d":
       start.setDate(start.getDate() - 29);
+      start.setHours(0, 0, 0, 0);
       break;
 
     case "90d":
       start.setDate(start.getDate() - 89);
+      start.setHours(0, 0, 0, 0);
       break;
 
     case "1y":
-      start.setFullYear(
-        start.getFullYear() - 1
-      );
+      start.setFullYear(start.getFullYear() - 1);
+      start.setHours(0, 0, 0, 0);
       break;
 
     default:
       start.setDate(start.getDate() - 29);
+      start.setHours(0, 0, 0, 0);
       break;
   }
 
@@ -288,11 +306,11 @@ export async function GET(request) {
        4. DATE RANGE
     ======================================================== */
 
-    const range =
-      searchParams.get("range") || "30d";
+    const range = searchParams.get("range") || "30d";
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
 
-    const { start, end } =
-      getDateRange(range);
+    const { start, end } = getDateRange(range, startDateParam, endDateParam);
 
     /* ========================================================
        5. LOAD PRODUCTS
@@ -323,37 +341,24 @@ export async function GET(request) {
       });
 
     /* ========================================================
-       7. PRODUCT COUNTS
+       7. PRODUCT COUNTS & INVENTORY THRESHOLDS
     ======================================================== */
 
-    const totalProducts =
-      products.length;
+    const totalProducts = products.length;
 
-    const activeProducts =
-      products.filter(
-        (product) =>
-          money(product.inventory) > 0
-      ).length;
+    // Thresholds: 0 = Sold Out, 1–10 = Few Left, 11–40 = Almost Sold Out, 41+ = Available
+    const outOfStockProducts = products.filter((p) => money(p.inventory) <= 0);
+    const fewLeftProducts = products.filter((p) => money(p.inventory) >= 1 && money(p.inventory) <= 10);
+    const almostSoldOutProducts = products.filter((p) => money(p.inventory) >= 11 && money(p.inventory) <= 40);
+    const availableProducts = products.filter((p) => money(p.inventory) >= 41);
 
-    const outOfStockProducts =
-      products.filter(
-        (product) =>
-          money(product.inventory) <= 0
-      );
+    const activeProducts = products.filter((p) => money(p.inventory) > 0).length;
+    const outOfStock = outOfStockProducts.length;
 
-    const outOfStock =
-      outOfStockProducts.length;
-
-    const lowStockProducts =
-      products.filter((product) => {
-        const inventory =
-          money(product.inventory);
-
-        return (
-          inventory > 0 &&
-          inventory <= 5
-        );
-      });
+    const lowStockProducts = products.filter((product) => {
+      const inventory = money(product.inventory);
+      return inventory > 0 && inventory <= 10;
+    });
 
     /* ========================================================
        8. INVENTORY
@@ -622,18 +627,221 @@ export async function GET(request) {
        15. CUSTOMERS
     ======================================================== */
 
-    const customerIds =
-      new Set(
-        validOrders
-          .map(
-            (order) =>
-              order.userId
-          )
-          .filter(Boolean)
-      );
+    const customerIds = new Set(
+      validOrders
+        .map((order) => order.userId)
+        .filter(Boolean)
+    );
 
-    const customerCount =
-      customerIds.size;
+    const customerCount = customerIds.size;
+
+    // Additional customer performance breakdown
+    let newCustomers = 0;
+    let firstTimeBuyers = 0;
+    let returningBuyers = 0;
+
+    if (customerIds.size > 0) {
+      // Find user registration dates in range
+      newCustomers = await prisma.user.count({
+        where: {
+          id: { in: Array.from(customerIds) },
+          createdAt: { gte: start, lte: end },
+        },
+      });
+
+      // Find total historical valid orders for these customers to determine first-time vs returning
+      const historicalOrders = await prisma.order.findMany({
+        where: {
+          userId: { in: Array.from(customerIds) },
+          status: { notIn: ["cancelled", "canceled", "refunded", "refund", "failed", "rejected"] },
+        },
+        select: { userId: true, createdAt: true },
+      });
+
+      const userOrderCounts = new Map();
+      for (const ho of historicalOrders) {
+        if (!ho.userId) continue;
+        userOrderCounts.set(ho.userId, (userOrderCounts.get(ho.userId) || 0) + 1);
+      }
+
+      for (const userId of customerIds) {
+        const count = userOrderCounts.get(userId) || 1;
+        if (count === 1) {
+          firstTimeBuyers += 1;
+        } else {
+          returningBuyers += 1;
+        }
+      }
+    }
+
+    /* ========================================================
+       15A. DETAILED CUSTOMER DATASETS
+    ======================================================== */
+
+    // 1. Daily New User Registrations
+    const newUsersInRange = await prisma.user.findMany({
+      where: {
+        createdAt: { gte: start, lte: end },
+      },
+      select: { id: true, name: true, email: true, createdAt: true },
+    });
+
+    const userSignupDailyMap = new Map();
+    for (const u of newUsersInRange) {
+      const key = formatDate(u.createdAt);
+      userSignupDailyMap.set(key, (userSignupDailyMap.get(key) || 0) + 1);
+    }
+
+    // 2. Customer Performance Table Records
+    const customerPerformanceMap = new Map();
+
+    for (const order of validOrders) {
+      const uId = order.userId;
+      if (!uId) continue;
+
+      const existing = customerPerformanceMap.get(uId) || {
+        id: uId,
+        name: order.user?.name || order.firstName || "Customer",
+        email: order.user?.email || order.email || "No email",
+        orders: 0,
+        units: 0,
+        revenue: 0,
+        firstOrderDate: order.createdAt,
+        lastOrderDate: order.createdAt,
+      };
+
+      existing.orders += 1;
+
+      if (new Date(order.createdAt) < new Date(existing.firstOrderDate)) {
+        existing.firstOrderDate = order.createdAt;
+      }
+      if (new Date(order.createdAt) > new Date(existing.lastOrderDate)) {
+        existing.lastOrderDate = order.createdAt;
+      }
+
+      for (const item of order.items) {
+        if (normalizeBrand(item.product?.brand) === brand) {
+          const qty = money(item.quantity);
+          const prc = getItemPrice(item);
+          existing.units += qty;
+          existing.revenue += qty * prc;
+        }
+      }
+
+      customerPerformanceMap.set(uId, existing);
+    }
+
+    const customerPerformanceList = Array.from(customerPerformanceMap.values()).sort(
+      (a, b) => b.revenue - a.revenue
+    );
+
+    // Single-order vs Multi-order repeat customer breakdown
+    let singleOrderCustomers = 0;
+    let repeatOrderCustomers = 0;
+
+    for (const cp of customerPerformanceList) {
+      if (cp.orders === 1) singleOrderCustomers += 1;
+      else if (cp.orders > 1) repeatOrderCustomers += 1;
+    }
+
+    /* ========================================================
+       15B. DEMAND & WAITING LIST ANALYTICS
+    ======================================================== */
+
+    let waitingListEntries = [];
+    if (productIds.length > 0) {
+      waitingListEntries = await prisma.waitingList.findMany({
+        where: {
+          productId: { in: productIds },
+        },
+        include: {
+          product: {
+            include: { categoryRef: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
+
+    const waitingListCount = waitingListEntries.length;
+
+    // Aggregate demand per product
+    const waitingListByProductMap = new Map();
+    const waitingListByCategoryMap = new Map();
+
+    for (const entry of waitingListEntries) {
+      const pId = entry.productId;
+      const pName = entry.product?.name || "Product";
+      const catName = entry.product?.categoryRef?.name || entry.product?.category || "Uncategorized";
+
+      waitingListByProductMap.set(pId, {
+        id: pId,
+        name: pName,
+        count: (waitingListByProductMap.get(pId)?.count || 0) + 1,
+      });
+
+      waitingListByCategoryMap.set(catName, {
+        name: catName,
+        count: (waitingListByCategoryMap.get(catName)?.count || 0) + 1,
+      });
+    }
+
+    const demandByProduct = Array.from(waitingListByProductMap.values()).sort((a, b) => b.count - a.count);
+    const demandByCategory = Array.from(waitingListByCategoryMap.values()).sort((a, b) => b.count - a.count);
+
+    /* ========================================================
+       15C. RESTOCK PRIORITY RANKING
+    ======================================================== */
+
+    // Priority Score formula: (Waiting List Count * 5) + (Units Sold in Period * 2) - Current Inventory
+    const restockPriorityList = products.map((prod) => {
+      const pId = prod.id;
+      const pName = prod.name;
+      const inv = money(prod.inventory);
+      const stats = productStats.get(pId) || { unitsSold: 0, revenue: 0 };
+      const demand = waitingListByProductMap.get(pId)?.count || 0;
+
+      const priorityScore = demand * 5 + stats.unitsSold * 2 - inv;
+
+      return {
+        id: pId,
+        name: pName,
+        category: prod.categoryRef?.name || prod.category || "Uncategorized",
+        inventory: inv,
+        price: getProductPrice(prod),
+        unitsSold: stats.unitsSold,
+        revenue: stats.revenue,
+        waitingListDemand: demand,
+        priorityScore,
+        urgencyBadge: inv <= 0 && demand > 0 ? "Critical Restock" : inv <= 10 ? "Low Stock Risk" : "Normal",
+      };
+    }).sort((a, b) => b.priorityScore - a.priorityScore);
+
+    // Top Inventory Holdings
+    const topInventoryHoldings = products
+      .map((prod) => ({
+        id: prod.id,
+        name: prod.name,
+        inventory: money(prod.inventory),
+        valuation: money(prod.inventory) * getProductPrice(prod),
+      }))
+      .sort((a, b) => b.inventory - a.inventory)
+      .slice(0, 10);
+
+    // Units Sold vs Current Stock Velocity
+    const velocityComparison = products
+      .map((prod) => {
+        const stats = productStats.get(prod.id) || { unitsSold: 0 };
+        return {
+          id: prod.id,
+          name: prod.name,
+          unitsSold: stats.unitsSold,
+          currentStock: money(prod.inventory),
+        };
+      })
+      .filter((p) => p.unitsSold > 0 || p.currentStock > 0)
+      .sort((a, b) => b.unitsSold - a.unitsSold)
+      .slice(0, 10);
 
     /* ========================================================
        16. PRODUCT PERFORMANCE
@@ -672,6 +880,73 @@ export async function GET(request) {
         .slice(0, 10);
 
     /* ========================================================
+       17B. PREVIOUS PERIOD COMPARISON
+    ======================================================== */
+
+    const durationMs = end.getTime() - start.getTime();
+    const prevEnd = new Date(start.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - durationMs);
+
+    let prevRevenue = 0;
+    let prevOrderCount = 0;
+    let prevUnitsSold = 0;
+
+    if (productIds.length > 0) {
+      const prevOrdersList = await prisma.order.findMany({
+        where: {
+          createdAt: {
+            gte: prevStart,
+            lte: prevEnd,
+          },
+          items: {
+            some: {
+              productId: {
+                in: productIds,
+              },
+            },
+          },
+        },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      });
+
+      const validPrevOrders = prevOrdersList.filter(
+        (o) => !isCancelledStatus(o.status)
+      );
+
+      prevOrderCount = validPrevOrders.length;
+
+      for (const po of validPrevOrders) {
+        for (const pi of po.items) {
+          if (normalizeBrand(pi.product?.brand) === brand) {
+            const qty = money(pi.quantity);
+            const prc = getItemPrice(pi);
+            prevUnitsSold += qty;
+            prevRevenue += qty * prc;
+          }
+        }
+      }
+    }
+
+    const prevAOV = prevOrderCount > 0 ? prevRevenue / prevOrderCount : 0;
+
+    const comparisons = {
+      prevRevenue,
+      prevOrders: prevOrderCount,
+      prevUnitsSold,
+      prevAOV,
+      revenueChange: prevRevenue > 0 ? ((revenue - prevRevenue) / prevRevenue) * 100 : null,
+      ordersChange: prevOrderCount > 0 ? ((orderCount - prevOrderCount) / prevOrderCount) * 100 : null,
+      unitsChange: prevUnitsSold > 0 ? ((unitsSold - prevUnitsSold) / prevUnitsSold) * 100 : null,
+      aovChange: prevAOV > 0 ? ((averageOrderValue - prevAOV) / prevAOV) * 100 : null,
+    };
+
+    /* ========================================================
        18. DAILY ANALYTICS
     ======================================================== */
 
@@ -699,6 +974,8 @@ export async function GET(request) {
         orders: 0,
 
         unitsSold: 0,
+
+        newSignups: userSignupDailyMap.get(key) || 0,
       });
     }
 
@@ -966,12 +1243,29 @@ export async function GET(request) {
           customers:
             customerCount,
 
+          newCustomers,
+
+          firstTimeBuyers,
+
+          returningBuyers,
+
+          waitingListCount,
+
           products:
             totalProducts,
 
           activeProducts,
 
           outOfStock,
+
+          fewLeft:
+            fewLeftProducts.length,
+
+          almostSoldOut:
+            almostSoldOutProducts.length,
+
+          available:
+            availableProducts.length,
 
           lowStock:
             lowStockProducts.length,
@@ -981,6 +1275,22 @@ export async function GET(request) {
           totalInventoryUnits,
 
           stockHealth,
+
+          comparisons,
+        },
+
+        inventoryData: {
+          statusBreakdown: [
+            { name: "Sold Out", value: outOfStock },
+            { name: "Few Left (1–10)", value: fewLeftProducts.length },
+            { name: "Almost Sold Out (11–40)", value: almostSoldOutProducts.length },
+            { name: "Available (41+)", value: availableProducts.length },
+          ],
+          topHoldings: topInventoryHoldings,
+          velocityComparison,
+          restockPriority: restockPriorityList,
+          demandByProduct,
+          demandByCategory,
         },
 
         analytics: {
@@ -994,6 +1304,66 @@ export async function GET(request) {
           topCategories,
 
           topCollections,
+        },
+
+        marketingSummary: await (async () => {
+          const campaigns = await prisma.campaign.findMany({
+            where: { brand },
+            include: {
+              visits: { where: { createdAt: { gte: start, lte: end } } },
+              orders: {
+                where: { createdAt: { gte: start, lte: end } },
+                include: {
+                  order: { include: { items: { include: { product: true } } } },
+                },
+              },
+            },
+          });
+
+          let totalVisits = 0;
+          const visitorSet = new Set();
+          let attributedOrdersCount = 0;
+          let attributedRevenue = 0;
+
+          for (const c of campaigns) {
+            totalVisits += c.visits.length;
+            for (const v of c.visits) visitorSet.add(v.visitorId);
+
+            const validAttrs = c.orders.filter(
+              (o) => o.order && !isCancelledStatus(o.order.status)
+            );
+
+            attributedOrdersCount += validAttrs.length;
+
+            for (const attr of validAttrs) {
+              for (const item of attr.order.items) {
+                if (normalizeBrand(item.product?.brand) === brand) {
+                  const qty = money(item.quantity);
+                  const prc = getItemPrice(item);
+                  attributedRevenue += qty * prc;
+                }
+              }
+            }
+          }
+
+          const uniqueVisitors = visitorSet.size;
+          const conversionRate = uniqueVisitors > 0 ? ((attributedOrdersCount / uniqueVisitors) * 100).toFixed(1) : 0;
+
+          return {
+            visits: totalVisits,
+            uniqueVisitors,
+            orders: attributedOrdersCount,
+            revenue: attributedRevenue,
+            conversionRate,
+          };
+        })(),
+
+        customersData: {
+          list: customerPerformanceList,
+          singleOrderCustomers,
+          repeatOrderCustomers,
+          avgOrdersPerCustomer: customerCount > 0 ? (orderCount / customerCount).toFixed(1) : 0,
+          avgSpendPerCustomer: customerCount > 0 ? revenue / customerCount : 0,
         },
 
         inventory: {
