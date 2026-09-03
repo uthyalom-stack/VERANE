@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getProductStockStatus } from "@/lib/product-options";
 
 function formatPrice(price) {
   return `₦${Number(price || 0).toLocaleString("en-NG")}`;
@@ -154,6 +155,7 @@ export default function BrandStorefront({ brand }) {
                   const image = Array.isArray(product.images)
                     ? product.images[0]
                     : "";
+                  const stockStatus = getProductStockStatus(product);
 
                   return (
                     <Link
@@ -161,7 +163,7 @@ export default function BrandStorefront({ brand }) {
                       href={`/product/${product.id}`}
                       className="group block"
                     >
-                      <div className="aspect-[4/5] overflow-hidden rounded-2xl bg-neutral-950">
+                      <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-neutral-950">
                         {image ? (
                           <img
                             src={image}
@@ -173,6 +175,12 @@ export default function BrandStorefront({ brand }) {
                             V
                           </div>
                         )}
+
+                        <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-1">
+                          <span className={`rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] backdrop-blur-md ${stockStatus.colorClass}`}>
+                            {stockStatus.label}
+                          </span>
+                        </div>
                       </div>
                       <div className="px-1 pt-3">
                         <p className="truncate text-sm font-medium text-white/90">

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { productRequiresOptions, getProductStockStatus } from "@/lib/product-options";
 
 const categories = [
   { id: "all", name: "All" },
@@ -491,12 +493,14 @@ console.log("CATALOG PRODUCTS:", productsData);
     }
   };
 
+  const router = useRouter();
+
   /*
    * =====================================================
-   * INSTANT CART
+   * PRODUCT CARD ACTION (CHECK OPTIONS vs ADD TO CART)
    * =====================================================
    */
-  const addToCart = (
+  const handleProductCardAction = (
     event,
     product
   ) => {
@@ -507,10 +511,15 @@ console.log("CATALOG PRODUCTS:", productsData);
       return;
     }
 
-    const inventory =
-      getInventory(product);
-
+    const inventory = getInventory(product);
     if (inventory <= 0) {
+      return;
+    }
+
+    const requiresOptions = productRequiresOptions(product);
+
+    if (requiresOptions) {
+      router.push(`/product/${product.id}`);
       return;
     }
 
@@ -524,9 +533,7 @@ console.log("CATALOG PRODUCTS:", productsData);
 
       try {
         cart = JSON.parse(
-          localStorage.getItem(
-            "cart"
-          ) ||
+          localStorage.getItem("cart") ||
             '{"items":[],"total":0,"event":"Verane"}'
         );
       } catch {
@@ -541,22 +548,13 @@ console.log("CATALOG PRODUCTS:", productsData);
         cart.items = [];
       }
 
-      const existing =
-        cart.items.find(
-          (item) =>
-            item.id === product.id
-        );
+      const existing = cart.items.find(
+        (item) => item.id === product.id
+      );
 
       if (existing) {
-        const currentQty =
-          Number(
-            existing.qty || 0
-          );
-
-        existing.qty = Math.min(
-          currentQty + 1,
-          inventory
-        );
+        const currentQty = Number(existing.qty || 0);
+        existing.qty = Math.min(currentQty + 1, inventory);
       } else {
         cart.items.push({
           ...product,
@@ -564,49 +562,23 @@ console.log("CATALOG PRODUCTS:", productsData);
         });
       }
 
-      cart.total =
-        cart.items.reduce(
-          (sum, item) =>
-            sum +
-            Number(
-              item.price || 0
-            ) *
-              Number(
-                item.qty || 0
-              ),
-          0
-        );
-
-      localStorage.setItem(
-        "cart",
-        JSON.stringify(cart)
+      cart.total = cart.items.reduce(
+        (sum, item) =>
+          sum +
+          Number(item.price || 0) * Number(item.qty || 0),
+        0
       );
 
-      /*
-       * Tell the rest of the site that
-       * the cart changed.
-       */
-      window.dispatchEvent(
-        new CustomEvent(
-          "cart-updated"
-        )
-      );
+      localStorage.setItem("cart", JSON.stringify(cart));
+      window.dispatchEvent(new CustomEvent("cart-updated"));
     } catch (error) {
-      console.error(
-        "Failed to add product to cart:",
-        error
-      );
+      console.error("Failed to add product to cart:", error);
     } finally {
-      /*
-       * Very short visual feedback.
-       */
       setTimeout(() => {
-        setCartLoading(
-          (previous) => ({
-            ...previous,
-            [product.id]: false,
-          })
-        );
+        setCartLoading((previous) => ({
+          ...previous,
+          [product.id]: false,
+        }));
       }, 350);
     }
   };
@@ -886,29 +858,14 @@ console.log("CATALOG PRODUCTS:", productsData);
 
                       {/* PRE-ORDER / STOCK BADGES */}
                       <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-1">
-                        {product.preOrderEnabled ? (
-                          <span className="rounded-full bg-amber-400 text-black px-3 py-1 text-[9px] font-black uppercase tracking-wider">
-                            Pre-Order
-                          </span>
-                        ) : (
-                          <span className={`rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-wider backdrop-blur border ${
-                            inventory <= 0
-                              ? "bg-black/80 text-red-400 border-red-500/30"
-                              : inventory <= 10
-                              ? "bg-black/80 text-orange-400 border-orange-400/30"
-                              : inventory <= 40
-                              ? "bg-black/80 text-amber-400 border-amber-400/30"
-                              : "bg-black/80 text-emerald-400 border-emerald-400/30"
-                          }`}>
-                            {inventory <= 0
-                              ? "Sold Out"
-                              : inventory <= 10
-                              ? "Few Left"
-                              : inventory <= 40
-                              ? "Almost Sold Out"
-                              : "Available"}
-                          </span>
-                        )}
+                        {(() => {
+                          const stockStatus = getProductStockStatus(product);
+                          return (
+                            <span className={`rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-wider backdrop-blur border ${stockStatus.colorClass}`}>
+                              {stockStatus.label}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       {/* TOP ACTIONS */}
@@ -954,14 +911,14 @@ console.log("CATALOG PRODUCTS:", productsData);
                           )}
                         </button>
 
-                        {/* QUICK ADD TO CART */}
+                        {/* QUICK ADD / CHECK OPTIONS */}
                         {!isOutOfStock && (
                           <button
                             type="button"
                             onClick={(
                               event
                             ) =>
-                              addToCart(
+                              handleProductCardAction(
                                 event,
                                 product
                               )
@@ -969,7 +926,7 @@ console.log("CATALOG PRODUCTS:", productsData);
                             disabled={
                               isCartBusy
                             }
-                            aria-label="Add to cart"
+                            aria-label={productRequiresOptions(product) ? "Check options" : "Add to cart"}
                             className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/60 text-white backdrop-blur-xl transition-all hover:border-amber-400/70 hover:bg-amber-500 hover:text-black ${
                               isCartBusy
                                 ? "cursor-wait opacity-70"
@@ -985,14 +942,14 @@ console.log("CATALOG PRODUCTS:", productsData);
                         )}
                       </div>
 
-                      {/* DESKTOP QUICK ADD */}
+                      {/* DESKTOP QUICK ADD / CHECK OPTIONS */}
                       {!isOutOfStock && (
                         <button
                           type="button"
                           onClick={(
                             event
                           ) =>
-                            addToCart(
+                            handleProductCardAction(
                               event,
                               product
                             )
@@ -1004,6 +961,8 @@ console.log("CATALOG PRODUCTS:", productsData);
                         >
                           {isCartBusy
                             ? "Adding..."
+                            : productRequiresOptions(product)
+                            ? "CHECK OPTIONS"
                             : "Quick Add to Cart"}
                         </button>
                       )}

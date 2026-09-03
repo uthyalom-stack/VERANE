@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import BrandSectionsContent from "@/app/admin/brand-sections/page";
+
 export default function HomepageSettings() {
   const router = useRouter();
 
+  const [sessionAdmin, setSessionAdmin] = useState(null);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -19,14 +22,30 @@ export default function HomepageSettings() {
   });
 
   useEffect(() => {
-    const auth = localStorage.getItem("adminAuth");
+    async function checkSession() {
+      try {
+        const res = await fetch("/api/admin/session", { cache: "no-store" });
+        const data = await res.json().catch(() => null);
 
-    if (auth !== "true") {
-      router.replace("/admin/login");
-      return;
+        if (!res.ok || !data?.admin) {
+          router.replace("/admin/login");
+          return;
+        }
+
+        setSessionAdmin(data.admin);
+
+        if (data.admin.role === "SUPERADMIN") {
+          loadSections();
+        } else {
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Session load error:", err);
+        router.replace("/admin/login");
+      }
     }
 
-    loadSections();
+    checkSession();
   }, [router]);
 
   async function loadSections() {
@@ -287,6 +306,10 @@ export default function HomepageSettings() {
         </p>
       </main>
     );
+  }
+
+  if (sessionAdmin && sessionAdmin.role !== "SUPERADMIN") {
+    return <BrandSectionsContent />;
   }
 
   return (

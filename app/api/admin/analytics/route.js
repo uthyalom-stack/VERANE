@@ -346,11 +346,29 @@ export async function GET(request) {
 
     const totalProducts = products.length;
 
-    // Thresholds: 0 = Sold Out, 1–10 = Few Left, 11–40 = Almost Sold Out, 41+ = Available
+    // Percentage-based Thresholds: 0% = Sold Out, 1%–25% = Few Left, 26%–50% = Almost Sold Out, >50% = Available
+    const getPct = (p) => {
+      const inv = money(p.inventory);
+      const initInv = money(p.initialInventory) || inv;
+      return initInv > 0 ? (inv / initInv) * 100 : (inv > 0 ? 100 : 0);
+    };
+
     const outOfStockProducts = products.filter((p) => money(p.inventory) <= 0);
-    const fewLeftProducts = products.filter((p) => money(p.inventory) >= 1 && money(p.inventory) <= 10);
-    const almostSoldOutProducts = products.filter((p) => money(p.inventory) >= 11 && money(p.inventory) <= 40);
-    const availableProducts = products.filter((p) => money(p.inventory) >= 41);
+    const fewLeftProducts = products.filter((p) => {
+      const inv = money(p.inventory);
+      const pct = getPct(p);
+      return inv > 0 && pct <= 25;
+    });
+    const almostSoldOutProducts = products.filter((p) => {
+      const inv = money(p.inventory);
+      const pct = getPct(p);
+      return inv > 0 && pct > 25 && pct <= 50;
+    });
+    const availableProducts = products.filter((p) => {
+      const inv = money(p.inventory);
+      const pct = getPct(p);
+      return inv > 0 && pct > 50;
+    });
 
     const activeProducts = products.filter((p) => money(p.inventory) > 0).length;
     const outOfStock = outOfStockProducts.length;
@@ -1282,9 +1300,9 @@ export async function GET(request) {
         inventoryData: {
           statusBreakdown: [
             { name: "Sold Out", value: outOfStock },
-            { name: "Few Left (1–10)", value: fewLeftProducts.length },
-            { name: "Almost Sold Out (11–40)", value: almostSoldOutProducts.length },
-            { name: "Available (41+)", value: availableProducts.length },
+            { name: "Few Left (1–25%)", value: fewLeftProducts.length },
+            { name: "Almost Sold Out (26–50%)", value: almostSoldOutProducts.length },
+            { name: "Available (>50%)", value: availableProducts.length },
           ],
           topHoldings: topInventoryHoldings,
           velocityComparison,

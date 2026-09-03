@@ -50,25 +50,27 @@ export default function BrandSectionsPage() {
     });
 
   useEffect(() => {
-    const auth =
-      localStorage.getItem("adminAuth");
+    async function initSession() {
+      try {
+        const res = await fetch("/api/admin/session", { cache: "no-store" });
+        const data = await res.json().catch(() => null);
 
-    if (auth !== "true") {
-      router.replace("/admin/login");
-      return;
+        if (!res.ok || !data?.admin) {
+          router.replace("/admin/login");
+          return;
+        }
+
+        const adminBrand = data.admin.role === "UTHY" ? "UTHY_LUXURY" : data.admin.role === "ALOMZIEE" ? "ALOMZIEE_FOOTIES" : brand;
+        setBrand(adminBrand);
+        loadBrand(adminBrand);
+      } catch (err) {
+        console.error("Session load error:", err);
+        router.replace("/admin/login");
+      }
     }
 
-    loadBrand(brand);
+    initSession();
   }, [router]);
-
-  useEffect(() => {
-    if (
-      localStorage.getItem("adminAuth") ===
-      "true"
-    ) {
-      loadBrand(brand);
-    }
-  }, [brand]);
 
   async function loadBrand(selectedBrand) {
     try {

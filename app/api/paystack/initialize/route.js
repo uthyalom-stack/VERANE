@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
-import { initializePaystackTransaction } from "@/lib/paystack";
+import { initializePaystackTransaction, calculateOrderTotalsServer } from "@/lib/paystack";
 import { verifyCustomerSession, getCustomerCookieName } from "@/lib/auth/customer";
 
 async function getSession() {
@@ -57,10 +57,7 @@ export async function POST(request) {
     const body = await request.json();
 
     const {
-      items,
-      subtotal,
-      shippingFee,
-      total,
+      items: rawItems,
       firstName,
       lastName,
       email,
@@ -72,7 +69,7 @@ export async function POST(request) {
       address,
     } = body;
 
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(rawItems) || rawItems.length === 0) {
       return NextResponse.json({ success: false, error: "Cart is empty." }, { status: 400 });
     }
 
@@ -83,19 +80,32 @@ export async function POST(request) {
       );
     }
 
+    // 1. NEVER TRUST CLIENT MONEY: Recalculate merchandise subtotal, shipping fee, and total server-side
+    const calculation = await calculateOrderTotalsServer({
+      items: rawItems,
+      country: country || "Nigeria",
+      state,
+      city,
+      zone,
+    });
+
+    const trustedSubtotal = calculation.subtotal;
+    const trustedShippingFee = calculation.shippingFee;
+    const trustedGrandTotal = calculation.total;
+    const validatedItems = calculation.items;
+
     const reference = generateReference();
-    const grandTotal = Number(total || 0);
-    const amountInKobo = Math.round(grandTotal * 100);
+    const amountInKobo = Math.round(trustedGrandTotal * 100);
 
     const origin = request.nextUrl.origin;
     const callbackUrl = `${origin}/api/paystack/verify?reference=${reference}`;
 
-    // Create a pending Order with pendingCheckoutData attached
+    // 2. Store server-calculated snapshot in pendingCheckoutData
     const pendingCheckoutData = JSON.stringify({
-      items,
-      subtotal,
-      shippingFee,
-      total: grandTotal,
+      items: validatedItems,
+      subtotal: trustedSubtotal,
+      shippingFee: trustedShippingFee,
+      total: trustedGrandTotal,
       firstName,
       lastName,
       email,
@@ -114,8 +124,8 @@ export async function POST(request) {
         paymentReference: reference,
         paymentStatus: "pending",
         status: "pending",
-        total: grandTotal,
-        shippingFee: Number(shippingFee || 0),
+        total: trustedGrandTotal,
+        shippingFee: trustedShippingFee,
         firstName: firstName || null,
         lastName: lastName || null,
         email,
@@ -139,7 +149,7 @@ export async function POST(request) {
         reference,
         userId,
         email,
-        shippingFee,
+        shippingFee: trustedShippingFee,
       },
     });
 

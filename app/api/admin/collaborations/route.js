@@ -59,28 +59,32 @@ function brandName(brand) {
 |
 */
 
+import { getAdminSession } from "@/lib/admin-auth";
+
 export async function GET(request) {
   try {
+    const session = await getAdminSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
 
-    const requestedBrand =
-      searchParams.get("brand");
-
-    const brand =
-      normalizeBrand(requestedBrand);
-
-    /*
-     * No brand supplied:
-     * return everything.
-     *
-     * Useful for Super Admin.
-     */
+    let brand = null;
+    if (session.role === "UTHY") {
+      brand = "UTHY";
+    } else if (session.role === "ALOMZIEE") {
+      brand = "ALOMZIEE";
+    } else if (session.role === "SUPERADMIN") {
+      const requestedBrand = searchParams.get("brand");
+      brand = normalizeBrand(requestedBrand);
+    }
 
     if (!brand || brand === "SUPERADMIN") {
-      const [
-        requests,
-        collaborations,
-      ] = await Promise.all([
+      const [requests, collaborations] = await Promise.all([
         prisma.collaborationRequest.findMany({
           include: {
             collaboration: true,
@@ -117,259 +121,147 @@ export async function GET(request) {
       });
     }
 
-    /*
-     * Incoming:
-     * other brand -> this brand
-     */
+    const incoming = await prisma.collaborationRequest.findMany({
+      where: {
+        toBrand: brand,
+      },
+      include: {
+        collaboration: true,
+        notifications: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-    const incoming =
-      await prisma.collaborationRequest.findMany({
-        where: {
-          toBrand: brand,
-        },
-        include: {
-          collaboration: true,
-          notifications: true,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
+    const sent = await prisma.collaborationRequest.findMany({
+      where: {
+        fromBrand: brand,
+      },
+      include: {
+        collaboration: true,
+        notifications: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-    /*
-     * Sent:
-     * this brand -> other brand
-     */
-
-    const sent =
-      await prisma.collaborationRequest.findMany({
-        where: {
-          fromBrand: brand,
-        },
-        include: {
-          collaboration: true,
-          notifications: true,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-    /*
-     * Active collaborations where this brand
-     * is either brandA or brandB.
-     */
-
-    const active =
-      await prisma.collaboration.findMany({
-        where: {
-          status: "active",
-          OR: [
-            {
-              brandA: brand,
-            },
-            {
-              brandB: brand,
-            },
-          ],
-        },
-        include: {
-          requests: {
-            orderBy: {
-              createdAt: "desc",
-            },
-          },
-
-          products: {
-            include: {
-              productA: true,
-              productB: true,
-            },
-            orderBy: {
-              updatedAt: "desc",
-            },
+    const active = await prisma.collaboration.findMany({
+      where: {
+        status: "active",
+        OR: [
+          { brandA: brand },
+          { brandB: brand },
+        ],
+      },
+      include: {
+        requests: {
+          orderBy: {
+            createdAt: "desc",
           },
         },
-        orderBy: {
-          updatedAt: "desc",
+        products: {
+          include: {
+            productA: true,
+            productB: true,
+          },
+          orderBy: {
+            updatedAt: "desc",
+          },
         },
-      });
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
 
     return NextResponse.json({
       success: true,
-
       brand,
-
       incoming,
       sent,
-
       requests: [
         ...incoming,
         ...sent.filter(
           (sentRequest) =>
             !incoming.some(
-              (incomingRequest) =>
-                incomingRequest.id ===
-                sentRequest.id
+              (incomingRequest) => incomingRequest.id === sentRequest.id
             )
         ),
       ],
-
       active,
       collaborations: active,
     });
   } catch (error) {
-    console.error(
-      "GET COLLABORATIONS ERROR:",
-      error
-    );
+    console.error("GET COLLABORATIONS ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Failed to load collaborations.",
+        error: error?.message || "Failed to load collaborations.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| POST
-|--------------------------------------------------------------------------
-|
-| Creates a collaboration request.
-|
-| Example:
-|
-| {
-|   fromBrand: "UTHY",
-|   toBrand: "ALOMZIEE",
-|   title: "Summer Collaboration",
-|   message: "..."
-| }
-|
-*/
-
 export async function POST(request) {
   try {
+    const session = await getAdminSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    if (session.role !== "UTHY" && session.role !== "ALOMZIEE") {
+      return NextResponse.json(
+        { success: false, error: "Forbidden. Brand admin session required to request collaboration." },
+        { status: 403 }
+      );
+    }
+
+    const fromBrand = session.role;
+    const toBrand = fromBrand === "UTHY" ? "ALOMZIEE" : "UTHY";
+
     const body = await request.json();
 
-    const fromBrand =
-      normalizeBrand(body?.fromBrand);
-
-    const toBrand =
-      normalizeBrand(body?.toBrand);
-
-    const title =
-      String(body?.title || "").trim();
-
-    const message =
-      String(body?.message || "").trim();
-
-    if (!fromBrand) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Sending brand is required.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!toBrand) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Receiving brand is required.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (fromBrand === toBrand) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "A brand cannot collaborate with itself.",
-        },
-        { status: 400 }
-      );
-    }
+    const title = String(body?.title || "").trim();
+    const message = String(body?.message || "").trim();
 
     if (!title) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Collaboration title is required.",
+          error: "Collaboration title is required.",
         },
         { status: 400 }
       );
     }
 
     /*
-     * Prevent multiple pending requests
-     * between the same brands.
+     * Check for an existing duplicate pending request for the same intended collaboration title
      */
-
-    const existing =
-      await prisma.collaborationRequest.findFirst({
-        where: {
-          fromBrand,
-          toBrand,
-          status: "pending",
+    const existingPending = await prisma.collaborationRequest.findFirst({
+      where: {
+        fromBrand,
+        toBrand,
+        title: {
+          equals: title,
+          mode: "insensitive",
         },
-      });
+        status: "pending",
+      },
+    });
 
-    if (existing) {
+    if (existingPending) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "You already have a pending collaboration request with this brand.",
-          request: existing,
-        },
-        { status: 409 }
-      );
-    }
-
-    /*
-     * Check whether the brands already have
-     * an active collaboration.
-     */
-
-    const existingCollaboration =
-      await prisma.collaboration.findFirst({
-        where: {
-          status: "active",
-          OR: [
-            {
-              brandA: fromBrand,
-              brandB: toBrand,
-            },
-            {
-              brandA: toBrand,
-              brandB: fromBrand,
-            },
-          ],
-        },
-      });
-
-    if (existingCollaboration) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "These brands already have an active collaboration.",
-          collaboration:
-            existingCollaboration,
+          error: "You already have a pending collaboration request with this title.",
+          request: existingPending,
         },
         { status: 409 }
       );
@@ -378,42 +270,30 @@ export async function POST(request) {
     /*
      * Create the request.
      */
-
-    const collaborationRequest =
-      await prisma.collaborationRequest.create({
-        data: {
-          fromBrand,
-          toBrand,
-          title,
-          message: message || null,
-          status: "pending",
-        },
-      });
+    const collaborationRequest = await prisma.collaborationRequest.create({
+      data: {
+        fromBrand,
+        toBrand,
+        title,
+        message: message || null,
+        status: "pending",
+      },
+    });
 
     /*
      * Create notification for receiving brand.
      */
-
-    const notification =
-      await prisma.adminNotification.create({
-        data: {
-          recipientBrand: toBrand,
-          type: "COLLABORATION_REQUEST",
-          title:
-            `New collaboration request from ${brandName(
-              fromBrand
-            )}`,
-          message:
-            message ||
-            `${brandName(
-              fromBrand
-            )} wants to collaborate with ${brandName(
-              toBrand
-            )}.`,
-          requestId:
-            collaborationRequest.id,
-        },
-      });
+    const notification = await prisma.adminNotification.create({
+      data: {
+        recipientBrand: toBrand,
+        type: "COLLABORATION_REQUEST",
+        title: `New collaboration request from ${brandName(fromBrand)}`,
+        message:
+          message ||
+          `${brandName(fromBrand)} wants to collaborate with ${brandName(toBrand)}.`,
+        requestId: collaborationRequest.id,
+      },
+    });
 
     return NextResponse.json(
       {
@@ -421,26 +301,17 @@ export async function POST(request) {
         request: collaborationRequest,
         notification,
       },
-      {
-        status: 201,
-      }
+      { status: 201 }
     );
   } catch (error) {
-    console.error(
-      "CREATE COLLABORATION ERROR:",
-      error
-    );
+    console.error("CREATE COLLABORATION ERROR:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Failed to create collaboration request.",
+        error: error?.message || "Failed to create collaboration request.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }

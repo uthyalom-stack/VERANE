@@ -26,6 +26,10 @@ export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [deleteProduct, setDeleteProduct] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function loadProducts() {
     try {
@@ -59,6 +63,35 @@ export default function ProductsPage() {
   useEffect(() => {
     loadProducts();
   }, []);
+
+  async function handleConfirmDelete() {
+    if (!deleteProduct?.id || deleting) return;
+
+    try {
+      setDeleting(true);
+      setError("");
+      setSuccess("");
+
+      const response = await fetch(`/api/products/${deleteProduct.id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to delete product.");
+      }
+
+      setSuccess(data?.message || "Product removed successfully.");
+      setDeleteProduct(null);
+      await loadProducts();
+    } catch (err) {
+      console.error("Product deletion error:", err);
+      setError(err?.message || "Failed to delete product.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -102,6 +135,12 @@ export default function ProductsPage() {
         {error && (
           <div className="mb-6 rounded-2xl border border-red-500/20 bg-red-500/5 px-5 py-4 text-sm text-red-300">
             {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-5 py-4 text-sm text-emerald-300">
+            {success}
           </div>
         )}
 
@@ -195,7 +234,7 @@ export default function ProductsPage() {
                       </span>
                     </div>
 
-                    <div className="mt-5">
+                    <div className="mt-5 flex gap-2">
                       <button
                         type="button"
                         onClick={() =>
@@ -203,9 +242,17 @@ export default function ProductsPage() {
                             `/admin/products/${product.id}/edit`
                           )
                         }
-                        className="w-full rounded-xl border border-white/10 py-3 text-xs font-bold transition hover:bg-white/5"
+                        className="flex-1 rounded-xl border border-white/10 py-3 text-xs font-bold transition hover:bg-white/5"
                       >
                         Edit Product
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setDeleteProduct(product)}
+                        className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-bold text-red-400 transition hover:bg-red-500 hover:text-white"
+                      >
+                        Delete
                       </button>
                     </div>
                   </div>
@@ -215,6 +262,60 @@ export default function ProductsPage() {
           </div>
         )}
       </div>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteProduct && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 px-5 backdrop-blur-md"
+          onClick={() => !deleting && setDeleteProduct(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl border border-white/10 bg-neutral-950 p-6 md:p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-red-400">
+              Confirm Action
+            </p>
+
+            <h2 className="mt-2 text-2xl font-black">
+              Remove Product?
+            </h2>
+
+            <div className="mt-4 rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+              <p className="text-sm font-bold text-white">
+                {deleteProduct.name}
+              </p>
+              <p className="mt-1 text-xs text-neutral-500 uppercase">
+                {deleteProduct.brand}
+              </p>
+            </div>
+
+            <p className="mt-4 text-xs leading-relaxed text-neutral-400">
+              If this product has historical customer orders, it will be safely archived (unassigned from active selling) so customer order history remains 100% intact. Otherwise, it will be permanently deleted.
+            </p>
+
+            <div className="mt-6 flex items-center gap-3">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeleteProduct(null)}
+                className="flex-1 rounded-full border border-white/10 py-3 text-xs font-bold transition hover:bg-white/5"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={handleConfirmDelete}
+                className="flex-1 rounded-full bg-red-500 py-3 text-xs font-bold text-white transition hover:bg-red-600 disabled:opacity-50"
+              >
+                {deleting ? "Processing..." : "Confirm Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

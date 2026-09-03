@@ -41,7 +41,13 @@ function toPublicProduct(product) {
     brand: product.brand,
     inventory: product.inventory,
     initialInventory: product.initialInventory,
+    preOrderEnabled: Boolean(product.preOrderEnabled || product.isPreOrder),
     images: getFirstImage(product.images) ? [getFirstImage(product.images)] : [],
+    variants: product.variants || [],
+    productColors: product.productColors || [],
+    customSizingEnabled: product.customSizingEnabled || false,
+    sizeType: product.sizeType || "none",
+    sizes: product.sizes || [],
   };
 }
 
@@ -62,14 +68,20 @@ export async function GET(request, { params }) {
       prisma.product.findMany({
         where: { brand },
         orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          price: true,
-          brand: true,
-          inventory: true,
-          initialInventory: true,
-          images: true,
+        include: {
+          variants: {
+            orderBy: {
+              createdAt: "asc",
+            },
+            include: {
+              color: true,
+            },
+          },
+          productColors: {
+            orderBy: {
+              createdAt: "asc",
+            },
+          },
         },
       }),
       prisma.siteSetting.findUnique({ where: { key: "brandData" } }),

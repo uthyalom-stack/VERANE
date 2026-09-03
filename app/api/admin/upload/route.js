@@ -26,22 +26,35 @@ function getFileType(file) {
 }
 
 export async function POST(request) {
-  try {
-    if (
-      !process.env.R2_ACCOUNT_ID ||
-      !process.env.R2_ACCESS_KEY_ID ||
-      !process.env.R2_SECRET_ACCESS_KEY ||
-      !process.env.R2_PUBLIC_URL
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Image storage is not configured on the server.",
-        },
-        { status: 500 }
-      );
-    }
+  const startTime = Date.now();
 
+  const configStatus = {
+    R2_ACCOUNT_ID: Boolean(process.env.R2_ACCOUNT_ID?.trim()),
+    R2_ACCESS_KEY_ID: Boolean(process.env.R2_ACCESS_KEY_ID?.trim()),
+    R2_SECRET_ACCESS_KEY: Boolean(process.env.R2_SECRET_ACCESS_KEY?.trim()),
+    R2_PUBLIC_URL: Boolean(process.env.R2_PUBLIC_URL?.trim()),
+    R2_BUCKET_NAME: Boolean(process.env.R2_BUCKET_NAME?.trim()),
+  };
+
+  console.log(`[R2 UPLOAD] Config check at ${new Date(startTime).toISOString()}:`, JSON.stringify(configStatus));
+
+  if (
+    !process.env.R2_ACCOUNT_ID?.trim() ||
+    !process.env.R2_ACCESS_KEY_ID?.trim() ||
+    !process.env.R2_SECRET_ACCESS_KEY?.trim() ||
+    !process.env.R2_PUBLIC_URL?.trim()
+  ) {
+    console.error(`[R2 UPLOAD] Missing required environment variables at ${Date.now() - startTime}ms`);
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Image storage is not configured on the server.",
+      },
+      { status: 500 }
+    );
+  }
+
+  try {
     const formData = await request.formData();
     const file = formData.get("file");
 
@@ -83,18 +96,25 @@ export async function POST(request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
+    console.log(`[R2 UPLOAD] Prepared buffer (${buffer.length} bytes) in ${Date.now() - startTime}ms. Initializing S3Client...`);
+
     const s3 = new S3Client({
       region: "auto",
-      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      endpoint: `https://${process.env.R2_ACCOUNT_ID.trim()}.r2.cloudflarestorage.com`,
       credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+        accessKeyId: process.env.R2_ACCESS_KEY_ID.trim(),
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY.trim(),
       },
+      maxAttempts: 2,
     });
+
+    const bucketName = process.env.R2_BUCKET_NAME?.trim() || "verane";
+
+    console.log(`[R2 UPLOAD] Sending PutObjectCommand to bucket '${bucketName}' at ${Date.now() - startTime}ms...`);
 
     await s3.send(
       new PutObjectCommand({
-        Bucket: "verane",
+        Bucket: bucketName,
         Key: key,
         Body: buffer,
         ContentType: contentType,
@@ -102,7 +122,9 @@ export async function POST(request) {
       })
     );
 
-    const publicUrl = `${process.env.R2_PUBLIC_URL.replace(/\/$/, "")}/${key}`;
+    const publicUrl = `${process.env.R2_PUBLIC_URL.trim().replace(/\/$/, "")}/${key}`;
+
+    console.log(`[R2 UPLOAD] Upload completed successfully in ${Date.now() - startTime}ms`);
 
     return NextResponse.json({
       success: true,
@@ -110,12 +132,17 @@ export async function POST(request) {
       key,
     });
   } catch (error) {
-    console.error("R2 UPLOAD ERROR:", error);
+    const errorDuration = Date.now() - startTime;
+    console.error(`[R2 UPLOAD ERROR] Failed after ${errorDuration}ms:`, {
+      name: error?.name,
+      message: error?.message,
+      code: error?.code,
+    });
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to upload image to storage.",
+        error: error?.message || "Failed to upload image to storage.",
       },
       { status: 500 }
     );
