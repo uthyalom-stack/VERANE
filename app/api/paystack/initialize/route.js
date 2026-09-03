@@ -149,7 +149,7 @@ export async function POST(request) {
         reference,
         userId,
         email,
-        shippingFee,
+        shippingFee: trustedShippingFee,
       },
     });
 
