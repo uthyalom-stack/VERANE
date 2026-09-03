@@ -48,6 +48,16 @@ export async function GET(request) {
       );
     }
 
+    if (!admin.isSuperAdmin && admin.brand !== brand) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden. You can only manage sections for your store.",
+        },
+        { status: 403 }
+      );
+    }
+
     const sections = await prisma.homepageSection.findMany({
       where: {
         key: {
@@ -150,6 +160,16 @@ export async function POST(request) {
       );
     }
 
+    if (!admin.isSuperAdmin && admin.brand !== brand) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden. You can only manage sections for your store.",
+        },
+        { status: 403 }
+      );
+    }
+
     if (!title) {
       return NextResponse.json(
         {
@@ -157,6 +177,16 @@ export async function POST(request) {
           error: "Section name is required.",
         },
         { status: 400 }
+      );
+    }
+
+    if (!admin.isSuperAdmin && admin.brand !== brand) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden. You can only manage sections for your store.",
+        },
+        { status: 403 }
       );
     }
 

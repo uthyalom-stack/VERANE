@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { getAdminSession } from "@/lib/admin-auth";
 
 const globalForPrisma = globalThis;
 
@@ -164,6 +165,25 @@ export async function GET() {
 
 export async function PUT(request) {
   try {
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    if (!admin.isSuperAdmin) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden. Site-level homepage sections are managed by Super Admin only.",
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     if (!Array.isArray(body.sections)) {

@@ -24,8 +24,7 @@ const FALLBACK_SECTIONS = [
     subtitle: "",
     description:
       "UTHY LUXURY and ALOMZIEE FOOTIES. Clothing, footwear and accessories made for people who refuse to look ordinary.",
-    image:
-      "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1800&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "Explore Collection",
     buttonLink: "/catalog",
@@ -38,8 +37,7 @@ const FALLBACK_SECTIONS = [
     title: "Selected Pieces",
     subtitle: "Curated for you",
     description: "",
-    image:
-      "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=900&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "View Collection",
     buttonLink: "/catalog",
@@ -51,8 +49,7 @@ const FALLBACK_SECTIONS = [
     subtitle: "UTHY LUXURY",
     description:
       "Custom shirts, tailored trousers, hoodies and traditional pieces crafted to give your wardrobe its own identity.",
-    image:
-      "https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?auto=format&fit=crop&w=1800&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "Explore UTHY",
     buttonLink: "/uthy",
@@ -64,8 +61,7 @@ const FALLBACK_SECTIONS = [
     subtitle: "ALOMZIEE FOOTIES",
     description:
       "Handmade footwear and accessories built with character - shoes, sandals, slides, boots, belts and bags.",
-    image:
-      "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=1800&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "Explore Alomziee",
     buttonLink: "/alomziee",
@@ -77,8 +73,7 @@ const FALLBACK_SECTIONS = [
     subtitle: "EXCLUSIVE EDITIONS",
     description:
       "Garments from UTHY LUXURY and footwear from ALOMZIEE FOOTIES crafted in unison. Co-created capsule collections designed to be worn together.",
-    image:
-      "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1800&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "Explore Collaborations",
     buttonLink: "/collaborations",
@@ -101,8 +96,7 @@ const FALLBACK_SECTIONS = [
     title: "New Arrivals",
     subtitle: "Just dropped",
     description: "",
-    image:
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&w=900&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "View Everything",
     buttonLink: "/catalog",
@@ -114,8 +108,7 @@ const FALLBACK_SECTIONS = [
     subtitle: "The philosophy",
     description:
       "Two expressions. One philosophy. Pieces created with intention for people who do not want to look like everybody else.",
-    image:
-      "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1800&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "Discover the Story",
     buttonLink: "/about",
@@ -446,22 +439,6 @@ export default async function HomePage() {
               section={hero}
               className="absolute inset-0 w-full h-full object-cover"
             />
-
-            {!hero?.image && (
-              <>
-                <img
-                  src="https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1400&q=85"
-                  alt="Fashion"
-                  className="absolute left-[-10%] top-[-5%] w-[65%] h-[110%] object-cover opacity-35"
-                />
-
-                <img
-                  src="https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=1400&q=85"
-                  alt="Footwear"
-                  className="absolute right-[-10%] top-[-5%] w-[60%] h-[110%] object-cover opacity-30"
-                />
-              </>
-            )}
 
             <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black" />
             <div className="absolute inset-0 bg-gradient-to-r from-black via-black/20 to-black" />
