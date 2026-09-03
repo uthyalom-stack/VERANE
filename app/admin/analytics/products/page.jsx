@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { HorizontalBarChart } from "@/components/admin/AnalyticsCharts";
 
 export default function ProductAnalyticsPage() {
   const [data, setData] = useState(null);
@@ -54,10 +55,6 @@ export default function ProductAnalyticsPage() {
   );
 
   const top10 = sortedProducts.slice(0, 10);
-  const maxMetricVal = Math.max(
-    ...top10.map((p) => Number(p[metric] || 0)),
-    1
-  );
 
   const brandTitle =
     data?.brand === "UTHY"
@@ -83,7 +80,7 @@ export default function ProductAnalyticsPage() {
               {brandTitle} — Product Performance & Best Sellers
             </h1>
             <p className="text-xs text-neutral-400 mt-1 max-w-2xl">
-              Rankings, revenue generation, unit sales, and stock metrics for individual catalog items.
+              Visual rankings, revenue generation, unit sales, and stock metrics for individual catalog items.
             </p>
           </div>
 
@@ -119,88 +116,31 @@ export default function ProductAnalyticsPage() {
           </div>
         ) : data ? (
           <>
-            {/* HORIZONTAL BAR CHART - TOP 10 RANKINGS */}
-            <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-base font-bold text-white">Top 10 Product Rankings</h2>
-                  <p className="text-[11px] text-neutral-400">Visual comparison by key metric</p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-neutral-900 p-1">
-                  {[
-                    { key: "revenue", label: "Revenue" },
-                    { key: "unitsSold", label: "Units Sold" },
-                    { key: "orders", label: "Orders" },
-                    { key: "price", label: "Price" },
-                  ].map((m) => (
-                    <button
-                      key={m.key}
-                      type="button"
-                      onClick={() => setMetric(m.key)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                        metric === m.key
-                          ? "bg-amber-500 text-black"
-                          : "text-neutral-400 hover:text-white hover:bg-white/5"
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {top10.length > 0 ? (
-                <div className="space-y-4">
-                  {top10.map((p, index) => {
-                    const val = Number(p[metric] || 0);
-                    const pct = Math.max((val / maxMetricVal) * 100, 2);
-
-                    return (
-                      <div key={p.id} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-white truncate max-w-[280px] sm:max-w-[400px]">
-                            <span className="text-amber-400 mr-2">{index + 1}.</span>
-                            {p.name}
-                          </span>
-                          <span className="font-black text-amber-400">
-                            {metric === "revenue" || metric === "price"
-                              ? formatMoney(val)
-                              : val.toLocaleString("en-NG")}
-                          </span>
-                        </div>
-                        <div className="w-full h-2.5 rounded-full bg-neutral-900 overflow-hidden border border-white/5">
-                          <div
-                            className="h-full bg-amber-500 rounded-full transition-all duration-300"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-xs text-neutral-500 py-6 text-center">
-                  No product sales data available for this range.
-                </p>
-              )}
-            </div>
+            {/* VISUAL HORIZONTAL BAR CHART - TOP RANKINGS */}
+            <HorizontalBarChart
+              items={top10}
+              title="Best Seller Performance Ranking Chart"
+              subtitle="Interactive bar visualization of top performing catalog items"
+              isCurrency={true}
+            />
 
             {/* PRODUCT PERFORMANCE TABLE */}
             <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-base font-bold text-white">Complete Product Performance</h2>
+                  <h2 className="text-base font-bold text-white">Complete Product Performance Table</h2>
                   <p className="text-[11px] text-neutral-400">All brand products and stock status</p>
                 </div>
 
-                <input
-                  type="text"
-                  placeholder="Filter products..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none w-full sm:w-64"
-                />
+                <div className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    placeholder="Filter products..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="rounded-xl border border-white/10 bg-neutral-900 px-3 py-2 text-xs text-white focus:border-amber-400 focus:outline-none w-full sm:w-64"
+                  />
+                </div>
               </div>
 
               {filteredProducts.length > 0 ? (

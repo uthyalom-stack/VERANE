@@ -23,11 +23,10 @@ export default function AnalyticsCharts({ dailyData = [] }) {
 
   const values = dailyData.map((d) => Number(d[metric] || 0));
   const maxVal = Math.max(...values, 1);
-  const minVal = 0;
 
   const width = 800;
   const height = 240;
-  const paddingX = 40;
+  const paddingX = 45;
   const paddingY = 30;
 
   const chartWidth = width - paddingX * 2;
@@ -47,12 +46,12 @@ export default function AnalyticsCharts({ dailyData = [] }) {
   const areaD = `${pathD} L ${points[points.length - 1].x} ${height - paddingY} L ${points[0].x} ${height - paddingY} Z`;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-base font-bold text-white">Sales Performance</h3>
+          <h3 className="text-base font-bold text-white">Sales & Performance Visualization</h3>
           <p className="text-[11px] text-neutral-400 mt-0.5">
-            Daily breakdown over selected period
+            Daily trend analysis over selected period
           </p>
         </div>
 
@@ -177,9 +176,88 @@ export default function AnalyticsCharts({ dailyData = [] }) {
         )}
       </div>
 
-      <div className="flex items-center justify-between text-[10px] text-neutral-500 mt-2 px-2">
+      <div className="flex items-center justify-between text-[10px] text-neutral-500 px-2">
         <span>{dailyData[0]?.label || ""}</span>
         <span>{dailyData[dailyData.length - 1]?.label || ""}</span>
+      </div>
+    </div>
+  );
+}
+
+export function HorizontalBarChart({ items = [], title, subtitle, isCurrency = true }) {
+  const [metric, setMetric] = useState("revenue"); // "revenue" | "unitsSold" | "orders"
+
+  if (!items || items.length === 0) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 text-center text-xs text-neutral-500">
+        No ranking data available for this section.
+      </div>
+    );
+  }
+
+  const sortedItems = [...items].sort((a, b) => Number(b[metric] || 0) - Number(a[metric] || 0));
+  const maxVal = Math.max(...sortedItems.map((i) => Number(i[metric] || 0)), 1);
+
+  function formatVal(val) {
+    if (metric === "revenue" && isCurrency) {
+      return "₦" + Number(val || 0).toLocaleString("en-NG");
+    }
+    return Number(val || 0).toLocaleString("en-NG");
+  }
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-base font-bold text-white">{title || "Performance Rankings"}</h3>
+          {subtitle && <p className="text-[11px] text-neutral-400 mt-0.5">{subtitle}</p>}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-neutral-900 p-1">
+          {[
+            { key: "revenue", label: "Revenue" },
+            { key: "unitsSold", label: "Units Sold" },
+            { key: "orders", label: "Orders" },
+          ].map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              onClick={() => setMetric(m.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                metric === m.key
+                  ? "bg-amber-500 text-black shadow"
+                  : "text-neutral-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {sortedItems.map((item, index) => {
+          const val = Number(item[metric] || 0);
+          const pct = Math.max((val / maxVal) * 100, 2);
+
+          return (
+            <div key={item.id || item.name || index} className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-white truncate max-w-[280px] sm:max-w-[420px]">
+                  <span className="text-amber-400 mr-2">{index + 1}.</span>
+                  {item.name || "Unnamed"}
+                </span>
+                <span className="font-black text-amber-400">{formatVal(val)}</span>
+              </div>
+              <div className="w-full h-2.5 rounded-full bg-neutral-900 overflow-hidden border border-white/5">
+                <div
+                  className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

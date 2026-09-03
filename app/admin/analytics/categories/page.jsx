@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { HorizontalBarChart } from "@/components/admin/AnalyticsCharts";
 
 export default function CategoryAnalyticsPage() {
   const [data, setData] = useState(null);
@@ -40,9 +41,6 @@ export default function CategoryAnalyticsPage() {
   const topCategories = data?.analytics?.topCategories || [];
   const topCollections = data?.analytics?.topCollections || [];
 
-  const maxCatRevenue = Math.max(...topCategories.map((c) => Number(c.revenue || 0)), 1);
-  const maxColRevenue = Math.max(...topCollections.map((c) => Number(c.revenue || 0)), 1);
-
   const brandTitle =
     data?.brand === "UTHY"
       ? "UTHY LUXURY"
@@ -67,7 +65,7 @@ export default function CategoryAnalyticsPage() {
               {brandTitle} — Category & Collection Analytics
             </h1>
             <p className="text-xs text-neutral-400 mt-1 max-w-2xl">
-              Brand-isolated performance breakdowns across product categories and curated collections.
+              Visual performance breakdowns across product categories and curated collections.
             </p>
           </div>
 
@@ -104,87 +102,21 @@ export default function CategoryAnalyticsPage() {
         ) : data ? (
           <div className="grid lg:grid-cols-2 gap-8">
 
-            {/* CATEGORY PERFORMANCE */}
-            <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-6">
-              <div>
-                <h2 className="text-base font-bold text-white">Category Performance</h2>
-                <p className="text-[11px] text-neutral-400">Revenue and unit sales grouped by category</p>
-              </div>
+            {/* CATEGORY VISUAL CHART */}
+            <HorizontalBarChart
+              items={topCategories}
+              title="Category Performance Visualization"
+              subtitle="Breakdown by Revenue, Units Sold, and Order volume"
+              isCurrency={true}
+            />
 
-              {topCategories.length > 0 ? (
-                <div className="space-y-4">
-                  {topCategories.map((cat, i) => {
-                    const rev = Number(cat.revenue || 0);
-                    const pct = Math.max((rev / maxCatRevenue) * 100, 3);
-
-                    return (
-                      <div key={cat.name || i} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <div>
-                            <span className="font-bold text-white">{cat.name}</span>
-                            <span className="text-[10px] text-neutral-500 ml-2">
-                              ({cat.unitsSold} units)
-                            </span>
-                          </div>
-                          <span className="font-black text-amber-400">{formatMoney(rev)}</span>
-                        </div>
-                        <div className="w-full h-2.5 rounded-full bg-neutral-900 overflow-hidden border border-white/5">
-                          <div
-                            className="h-full bg-amber-500 rounded-full transition-all duration-300"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-xs text-neutral-500 py-8 text-center">
-                  No category sales recorded for this period.
-                </p>
-              )}
-            </div>
-
-            {/* COLLECTION PERFORMANCE */}
-            <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6 space-y-6">
-              <div>
-                <h2 className="text-base font-bold text-white">Collection Performance</h2>
-                <p className="text-[11px] text-neutral-400">Revenue and unit sales grouped by collection</p>
-              </div>
-
-              {topCollections.length > 0 ? (
-                <div className="space-y-4">
-                  {topCollections.map((col, i) => {
-                    const rev = Number(col.revenue || 0);
-                    const pct = Math.max((rev / maxColRevenue) * 100, 3);
-
-                    return (
-                      <div key={col.name || i} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <div>
-                            <span className="font-bold text-white">{col.name}</span>
-                            <span className="text-[10px] text-neutral-500 ml-2">
-                              ({col.unitsSold} units)
-                            </span>
-                          </div>
-                          <span className="font-black text-amber-400">{formatMoney(rev)}</span>
-                        </div>
-                        <div className="w-full h-2.5 rounded-full bg-neutral-900 overflow-hidden border border-white/5">
-                          <div
-                            className="h-full bg-amber-500 rounded-full transition-all duration-300"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-xs text-neutral-500 py-8 text-center">
-                  No collection sales recorded for this period.
-                </p>
-              )}
-            </div>
+            {/* COLLECTION VISUAL CHART */}
+            <HorizontalBarChart
+              items={topCollections}
+              title="Collection Performance Visualization"
+              subtitle="Breakdown by Revenue, Units Sold, and Order volume"
+              isCurrency={true}
+            />
 
           </div>
         ) : null}
