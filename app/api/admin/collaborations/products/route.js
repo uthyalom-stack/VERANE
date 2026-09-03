@@ -68,8 +68,14 @@ export async function POST(request) {
     const body = await request.json();
 
     const collaborationId = String(body?.collaborationId || "").trim();
-    const productAId = String(body?.productAId || "").trim();
-    const productBId = String(body?.productBId || "").trim();
+    let productAId = String(body?.productAId || "").trim();
+    let productBId = String(body?.productBId || "").trim();
+    const sourceProductId = String(body?.sourceProductId || "").trim();
+
+    if (!productAId && sourceProductId) {
+      productAId = sourceProductId;
+    }
+
     const name = String(body?.name || "").trim();
     const description = String(body?.description || "").trim();
     const price = Number(body?.price);
@@ -85,14 +91,7 @@ export async function POST(request) {
 
     if (!productAId) {
       return NextResponse.json(
-        { success: false, error: "Product A is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!productBId) {
-      return NextResponse.json(
-        { success: false, error: "Product B is required." },
+        { success: false, error: "A source store product is required." },
         { status: 400 }
       );
     }
@@ -140,78 +139,67 @@ export async function POST(request) {
       );
     }
 
-    const [productA, productB] = await Promise.all([
-      prisma.product.findUnique({ where: { id: productAId } }),
-      prisma.product.findUnique({ where: { id: productBId } }),
-    ]);
-
-    if (!productA) {
+    const sourceProduct = await prisma.product.findUnique({ where: { id: productAId } });
+    if (!sourceProduct) {
       return NextResponse.json(
-        { success: false, error: "Product A could not be found." },
+        { success: false, error: "Selected source product could not be found." },
         { status: 404 }
       );
     }
 
-    if (!productB) {
-      return NextResponse.json(
-        { success: false, error: "Product B could not be found." },
-        { status: 404 }
-      );
+    let partnerProduct = null;
+    if (productBId) {
+      partnerProduct = await prisma.product.findUnique({ where: { id: productBId } });
+    } else {
+      productBId = productAId;
+      partnerProduct = sourceProduct;
     }
 
-    const productABrand = normalizeBrand(productA.brand);
-    const productBBrand = normalizeBrand(productB.brand);
+    // Photo handling:
+    // If body.images or body.customImages is provided as a non-empty array/string, use custom photos.
+    // Otherwise, automatically fall back to all images from sourceProduct (and partnerProduct if distinct).
+    let imagesList = [];
+    const customImagesRaw = body?.customImages ?? body?.images;
 
-    const validPair =
-      (productABrand === collabBrandA && productBBrand === collabBrandB) ||
-      (productABrand === collabBrandB && productBBrand === collabBrandA);
-
-    if (!validPair) {
-      return NextResponse.json(
-        { success: false, error: "The selected products must come from the two brands in this collaboration." },
-        { status: 400 }
-      );
-    }
-
-    const existing = await prisma.collaborationProduct.findFirst({
-      where: {
-        collaborationId,
-        OR: [
-          { productAId, productBId },
-          { productAId: productBId, productBId: productAId },
-        ],
-      },
-    });
-
-    if (existing) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "This product combination already exists in this collaboration.",
-          product: existing,
-        },
-        { status: 409 }
-      );
-    }
-
-    const imagesList = [];
-    if (productA.images) {
+    if (customImagesRaw) {
       try {
-        const parsed = JSON.parse(productA.images);
-        if (Array.isArray(parsed)) imagesList.push(...parsed);
-        else if (typeof parsed === "string") imagesList.push(parsed);
+        const parsed = typeof customImagesRaw === "string" ? JSON.parse(customImagesRaw) : customImagesRaw;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          imagesList = parsed.map((x) => String(x).trim()).filter(Boolean);
+        } else if (typeof customImagesRaw === "string" && customImagesRaw.trim() && !customImagesRaw.trim().startsWith("[")) {
+          imagesList = customImagesRaw.split(",").map((x) => x.trim()).filter(Boolean);
+        }
       } catch {
-        imagesList.push(productA.images);
+        if (typeof customImagesRaw === "string" && customImagesRaw.trim()) {
+          imagesList = customImagesRaw.split(",").map((x) => x.trim()).filter(Boolean);
+        }
       }
     }
 
-    if (productB.images) {
-      try {
-        const parsed = JSON.parse(productB.images);
-        if (Array.isArray(parsed)) imagesList.push(...parsed);
-        else if (typeof parsed === "string") imagesList.push(parsed);
-      } catch {
-        imagesList.push(productB.images);
+    if (imagesList.length === 0) {
+      // Fallback: inherit all images from sourceProduct
+      if (sourceProduct.images) {
+        try {
+          const parsed = JSON.parse(sourceProduct.images);
+          if (Array.isArray(parsed)) imagesList.push(...parsed);
+          else if (typeof parsed === "string") imagesList.push(parsed);
+        } catch {
+          if (typeof sourceProduct.images === "string") {
+            imagesList.push(...sourceProduct.images.split(",").map((x) => x.trim()).filter(Boolean));
+          }
+        }
+      }
+
+      if (partnerProduct && partnerProduct.id !== sourceProduct.id && partnerProduct.images) {
+        try {
+          const parsed = JSON.parse(partnerProduct.images);
+          if (Array.isArray(parsed)) imagesList.push(...parsed);
+          else if (typeof parsed === "string") imagesList.push(parsed);
+        } catch {
+          if (typeof partnerProduct.images === "string") {
+            imagesList.push(...partnerProduct.images.split(",").map((x) => x.trim()).filter(Boolean));
+          }
+        }
       }
     }
 
@@ -221,15 +209,33 @@ export async function POST(request) {
         productAId,
         productBId,
         name,
-        description: description || null,
+        description: description || sourceProduct.description || null,
         price,
         images: JSON.stringify(imagesList),
         status,
       },
       include: {
         collaboration: true,
-        productA: true,
-        productB: true,
+        productA: {
+          include: {
+            productColors: true,
+            variants: {
+              include: {
+                color: true,
+              },
+            },
+          },
+        },
+        productB: {
+          include: {
+            productColors: true,
+            variants: {
+              include: {
+                color: true,
+              },
+            },
+          },
+        },
       },
     });
 
