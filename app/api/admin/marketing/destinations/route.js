@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAdminSession } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,25 +14,9 @@ function normalizeBrand(value) {
   return brand;
 }
 
-async function getAdminSession(request) {
+export async function GET() {
   try {
-    const res = await fetch(`${request.nextUrl.origin}/api/admin/session`, {
-      headers: { cookie: request.headers.get("cookie") || "" },
-      cache: "no-store",
-    });
-    const json = await res.json().catch(() => null);
-    if (res.ok && json?.authenticated && json?.admin) {
-      return json.admin;
-    }
-  } catch (err) {
-    console.error("Admin session error in /api/admin/marketing/destinations:", err);
-  }
-  return null;
-}
-
-export async function GET(request) {
-  try {
-    const admin = await getAdminSession(request);
+    const admin = await getAdminSession();
     if (!admin) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }

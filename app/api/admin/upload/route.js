@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getAdminSession } from "@/lib/admin-auth";
 
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
@@ -26,6 +27,15 @@ function getFileType(file) {
 }
 
 export async function POST(request) {
+  const admin = await getAdminSession();
+
+  if (!admin) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
   const startTime = Date.now();
 
   const configStatus = {
