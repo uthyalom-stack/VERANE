@@ -190,6 +190,16 @@ const mockPrisma = {
     findFirst: async () => {
       return db.siteSettings[0] || null;
     },
+    create: async ({ data }) => {
+      const idx = db.siteSettings.findIndex((s) => s.key === data.key);
+      if (idx !== -1) {
+        db.siteSettings[idx] = { id: `ss_${data.key}`, ...data };
+        return db.siteSettings[idx];
+      }
+      const newSetting = { id: `ss_${data.key}`, ...data };
+      db.siteSettings.push(newSetting);
+      return newSetting;
+    },
   },
   deliveryState: {
     findUnique: async ({ where }) => {
