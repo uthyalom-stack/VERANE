@@ -6,6 +6,10 @@ export const db = {
   siteSettings: [],
   deliveryStates: [],
   deliveryLocations: [],
+  products: [],
+  productVariants: [],
+  collaborationProducts: [],
+  collaborationVariants: [],
   shouldThrow: false,
 };
 
@@ -20,6 +24,10 @@ export function resetDb() {
   db.siteSettings = [];
   db.deliveryStates = [];
   db.deliveryLocations = [];
+  db.products = [];
+  db.productVariants = [];
+  db.collaborationProducts = [];
+  db.collaborationVariants = [];
   db.shouldThrow = false;
 }
 
@@ -34,6 +42,30 @@ const mockPrisma = {
       const newUser = { id: data.id || `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, ...data };
       db.users.push(newUser);
       return newUser;
+    },
+  },
+  product: {
+    findUnique: async ({ where }) => {
+      if (where.id) return db.products.find((p) => p.id === where.id) || null;
+      return null;
+    },
+  },
+  productVariant: {
+    findUnique: async ({ where }) => {
+      if (where.id) return db.productVariants.find((v) => v.id === where.id) || null;
+      return null;
+    },
+  },
+  collaborationProduct: {
+    findUnique: async ({ where }) => {
+      if (where.id) return db.collaborationProducts.find((cp) => cp.id === where.id) || null;
+      return null;
+    },
+  },
+  collaborationVariant: {
+    findUnique: async ({ where }) => {
+      if (where.id) return db.collaborationVariants.find((cv) => cv.id === where.id) || null;
+      return null;
     },
   },
   order: {
@@ -61,7 +93,18 @@ const mockPrisma = {
       return null;
     },
     create: async ({ data }) => {
-      const newOrder = { id: data.id || `ord_${Date.now()}`, ...data };
+      const orderId = data.id || `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const createdItems = (data.items?.create || []).map((it, idx) => ({
+        id: `item_${Date.now()}_${idx}`,
+        orderId,
+        ...it,
+      }));
+
+      const newOrder = {
+        ...data,
+        id: orderId,
+        items: createdItems,
+      };
       db.orders.push(newOrder);
       return newOrder;
     },

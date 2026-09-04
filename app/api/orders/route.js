@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { verifyCustomerSession, getCustomerCookieName } from "@/lib/auth/customer";
+import { calculateOrderTotalsServer } from "@/lib/paystack";
 
 /**
  * Retrieves the authenticated customer from the session cookie.
@@ -94,7 +95,7 @@ export async function GET(request) {
 }
 
 /**
- * Creates an order for the authenticated customer.
+ * Creates an order for the authenticated customer using server-authoritative pricing and delivery calculations.
  * @param {Request} request - The request containing order and customer details.
  * @return {NextResponse} A response containing the created order or an error message.
  */
@@ -114,10 +115,7 @@ export async function POST(request) {
     const body = await request.json();
 
     const {
-      items,
-      subtotal,
-      shippingFee,
-      total,
+      items: rawItems,
       firstName,
       lastName,
       email,
@@ -129,7 +127,7 @@ export async function POST(request) {
       zone,
     } = body;
 
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(rawItems) || rawItems.length === 0) {
       return NextResponse.json(
         {
           error: "Cart is empty",
@@ -138,16 +136,41 @@ export async function POST(request) {
       );
     }
 
+    // Server-authoritative calculation of merchandise prices, subtotal, shipping fee, and grand total.
+    // Client-supplied prices, subtotals, shipping fees, and grand totals are completely ignored.
+    let calculation;
+    try {
+      calculation = await calculateOrderTotalsServer({
+        items: rawItems,
+        country: country || "Nigeria",
+        state,
+        city,
+        zone,
+      });
+    } catch (calcError) {
+      return NextResponse.json(
+        {
+          error:
+            calcError instanceof Error
+              ? calcError.message
+              : "Invalid order details or calculation failure.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { shippingFee: trustedShippingFee, total: trustedGrandTotal, items: validatedItems } = calculation;
+
     const order = await prisma.order.create({
       data: {
         userId: session.user.id,
         orderNumber: generateOrderNumber(),
-        total: Number(total || 0),
-        shippingFee: Number(shippingFee || 0),
+        total: trustedGrandTotal,
+        shippingFee: trustedShippingFee,
 
         firstName: firstName || null,
         lastName: lastName || null,
-        email: email || null,
+        email: email || session.user.email || null,
         phone: phone || null,
         country: country || "Nigeria",
         address: address || null,
@@ -156,17 +179,17 @@ export async function POST(request) {
         zone: zone || null,
 
         items: {
-          create: items.map((item) => ({
-            productId: item.isCollaboration ? item.productAId : item.id,
+          create: validatedItems.map((item) => ({
+            productId: item.productId,
             quantity: Number(item.qty || 1),
-            price: Number(item.price || 0),
+            price: Number(item.price), // Authoritative database unit price
             selectedColor: item.selectedColor || null,
             selectedColorHex: item.selectedColorHex || null,
             selectedSize: item.selectedSize || null,
             variantId: item.variantId || null,
             collaborationProductId: item.collaborationProductId || null,
             collaborationVariantId: item.collaborationVariantId || null,
-            customMeasurements: item.customSizing || null,
+            customMeasurements: item.customSizing || item.customMeasurements || null,
           })),
         },
       },
