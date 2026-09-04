@@ -12,14 +12,16 @@ export function clearTestCookies() {
   testCookies.clear();
 }
 
+export function getTestCookie(name) {
+  if (testCookies.has(name)) {
+    return { value: testCookies.get(name) };
+  }
+  return undefined;
+}
+
 export async function cookies() {
   return {
-    get: (name) => {
-      if (testCookies.has(name)) {
-        return { value: testCookies.get(name) };
-      }
-      return undefined;
-    },
+    get: getTestCookie,
     getAll: () => {
       return Array.from(testCookies.entries()).map(([name, value]) => ({ name, value }));
     },

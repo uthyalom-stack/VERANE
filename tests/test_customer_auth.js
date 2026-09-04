@@ -1,21 +1,23 @@
 import crypto from "crypto";
 import path from "path";
+import { pathToFileURL } from "url";
 
 // Set required CUSTOMER_AUTH_SECRET for test environment
+const originalSecretEnv = process.env.CUSTOMER_AUTH_SECRET;
 process.env.CUSTOMER_AUTH_SECRET = "test-secret-key-1234567890-super-secure";
 
 const repoRoot = process.cwd();
 
-// Dynamic imports of modules
-const customerAuthPath = path.join(repoRoot, "lib/auth/customer.js");
-const mockHeadersPath = path.join(repoRoot, "tests/mock_next_headers.js");
-const mockPrismaPath = path.join(repoRoot, "tests/mock_prisma.js");
+// Dynamic imports using pathToFileURL
+const customerAuthPath = pathToFileURL(path.join(repoRoot, "lib/auth/customer.js")).href;
+const mockHeadersPath = pathToFileURL(path.join(repoRoot, "tests/mock_next_headers.js")).href;
+const mockPrismaPath = pathToFileURL(path.join(repoRoot, "tests/mock_prisma.js")).href;
 
-const ordersRoutePath = path.join(repoRoot, "app/api/orders/route.js");
-const receiptRoutePath = path.join(repoRoot, "app/api/orders/[id]/receipt/route.js");
-const addressesRoutePath = path.join(repoRoot, "app/api/account/addresses/route.js");
-const wishlistRoutePath = path.join(repoRoot, "app/api/wishlist/route.js");
-const sessionRoutePath = path.join(repoRoot, "app/api/auth/session/route.js");
+const ordersRoutePath = pathToFileURL(path.join(repoRoot, "app/api/orders/route.js")).href;
+const receiptRoutePath = pathToFileURL(path.join(repoRoot, "app/api/orders/[id]/receipt/route.js")).href;
+const addressesRoutePath = pathToFileURL(path.join(repoRoot, "app/api/account/addresses/route.js")).href;
+const wishlistRoutePath = pathToFileURL(path.join(repoRoot, "app/api/wishlist/route.js")).href;
+const sessionRoutePath = pathToFileURL(path.join(repoRoot, "app/api/auth/session/route.js")).href;
 
 const {
   hashPassword,
@@ -23,32 +25,26 @@ const {
   createCustomerSession,
   verifyCustomerSession,
   getCustomerCookieName,
-} = await import(`file://${customerAuthPath}`);
+} = await import(customerAuthPath);
 
-const { setTestCookie, clearTestCookies } = await import(`file://${mockHeadersPath}`);
-const { db, resetDb } = await import(`file://${mockPrismaPath}`);
+const { setTestCookie, clearTestCookies, getTestCookie } = await import(mockHeadersPath);
+const { db, resetDb } = await import(mockPrismaPath);
 
-const { GET: getOrders } = await import(`file://${ordersRoutePath}`);
-const { GET: getReceipt } = await import(`file://${receiptRoutePath}`);
+const { GET: getOrders } = await import(ordersRoutePath);
+const { GET: getReceipt } = await import(receiptRoutePath);
 const {
   GET: getAddresses,
   POST: postAddresses,
   PUT: putAddresses,
   DELETE: deleteAddresses,
-} = await import(`file://${addressesRoutePath}`);
-const { GET: getWishlist, POST: postWishlist } = await import(`file://${wishlistRoutePath}`);
-const { GET: getSession } = await import(`file://${sessionRoutePath}`);
+} = await import(addressesRoutePath);
+const { GET: getWishlist } = await import(wishlistRoutePath);
+const { GET: getSession } = await import(sessionRoutePath);
 
 function makeRequest(url, options = {}) {
   const req = new Request(url, options);
-  const cookieName = getCustomerCookieName();
   req.cookies = {
-    get: (name) => {
-      if (name === cookieName) {
-        return options.token ? { value: options.token } : undefined;
-      }
-      return undefined;
-    },
+    get: (name) => getTestCookie(name),
   };
   return req;
 }
@@ -100,11 +96,15 @@ export async function runCustomerAuthTests() {
     // ----------------------------------------------------
     console.log("--- SECTION 1: STRICT SESSION SECURITY & EXPIRATION TESTS ---");
 
-    // 1. Valid customer session
+    // 1. Valid customer session and 3-day TTL verification
     sessionA = createCustomerSession(userA);
     sessionB = createCustomerSession(userB);
     const verifiedValid = verifyCustomerSession(sessionA);
     assert(verifiedValid && verifiedValid.id === userA.id, "Valid customer session is accepted");
+
+    // Explicit 3-day TTL check
+    const THREE_DAYS_MS = 1000 * 60 * 60 * 24 * 3;
+    assert(verifiedValid.exp - verifiedValid.createdAt === THREE_DAYS_MS, "Session expiration (exp - createdAt) is exactly 3 days in milliseconds");
 
     // Helper function to build custom signed session tokens
     function makeSession(payloadObj) {
@@ -139,11 +139,11 @@ export async function runCustomerAuthTests() {
     const nanSig = crypto.createHmac("sha256", process.env.CUSTOMER_AUTH_SECRET).update(nanPayloadBase64).digest("hex");
     assert(verifyCustomerSession(`${nanPayloadBase64}.${nanSig}`) === null, "Session with exp = NaN rejected");
 
-    // 7. exp = Infinity -> rejected
-    const infinityExpPayload = `{"id":"${userA.id}","email":"${userA.email}","exp":Infinity}`;
+    // 7. exp = Infinity (using JSON-valid numeric overflow 1e309) -> rejected
+    const infinityExpPayload = `{"id":"${userA.id}","email":"${userA.email}","exp":1e309}`;
     const infPayloadBase64 = Buffer.from(infinityExpPayload).toString("base64url");
     const infSig = crypto.createHmac("sha256", process.env.CUSTOMER_AUTH_SECRET).update(infPayloadBase64).digest("hex");
-    assert(verifyCustomerSession(`${infPayloadBase64}.${infSig}`) === null, "Session with exp = Infinity rejected");
+    assert(verifyCustomerSession(`${infPayloadBase64}.${infSig}`) === null, "Session with exp = Infinity (1e309) rejected");
 
     // 8. Tampered session -> rejected
     const [origPayload, origSig] = sessionA.split(".");
@@ -179,7 +179,7 @@ export async function runCustomerAuthTests() {
     // 11. Real Route Handler Test: GET /api/auth/session
     console.log("-> Testing GET /api/auth/session handler...");
     setTestCookie(cookieName, sessionA);
-    const sessionResA = await getSession(makeRequest("http://localhost/api/auth/session", { token: sessionA }));
+    const sessionResA = await getSession(makeRequest("http://localhost/api/auth/session"));
     const sessionDataA = await sessionResA.json();
     assert(sessionResA.status === 200 && sessionDataA.authenticated === true && sessionDataA.user.id === userA.id, "GET /api/auth/session handler returns Customer A profile");
 
@@ -191,12 +191,12 @@ export async function runCustomerAuthTests() {
     // 12. Real Route Handler Test: GET /api/orders (Customer A vs Customer B)
     console.log("-> Testing GET /api/orders handler...");
     setTestCookie(cookieName, sessionA);
-    const ordersResA = await getOrders(makeRequest("http://localhost/api/orders", { token: sessionA }));
+    const ordersResA = await getOrders(makeRequest("http://localhost/api/orders"));
     const ordersDataA = await ordersResA.json();
     assert(ordersResA.status === 200 && ordersDataA.orders.some((o) => o.id === orderA.id), "Customer A retrieves Customer A's orders via GET /api/orders");
 
     setTestCookie(cookieName, sessionB);
-    const ordersResB = await getOrders(makeRequest("http://localhost/api/orders", { token: sessionB }));
+    const ordersResB = await getOrders(makeRequest("http://localhost/api/orders"));
     const ordersDataB = await ordersResB.json();
     assert(ordersResB.status === 200 && !ordersDataB.orders.some((o) => o.id === orderA.id), "Customer B CANNOT retrieve Customer A's orders via GET /api/orders (strict isolation)");
 
@@ -209,14 +209,14 @@ export async function runCustomerAuthTests() {
 
     setTestCookie(cookieName, sessionA);
     const receiptResA = await getReceipt(
-      makeRequest(`http://localhost/api/orders/${orderA.id}/receipt`, { token: sessionA }),
+      makeRequest(`http://localhost/api/orders/${orderA.id}/receipt`),
       { params: Promise.resolve({ id: orderA.id }) }
     );
     assert(receiptResA.status === 200, "Customer A can access Customer A's receipt (HTTP 200 OK)");
 
     setTestCookie(cookieName, sessionB);
     const receiptResB = await getReceipt(
-      makeRequest(`http://localhost/api/orders/${orderA.id}/receipt`, { token: sessionB }),
+      makeRequest(`http://localhost/api/orders/${orderA.id}/receipt`),
       { params: Promise.resolve({ id: orderA.id }) }
     );
     assert(receiptResB.status === 403, "Customer B is forbidden (HTTP 403 Forbidden) from accessing Customer A's receipt");
@@ -233,12 +233,12 @@ export async function runCustomerAuthTests() {
 
     // Test GET /api/account/addresses
     setTestCookie(cookieName, sessionA);
-    const getAddrResA = await getAddresses(makeRequest("http://localhost/api/account/addresses", { token: sessionA }));
+    const getAddrResA = await getAddresses(makeRequest("http://localhost/api/account/addresses"));
     const getAddrDataA = await getAddrResA.json();
     assert(getAddrResA.status === 200 && getAddrDataA.addresses.some((a) => a.id === addressA.id), "Customer A retrieves Customer A's saved address");
 
     setTestCookie(cookieName, sessionB);
-    const getAddrResB = await getAddresses(makeRequest("http://localhost/api/account/addresses", { token: sessionB }));
+    const getAddrResB = await getAddresses(makeRequest("http://localhost/api/account/addresses"));
     const getAddrDataB = await getAddrResB.json();
     assert(getAddrResB.status === 200 && !getAddrDataB.addresses.some((a) => a.id === addressA.id), "Customer B CANNOT view Customer A's saved address (strict isolation)");
 
@@ -252,7 +252,6 @@ export async function runCustomerAuthTests() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: addressA.id, fullName: "Attacker Update" }),
-      token: sessionB,
     });
     const putAddrResB = await putAddresses(putAddrReqB);
     assert(putAddrResB.status === 404, "PUT /api/account/addresses handler denies updating another customer's address (HTTP 404 Access Denied)");
@@ -260,7 +259,6 @@ export async function runCustomerAuthTests() {
     // Test DELETE /api/account/addresses (Customer B trying to delete Customer A's address)
     const delAddrReqB = makeRequest(`http://localhost/api/account/addresses?id=${addressA.id}`, {
       method: "DELETE",
-      token: sessionB,
     });
     const delAddrResB = await deleteAddresses(delAddrReqB);
     assert(delAddrResB.status === 404, "DELETE /api/account/addresses handler denies deleting another customer's address (HTTP 404 Access Denied)");
@@ -278,7 +276,6 @@ export async function runCustomerAuthTests() {
         city: "Ikeja",
         streetAddress: "456 Victoria Island",
       }),
-      token: sessionB,
     });
     const postAddrResB = await postAddresses(postAddrReqBody);
     const postAddrDataB = await postAddrResB.json();
@@ -287,12 +284,12 @@ export async function runCustomerAuthTests() {
     // 15. Real Route Handler Test: GET / POST /api/wishlist
     console.log("-> Testing GET & POST /api/wishlist handlers...");
     setTestCookie(cookieName, sessionA);
-    const wishResA = await getWishlist(makeRequest("http://localhost/api/wishlist", { token: sessionA }));
+    const wishResA = await getWishlist(makeRequest("http://localhost/api/wishlist"));
     const wishDataA = await wishResA.json();
     assert(wishResA.status === 200 && wishDataA.wishlist.some((w) => w.productId === "prod_1001"), "Customer A retrieves Customer A's wishlist");
 
     setTestCookie(cookieName, sessionB);
-    const wishResB = await getWishlist(makeRequest("http://localhost/api/wishlist", { token: sessionB }));
+    const wishResB = await getWishlist(makeRequest("http://localhost/api/wishlist"));
     const wishDataB = await wishResB.json();
     assert(wishResB.status === 200 && !wishDataB.wishlist.some((w) => w.productId === "prod_1001"), "Customer B CANNOT view Customer A's wishlist (strict isolation)");
 
@@ -312,6 +309,13 @@ export async function runCustomerAuthTests() {
   } finally {
     clearTestCookies();
     resetDb();
+
+    // Cleanly restore original CUSTOMER_AUTH_SECRET state
+    if (originalSecretEnv !== undefined) {
+      process.env.CUSTOMER_AUTH_SECRET = originalSecretEnv;
+    } else {
+      delete process.env.CUSTOMER_AUTH_SECRET;
+    }
   }
 
   console.log(`\n==================================================`);
