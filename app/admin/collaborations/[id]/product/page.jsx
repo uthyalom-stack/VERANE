@@ -61,6 +61,10 @@ function getProductImage(product) {
   return null;
 }
 
+/**
+ * Manage the selection and creation of a collaboration product.
+ * @returns {JSX.Element|null} The collaboration product page, or `null` when required data is unavailable.
+ */
 export default function CollaborationProductPage() {
   const router = useRouter();
   const params = useParams();
@@ -117,14 +121,6 @@ export default function CollaborationProductPage() {
       }
 
       const currentAdmin = sessionData.admin;
-
-      if (
-        currentAdmin.role !== "UTHY" &&
-        currentAdmin.role !== "ALOMZIEE"
-      ) {
-        router.replace("/admin");
-        return;
-      }
 
       setAdmin(currentAdmin);
 
@@ -352,7 +348,7 @@ export default function CollaborationProductPage() {
             name: name.trim(),
             description: description.trim(),
             price: numericPrice,
-            status: "draft",
+            status: "published",
           }),
         }
       );
@@ -646,8 +642,8 @@ export default function CollaborationProductPage() {
                 Status
               </label>
 
-              <div className="rounded-2xl border border-white/10 bg-black px-5 py-4 text-sm text-amber-400 font-bold">
-                Draft
+              <div className="rounded-2xl border border-white/10 bg-black px-5 py-4 text-sm text-emerald-400 font-bold">
+                Published
               </div>
             </div>
 

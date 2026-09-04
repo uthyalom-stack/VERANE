@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAdminSession } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const VALID_BRANDS = ["UTHY", "ALOMZIEE"];
 
-/* ============================================================
-   BRAND NORMALIZATION
-============================================================ */
-
+/**
+ * Normalizes supported brand names and aliases to their canonical values.
+ * @param {*} value - The brand value to normalize.
+ * @return {string} The canonical brand name, the trimmed uppercase value, or an empty string for missing input.
+ */
 function normalizeBrand(value) {
   if (!value) return "";
 
@@ -34,17 +36,11 @@ function normalizeBrand(value) {
   return brand;
 }
 
-/* ============================================================
-   MONEY NORMALIZATION
-
-   Analytics must NEVER arbitrarily multiply monetary values.
-
-   Product prices are read directly as stored.
-
-   We also protect against the common situation where a
-   monetary value arrives as a Decimal/string/object.
-============================================================ */
-
+/**
+ * Converts a numeric, string, or decimal-like value to a finite number.
+ * @param {*} value - The value to convert.
+ * @return {number} The converted number, or `0` when the value is null, undefined, or not finite.
+ */
 function money(value) {
   if (value === null || value === undefined) {
     return 0;
@@ -75,22 +71,19 @@ function money(value) {
     : 0;
 }
 
-/*
- * Product price is the authoritative price for product
- * analytics and inventory valuation.
+/**
+ * Converts a product's price to a finite numeric value.
+ * @param {object} product - The product whose price should be converted.
+ * @return {number} The converted product price.
  */
 function getProductPrice(product) {
   return money(product?.price);
 }
 
-/*
- * Order item price:
- *
- * Prefer the stored order-item price because an order may
- * have been placed at a historical/sale price.
- *
- * If that value is missing or invalid, fall back to the
- * product price.
+/**
+ * Resolves an order item's price, falling back to its product price when needed.
+ * @param {Object} item - The order item containing an optional price and product.
+ * @return {number} The item's positive price or the associated product price.
  */
 function getItemPrice(item) {
   const itemPrice = money(item?.price);
@@ -102,41 +95,62 @@ function getItemPrice(item) {
   return getProductPrice(item?.product);
 }
 
-/* ============================================================
-   DATE HELPERS
-============================================================ */
-
-function getDateRange(range) {
+/**
+ * Calculates the start and end dates for a predefined or custom analytics period.
+ * @param {string} range - The period identifier, such as `today`, `7d`, `30d`, `90d`, `1y`, or `custom`.
+ * @param {string|Date} [customStartDate] - The beginning of a custom period.
+ * @param {string|Date} [customEndDate] - The end of a custom period; defaults to the current date.
+ * @return {{start: Date, end: Date}} The date range with the start set to the beginning of its day and the end set to the end of its day.
+ */
+function getDateRange(range, customStartDate, customEndDate) {
   const now = new Date();
 
   const end = new Date(now);
   const start = new Date(now);
 
+  if (range === "custom" && customStartDate) {
+    const s = new Date(customStartDate);
+    if (!isNaN(s.getTime())) {
+      s.setHours(0, 0, 0, 0);
+      const e = customEndDate ? new Date(customEndDate) : new Date();
+      if (!isNaN(e.getTime())) {
+        e.setHours(23, 59, 59, 999);
+      } else {
+        e.setTime(now.getTime());
+      }
+      return { start: s, end: e };
+    }
+  }
+
   switch (range) {
     case "today":
       start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
       break;
 
     case "7d":
       start.setDate(start.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
       break;
 
     case "30d":
       start.setDate(start.getDate() - 29);
+      start.setHours(0, 0, 0, 0);
       break;
 
     case "90d":
       start.setDate(start.getDate() - 89);
+      start.setHours(0, 0, 0, 0);
       break;
 
     case "1y":
-      start.setFullYear(
-        start.getFullYear() - 1
-      );
+      start.setFullYear(start.getFullYear() - 1);
+      start.setHours(0, 0, 0, 0);
       break;
 
     default:
       start.setDate(start.getDate() - 29);
+      start.setHours(0, 0, 0, 0);
       break;
   }
 
@@ -167,6 +181,11 @@ function formatDate(date) {
     .slice(0, 10);
 }
 
+/**
+ * Formats a date as a short month and day using the Nigerian English locale.
+ * @param {Date|string|number} date - The date to format.
+ * @return {string} The localized month-and-day representation.
+ */
 function formatDay(date) {
   return new Date(date).toLocaleDateString(
     "en-NG",
@@ -177,36 +196,16 @@ function formatDay(date) {
   );
 }
 
-/* ============================================================
-   GET ANALYTICS
-============================================================ */
-
+/**
+ * Generates brand-scoped administrator analytics for a selected reporting period.
+ * @param {Request} request - The request containing optional `brand`, `range`, `startDate`, and `endDate` query parameters.
+ * @return {Promise<NextResponse>} A JSON response containing analytics data, or an authorization or server-error response.
+ */
 export async function GET(request) {
   try {
-    /* ========================================================
-       1. SESSION
-    ======================================================== */
+    const admin = await getAdminSession();
 
-    const sessionResponse = await fetch(
-      `${request.nextUrl.origin}/api/admin/session`,
-      {
-        headers: {
-          cookie:
-            request.headers.get("cookie") || "",
-        },
-        cache: "no-store",
-      }
-    );
-
-    const sessionData =
-      await sessionResponse
-        .json()
-        .catch(() => null);
-
-    if (
-      !sessionResponse.ok ||
-      !sessionData?.admin
-    ) {
+    if (!admin) {
       return NextResponse.json(
         {
           success: false,
@@ -221,12 +220,6 @@ export async function GET(request) {
         }
       );
     }
-
-    const admin = sessionData.admin;
-
-    /* ========================================================
-       2. ADMIN BRAND
-    ======================================================== */
 
     const adminBrand = normalizeBrand(
       admin.brand || admin.role
@@ -248,10 +241,6 @@ export async function GET(request) {
         }
       );
     }
-
-    /* ========================================================
-       3. REQUESTED BRAND
-    ======================================================== */
 
     const { searchParams } =
       new URL(request.url);
@@ -284,19 +273,11 @@ export async function GET(request) {
       );
     }
 
-    /* ========================================================
-       4. DATE RANGE
-    ======================================================== */
+    const range = searchParams.get("range") || "30d";
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
 
-    const range =
-      searchParams.get("range") || "30d";
-
-    const { start, end } =
-      getDateRange(range);
-
-    /* ========================================================
-       5. LOAD PRODUCTS
-    ======================================================== */
+    const { start, end } = getDateRange(range, startDateParam, endDateParam);
 
     const allProducts =
       await prisma.product.findMany({
@@ -310,10 +291,6 @@ export async function GET(request) {
         },
       });
 
-    /* ========================================================
-       6. NORMALIZE/FILTER PRODUCTS
-    ======================================================== */
-
     const products =
       allProducts.filter((product) => {
         return (
@@ -322,42 +299,38 @@ export async function GET(request) {
         );
       });
 
-    /* ========================================================
-       7. PRODUCT COUNTS
-    ======================================================== */
+    const totalProducts = products.length;
 
-    const totalProducts =
-      products.length;
+    const getPct = (p) => {
+      const inv = money(p.inventory);
+      const initInv = money(p.initialInventory) || inv;
+      return initInv > 0 ? (inv / initInv) * 100 : (inv > 0 ? 100 : 0);
+    };
 
-    const activeProducts =
-      products.filter(
-        (product) =>
-          money(product.inventory) > 0
-      ).length;
+    const outOfStockProducts = products.filter((p) => money(p.inventory) <= 0);
+    const fewLeftProducts = products.filter((p) => {
+      const inv = money(p.inventory);
+      const pct = getPct(p);
+      return inv > 0 && pct <= 25;
+    });
+    const almostSoldOutProducts = products.filter((p) => {
+      const inv = money(p.inventory);
+      const pct = getPct(p);
+      return inv > 0 && pct > 25 && pct <= 50;
+    });
+    const availableProducts = products.filter((p) => {
+      const inv = money(p.inventory);
+      const pct = getPct(p);
+      return inv > 0 && pct > 50;
+    });
 
-    const outOfStockProducts =
-      products.filter(
-        (product) =>
-          money(product.inventory) <= 0
-      );
+    const activeProducts = products.filter((p) => money(p.inventory) > 0).length;
+    const outOfStock = outOfStockProducts.length;
 
-    const outOfStock =
-      outOfStockProducts.length;
-
-    const lowStockProducts =
-      products.filter((product) => {
-        const inventory =
-          money(product.inventory);
-
-        return (
-          inventory > 0 &&
-          inventory <= 5
-        );
-      });
-
-    /* ========================================================
-       8. INVENTORY
-    ======================================================== */
+    const lowStockProducts = products.filter((product) => {
+      const inventory = money(product.inventory);
+      return inventory > 0 && inventory <= 10;
+    });
 
     const totalInventoryUnits =
       products.reduce(
@@ -367,12 +340,6 @@ export async function GET(request) {
         0
       );
 
-    /*
-     * IMPORTANT:
-     * Product price is used directly.
-     *
-     * There is NO ×10 multiplication here.
-     */
     const inventoryValue =
       products.reduce(
         (total, product) => {
@@ -390,10 +357,6 @@ export async function GET(request) {
         0
       );
 
-    /* ========================================================
-       9. STOCK HEALTH
-    ======================================================== */
-
     const stockHealth =
       totalProducts > 0
         ? Math.round(
@@ -402,10 +365,6 @@ export async function GET(request) {
               100
           )
         : 0;
-
-    /* ========================================================
-       10. PRODUCT PERFORMANCE MAP
-    ======================================================== */
 
     const productStats =
       new Map();
@@ -424,9 +383,6 @@ export async function GET(request) {
         databaseBrand:
           product.brand,
 
-        /*
-         * ALWAYS expose the actual product price.
-         */
         price:
           getProductPrice(product),
 
@@ -459,10 +415,6 @@ export async function GET(request) {
           product.images || "",
       });
     }
-
-    /* ========================================================
-       11. ORDERS
-    ======================================================== */
 
     const productIds =
       products.map(
@@ -510,10 +462,6 @@ export async function GET(request) {
         });
     }
 
-    /* ========================================================
-       12. BRAND ORDER ITEMS
-    ======================================================== */
-
     const brandOrders = [];
     const brandOrderItems = [];
 
@@ -553,10 +501,6 @@ export async function GET(request) {
       }
     }
 
-    /* ========================================================
-       13. VALID ORDERS
-    ======================================================== */
-
     const validOrders =
       brandOrders.filter(
         (order) =>
@@ -572,10 +516,6 @@ export async function GET(request) {
             item.orderStatus
           )
       );
-
-    /* ========================================================
-       14. REVENUE
-    ======================================================== */
 
     let revenue = 0;
     let unitsSold = 0;
@@ -618,26 +558,199 @@ export async function GET(request) {
         ? revenue / orderCount
         : 0;
 
-    /* ========================================================
-       15. CUSTOMERS
-    ======================================================== */
+    const customerIds = new Set(
+      validOrders
+        .map((order) => order.userId)
+        .filter(Boolean)
+    );
 
-    const customerIds =
-      new Set(
-        validOrders
-          .map(
-            (order) =>
-              order.userId
-          )
-          .filter(Boolean)
-      );
+    const customerCount = customerIds.size;
 
-    const customerCount =
-      customerIds.size;
+    let newCustomers = 0;
+    let firstTimeBuyers = 0;
+    let returningBuyers = 0;
 
-    /* ========================================================
-       16. PRODUCT PERFORMANCE
-    ======================================================== */
+    if (customerIds.size > 0) {
+      newCustomers = await prisma.user.count({
+        where: {
+          id: { in: Array.from(customerIds) },
+          createdAt: { gte: start, lte: end },
+        },
+      });
+
+      const historicalOrders = await prisma.order.findMany({
+        where: {
+          userId: { in: Array.from(customerIds) },
+          status: { notIn: ["cancelled", "canceled", "refunded", "refund", "failed", "rejected"] },
+        },
+        select: { userId: true, createdAt: true },
+      });
+
+      const userOrderCounts = new Map();
+      for (const ho of historicalOrders) {
+        if (!ho.userId) continue;
+        userOrderCounts.set(ho.userId, (userOrderCounts.get(ho.userId) || 0) + 1);
+      }
+
+      for (const userId of customerIds) {
+        const count = userOrderCounts.get(userId) || 1;
+        if (count === 1) {
+          firstTimeBuyers += 1;
+        } else {
+          returningBuyers += 1;
+        }
+      }
+    }
+
+    const newUsersInRange = await prisma.user.findMany({
+      where: {
+        createdAt: { gte: start, lte: end },
+      },
+      select: { id: true, name: true, email: true, createdAt: true },
+    });
+
+    const userSignupDailyMap = new Map();
+    for (const u of newUsersInRange) {
+      const key = formatDate(u.createdAt);
+      userSignupDailyMap.set(key, (userSignupDailyMap.get(key) || 0) + 1);
+    }
+
+    const customerPerformanceMap = new Map();
+
+    for (const order of validOrders) {
+      const uId = order.userId;
+      if (!uId) continue;
+
+      const existing = customerPerformanceMap.get(uId) || {
+        id: uId,
+        name: order.user?.name || order.firstName || "Customer",
+        email: order.user?.email || order.email || "No email",
+        orders: 0,
+        units: 0,
+        revenue: 0,
+        firstOrderDate: order.createdAt,
+        lastOrderDate: order.createdAt,
+      };
+
+      existing.orders += 1;
+
+      if (new Date(order.createdAt) < new Date(existing.firstOrderDate)) {
+        existing.firstOrderDate = order.createdAt;
+      }
+      if (new Date(order.createdAt) > new Date(existing.lastOrderDate)) {
+        existing.lastOrderDate = order.createdAt;
+      }
+
+      for (const item of order.items) {
+        if (normalizeBrand(item.product?.brand) === brand) {
+          const qty = money(item.quantity);
+          const prc = getItemPrice(item);
+          existing.units += qty;
+          existing.revenue += qty * prc;
+        }
+      }
+
+      customerPerformanceMap.set(uId, existing);
+    }
+
+    const customerPerformanceList = Array.from(customerPerformanceMap.values()).sort(
+      (a, b) => b.revenue - a.revenue
+    );
+
+    let singleOrderCustomers = 0;
+    let repeatOrderCustomers = 0;
+
+    for (const cp of customerPerformanceList) {
+      if (cp.orders === 1) singleOrderCustomers += 1;
+      else if (cp.orders > 1) repeatOrderCustomers += 1;
+    }
+
+    let waitingListEntries = [];
+    if (productIds.length > 0) {
+      waitingListEntries = await prisma.waitingList.findMany({
+        where: {
+          productId: { in: productIds },
+        },
+        include: {
+          product: {
+            include: { categoryRef: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
+
+    const waitingListCount = waitingListEntries.length;
+
+    const waitingListByProductMap = new Map();
+    const waitingListByCategoryMap = new Map();
+
+    for (const entry of waitingListEntries) {
+      const pId = entry.productId;
+      const pName = entry.product?.name || "Product";
+      const catName = entry.product?.categoryRef?.name || entry.product?.category || "Uncategorized";
+
+      waitingListByProductMap.set(pId, {
+        id: pId,
+        name: pName,
+        count: (waitingListByProductMap.get(pId)?.count || 0) + 1,
+      });
+
+      waitingListByCategoryMap.set(catName, {
+        name: catName,
+        count: (waitingListByCategoryMap.get(catName)?.count || 0) + 1,
+      });
+    }
+
+    const demandByProduct = Array.from(waitingListByProductMap.values()).sort((a, b) => b.count - a.count);
+    const demandByCategory = Array.from(waitingListByCategoryMap.values()).sort((a, b) => b.count - a.count);
+
+    const restockPriorityList = products.map((prod) => {
+      const pId = prod.id;
+      const pName = prod.name;
+      const inv = money(prod.inventory);
+      const stats = productStats.get(pId) || { unitsSold: 0, revenue: 0 };
+      const demand = waitingListByProductMap.get(pId)?.count || 0;
+
+      const priorityScore = demand * 5 + stats.unitsSold * 2 - inv;
+
+      return {
+        id: pId,
+        name: pName,
+        category: prod.categoryRef?.name || prod.category || "Uncategorized",
+        inventory: inv,
+        price: getProductPrice(prod),
+        unitsSold: stats.unitsSold,
+        revenue: stats.revenue,
+        waitingListDemand: demand,
+        priorityScore,
+        urgencyBadge: inv <= 0 && demand > 0 ? "Critical Restock" : inv <= 10 ? "Low Stock Risk" : "Normal",
+      };
+    }).sort((a, b) => b.priorityScore - a.priorityScore);
+
+    const topInventoryHoldings = products
+      .map((prod) => ({
+        id: prod.id,
+        name: prod.name,
+        inventory: money(prod.inventory),
+        valuation: money(prod.inventory) * getProductPrice(prod),
+      }))
+      .sort((a, b) => b.inventory - a.inventory)
+      .slice(0, 10);
+
+    const velocityComparison = products
+      .map((prod) => {
+        const stats = productStats.get(prod.id) || { unitsSold: 0 };
+        return {
+          id: prod.id,
+          name: prod.name,
+          unitsSold: stats.unitsSold,
+          currentStock: money(prod.inventory),
+        };
+      })
+      .filter((p) => p.unitsSold > 0 || p.currentStock > 0)
+      .sort((a, b) => b.unitsSold - a.unitsSold)
+      .slice(0, 10);
 
     const productPerformance =
       Array.from(
@@ -659,10 +772,6 @@ export async function GET(request) {
         );
       });
 
-    /* ========================================================
-       17. BEST SELLERS
-    ======================================================== */
-
     const bestSellers =
       productPerformance
         .filter(
@@ -671,9 +780,68 @@ export async function GET(request) {
         )
         .slice(0, 10);
 
-    /* ========================================================
-       18. DAILY ANALYTICS
-    ======================================================== */
+    const durationMs = end.getTime() - start.getTime();
+    const prevEnd = new Date(start.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - durationMs);
+
+    let prevRevenue = 0;
+    let prevOrderCount = 0;
+    let prevUnitsSold = 0;
+
+    if (productIds.length > 0) {
+      const prevOrdersList = await prisma.order.findMany({
+        where: {
+          createdAt: {
+            gte: prevStart,
+            lte: prevEnd,
+          },
+          items: {
+            some: {
+              productId: {
+                in: productIds,
+              },
+            },
+          },
+        },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      });
+
+      const validPrevOrders = prevOrdersList.filter(
+        (o) => !isCancelledStatus(o.status)
+      );
+
+      prevOrderCount = validPrevOrders.length;
+
+      for (const po of validPrevOrders) {
+        for (const pi of po.items) {
+          if (normalizeBrand(pi.product?.brand) === brand) {
+            const qty = money(pi.quantity);
+            const prc = getItemPrice(pi);
+            prevUnitsSold += qty;
+            prevRevenue += qty * prc;
+          }
+        }
+      }
+    }
+
+    const prevAOV = prevOrderCount > 0 ? prevRevenue / prevOrderCount : 0;
+
+    const comparisons = {
+      prevRevenue,
+      prevOrders: prevOrderCount,
+      prevUnitsSold,
+      prevAOV,
+      revenueChange: prevRevenue > 0 ? ((revenue - prevRevenue) / prevRevenue) * 100 : null,
+      ordersChange: prevOrderCount > 0 ? ((orderCount - prevOrderCount) / prevOrderCount) * 100 : null,
+      unitsChange: prevUnitsSold > 0 ? ((unitsSold - prevUnitsSold) / prevUnitsSold) * 100 : null,
+      aovChange: prevAOV > 0 ? ((averageOrderValue - prevAOV) / prevAOV) * 100 : null,
+    };
 
     const dailyMap =
       new Map();
@@ -699,6 +867,8 @@ export async function GET(request) {
         orders: 0,
 
         unitsSold: 0,
+
+        newSignups: userSignupDailyMap.get(key) || 0,
       });
     }
 
@@ -745,10 +915,6 @@ export async function GET(request) {
       Array.from(
         dailyMap.values()
       );
-
-    /* ========================================================
-       19. CATEGORIES
-    ======================================================== */
 
     const categoryMap =
       new Map();
@@ -798,10 +964,6 @@ export async function GET(request) {
         )
         .slice(0, 10);
 
-    /* ========================================================
-       20. COLLECTIONS
-    ======================================================== */
-
     const collectionMap =
       new Map();
 
@@ -849,10 +1011,6 @@ export async function GET(request) {
         )
         .slice(0, 10);
 
-    /* ========================================================
-       21. ORDER STATUSES
-    ======================================================== */
-
     const statusMap =
       new Map();
 
@@ -879,10 +1037,6 @@ export async function GET(request) {
           count,
         })
       );
-
-    /* ========================================================
-       22. RECENT ORDERS
-    ======================================================== */
 
     const recentOrders =
       brandOrders
@@ -933,10 +1087,6 @@ export async function GET(request) {
           };
         });
 
-    /* ========================================================
-       23. RESPONSE
-    ======================================================== */
-
     return NextResponse.json(
       {
         success: true,
@@ -950,9 +1100,6 @@ export async function GET(request) {
           end,
         },
 
-        /*
-         * THIS IS THE STRUCTURE USED BY THE DASHBOARD.
-         */
         overview: {
           revenue,
 
@@ -966,12 +1113,29 @@ export async function GET(request) {
           customers:
             customerCount,
 
+          newCustomers,
+
+          firstTimeBuyers,
+
+          returningBuyers,
+
+          waitingListCount,
+
           products:
             totalProducts,
 
           activeProducts,
 
           outOfStock,
+
+          fewLeft:
+            fewLeftProducts.length,
+
+          almostSoldOut:
+            almostSoldOutProducts.length,
+
+          available:
+            availableProducts.length,
 
           lowStock:
             lowStockProducts.length,
@@ -981,6 +1145,22 @@ export async function GET(request) {
           totalInventoryUnits,
 
           stockHealth,
+
+          comparisons,
+        },
+
+        inventoryData: {
+          statusBreakdown: [
+            { name: "Sold Out", value: outOfStock },
+            { name: "Few Left (1–25%)", value: fewLeftProducts.length },
+            { name: "Almost Sold Out (26–50%)", value: almostSoldOutProducts.length },
+            { name: "Available (>50%)", value: availableProducts.length },
+          ],
+          topHoldings: topInventoryHoldings,
+          velocityComparison,
+          restockPriority: restockPriorityList,
+          demandByProduct,
+          demandByCategory,
         },
 
         analytics: {
@@ -994,6 +1174,66 @@ export async function GET(request) {
           topCategories,
 
           topCollections,
+        },
+
+        marketingSummary: await (async () => {
+          const campaigns = await prisma.campaign.findMany({
+            where: { brand },
+            include: {
+              visits: { where: { createdAt: { gte: start, lte: end } } },
+              orders: {
+                where: { createdAt: { gte: start, lte: end } },
+                include: {
+                  order: { include: { items: { include: { product: true } } } },
+                },
+              },
+            },
+          });
+
+          let totalVisits = 0;
+          const visitorSet = new Set();
+          let attributedOrdersCount = 0;
+          let attributedRevenue = 0;
+
+          for (const c of campaigns) {
+            totalVisits += c.visits.length;
+            for (const v of c.visits) visitorSet.add(v.visitorId);
+
+            const validAttrs = c.orders.filter(
+              (o) => o.order && !isCancelledStatus(o.order.status)
+            );
+
+            attributedOrdersCount += validAttrs.length;
+
+            for (const attr of validAttrs) {
+              for (const item of attr.order.items) {
+                if (normalizeBrand(item.product?.brand) === brand) {
+                  const qty = money(item.quantity);
+                  const prc = getItemPrice(item);
+                  attributedRevenue += qty * prc;
+                }
+              }
+            }
+          }
+
+          const uniqueVisitors = visitorSet.size;
+          const conversionRate = uniqueVisitors > 0 ? ((attributedOrdersCount / uniqueVisitors) * 100).toFixed(1) : 0;
+
+          return {
+            visits: totalVisits,
+            uniqueVisitors,
+            orders: attributedOrdersCount,
+            revenue: attributedRevenue,
+            conversionRate,
+          };
+        })(),
+
+        customersData: {
+          list: customerPerformanceList,
+          singleOrderCustomers,
+          repeatOrderCustomers,
+          avgOrdersPerCustomer: customerCount > 0 ? (orderCount / customerCount).toFixed(1) : 0,
+          avgSpendPerCustomer: customerCount > 0 ? revenue / customerCount : 0,
         },
 
         inventory: {
@@ -1051,12 +1291,6 @@ export async function GET(request) {
 
         recentOrders,
 
-        /*
-         * ======================================================
-         * DEBUG
-         * ======================================================
-         */
-
         debug: {
           databaseProductCount:
             allProducts.length,
@@ -1101,10 +1335,6 @@ export async function GET(request) {
                     product.brand
                   ),
 
-                /*
-                 * THIS SHOULD NOW MATCH THE
-                 * ACTUAL PRODUCT PRICE.
-                 */
                 price:
                   getProductPrice(
                     product

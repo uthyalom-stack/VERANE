@@ -560,6 +560,12 @@ export async function PUT(request, { params }) {
   }
 }
 
+/**
+ * Deletes a store product or archives it when it has historical orders.
+ * @param {Request} request - The incoming request.
+ * @param {{ id: string }} params - Route parameters containing the product ID.
+ * @returns {Promise<NextResponse>} A response indicating whether the product was archived or deleted.
+ */
 export async function DELETE(
   request,
   { params }
@@ -596,26 +602,74 @@ export async function DELETE(
           id,
           brand: admin.brand,
         },
+        include: {
+          orderItems: {
+            take: 1,
+          },
+          variants: true,
+        },
       });
 
     if (!existingProduct) {
       return NextResponse.json(
         {
           success: false,
-          error: "Product not found.",
+          error: "Product not found or does not belong to your store.",
         },
         { status: 404 }
       );
     }
 
-    await prisma.product.delete({
-      where: {
-        id,
-      },
-    });
+    const hasOrderHistory = existingProduct.orderItems.length > 0;
+
+    if (hasOrderHistory) {
+      // Archive product safely to protect historical orders
+      await prisma.$transaction([
+        prisma.product.update({
+          where: { id },
+          data: {
+            inventory: 0,
+            preOrderEnabled: false,
+          },
+        }),
+        prisma.productVariant.updateMany({
+          where: { productId: id },
+          data: {
+            stock: 0,
+          },
+        }),
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        archived: true,
+        message: "Product has historical order references and was safely archived (unassigned from active inventory) to preserve order history.",
+      });
+    }
+
+    // Product has never been purchased - safe to hard delete with clean-up
+    await prisma.$transaction([
+      prisma.waitingList.deleteMany({
+        where: { productId: id },
+      }),
+      prisma.wishlist.deleteMany({
+        where: { productId: id },
+      }),
+      prisma.productVariant.deleteMany({
+        where: { productId: id },
+      }),
+      prisma.productColor.deleteMany({
+        where: { productId: id },
+      }),
+      prisma.product.delete({
+        where: { id },
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
+      deleted: true,
+      message: "Product deleted successfully.",
     });
   } catch (error) {
     console.error(

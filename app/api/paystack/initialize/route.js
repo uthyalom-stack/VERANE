@@ -1,39 +1,76 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
-import { initializePaystackTransaction } from "@/lib/paystack";
+import { initializePaystackTransaction, calculateOrderTotalsServer } from "@/lib/paystack";
+import { verifyCustomerSession, getCustomerCookieName } from "@/lib/auth/customer";
 
-async function getSession(request) {
-  const response = await fetch(new URL("/api/auth/session", request.url), {
-    headers: { cookie: request.headers.get("cookie") || "" },
-    cache: "no-store",
-  });
-  return response.json();
+/**
+ * Retrieves the authenticated customer from the session cookie.
+ * @return {{authenticated: boolean, user: object|null}} The authenticated customer data, or an unauthenticated result.
+ */
+async function getSession() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(getCustomerCookieName())?.value;
+    const user = verifyCustomerSession(token);
+    if (user) {
+      return { authenticated: true, user };
+    }
+  } catch (err) {
+    console.error("Direct session verification error:", err);
+  }
+  return { authenticated: false, user: null };
 }
 
+/**
+ * Creates a payment reference containing the current date and a random six-digit number.
+ * @return {string} The generated payment reference.
+ */
 function generateReference() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const random = Math.floor(100000 + Math.random() * 900000);
   return `VR-REF-${date}-${random}`;
 }
 
+/**
+ * Initializes a checkout and Paystack payment transaction.
+ * @param {Request} request - The checkout request containing customer, delivery, and cart details.
+ * @return {Promise<NextResponse>} A response containing the payment authorization URL and reference, or an error.
+ */
 export async function POST(request) {
   try {
-    const session = await getSession(request);
+    const session = await getSession();
 
-    if (!session.authenticated || !session.user?.id) {
-      return NextResponse.json(
-        { success: false, error: "Please login before completing checkout." },
-        { status: 401 }
-      );
+    let userId = session.user?.id || null;
+
+    // If user is guest/unauthenticated, create or locate a user record using guest email
+    if (!userId) {
+      const bodyPreview = await request.clone().json().catch(() => ({}));
+      const guestEmail = String(bodyPreview.email || "").trim().toLowerCase();
+      if (!guestEmail) {
+        return NextResponse.json(
+          { success: false, error: "Email address is required for checkout." },
+          { status: 400 }
+        );
+      }
+
+      let guestUser = await prisma.user.findUnique({ where: { email: guestEmail } });
+      if (!guestUser) {
+        guestUser = await prisma.user.create({
+          data: {
+            email: guestEmail,
+            name: [bodyPreview.firstName, bodyPreview.lastName].filter(Boolean).join(" ") || "Guest Customer",
+            password: "GUEST_CHECKOUT_ACCOUNT",
+          },
+        });
+      }
+      userId = guestUser.id;
     }
 
     const body = await request.json();
 
     const {
-      items,
-      subtotal,
-      shippingFee,
-      total,
+      items: rawItems,
       firstName,
       lastName,
       email,
@@ -45,7 +82,7 @@ export async function POST(request) {
       address,
     } = body;
 
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(rawItems) || rawItems.length === 0) {
       return NextResponse.json({ success: false, error: "Cart is empty." }, { status: 400 });
     }
 
@@ -56,19 +93,32 @@ export async function POST(request) {
       );
     }
 
+    // 1. NEVER TRUST CLIENT MONEY: Recalculate merchandise subtotal, shipping fee, and total server-side
+    const calculation = await calculateOrderTotalsServer({
+      items: rawItems,
+      country: country || "Nigeria",
+      state,
+      city,
+      zone,
+    });
+
+    const trustedSubtotal = calculation.subtotal;
+    const trustedShippingFee = calculation.shippingFee;
+    const trustedGrandTotal = calculation.total;
+    const validatedItems = calculation.items;
+
     const reference = generateReference();
-    const grandTotal = Number(total || 0);
-    const amountInKobo = Math.round(grandTotal * 100);
+    const amountInKobo = Math.round(trustedGrandTotal * 100);
 
     const origin = request.nextUrl.origin;
     const callbackUrl = `${origin}/api/paystack/verify?reference=${reference}`;
 
-    // Create a pending Order with pendingCheckoutData attached
+    // 2. Store server-calculated snapshot in pendingCheckoutData
     const pendingCheckoutData = JSON.stringify({
-      items,
-      subtotal,
-      shippingFee,
-      total: grandTotal,
+      items: validatedItems,
+      subtotal: trustedSubtotal,
+      shippingFee: trustedShippingFee,
+      total: trustedGrandTotal,
       firstName,
       lastName,
       email,
@@ -82,13 +132,13 @@ export async function POST(request) {
 
     await prisma.order.create({
       data: {
-        userId: session.user.id,
+        userId,
         orderNumber: reference.replace("VR-REF-", "VR-"),
         paymentReference: reference,
         paymentStatus: "pending",
         status: "pending",
-        total: grandTotal,
-        shippingFee: Number(shippingFee || 0),
+        total: trustedGrandTotal,
+        shippingFee: trustedShippingFee,
         firstName: firstName || null,
         lastName: lastName || null,
         email,
@@ -110,9 +160,9 @@ export async function POST(request) {
       callbackUrl,
       metadata: {
         reference,
-        userId: session.user.id,
+        userId,
         email,
-        shippingFee,
+        shippingFee: trustedShippingFee,
       },
     });
 

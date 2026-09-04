@@ -22,6 +22,10 @@ function HeartIcon({ filled }) {
   );
 }
 
+/**
+ * Displays a shopping cart icon.
+ * @return {JSX.Element} The shopping cart SVG element.
+ */
 function CartIcon() {
   return (
     <svg
@@ -47,6 +51,13 @@ function CartIcon() {
   );
 }
 
+import { productRequiresOptions } from "@/lib/product-options";
+
+/**
+ * Renders wishlist and cart actions for a storefront product.
+ * @param {Object} product - The product associated with the actions.
+ * @return {JSX.Element} The wishlist and cart action controls.
+ */
 export default function StorefrontProductActions({ product }) {
   const router = useRouter();
   const [wishlisted, setWishlisted] = useState(false);
@@ -124,11 +135,19 @@ export default function StorefrontProductActions({ product }) {
     }
   }
 
-  function addToCart(event) {
+  const soldOut = Number(product?.inventory ?? 0) <= 0;
+  const requiresOptions = productRequiresOptions(product);
+
+  function handleAction(event) {
     event.preventDefault();
     event.stopPropagation();
 
-    if (!product?.id || Number(product.inventory ?? 0) <= 0) return;
+    if (!product?.id || soldOut) return;
+
+    if (requiresOptions) {
+      router.push(`/product/${product.id}`);
+      return;
+    }
 
     try {
       let cart;
@@ -186,8 +205,6 @@ export default function StorefrontProductActions({ product }) {
     }
   }
 
-  const soldOut = Number(product?.inventory ?? 0) <= 0;
-
   return (
     <div className="mt-3 flex items-center gap-2">
       <button
@@ -207,7 +224,7 @@ export default function StorefrontProductActions({ product }) {
 
       <button
         type="button"
-        onClick={addToCart}
+        onClick={handleAction}
         disabled={soldOut}
         className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-full px-4 text-[10px] font-black uppercase tracking-[0.12em] transition ${
           soldOut
@@ -218,7 +235,7 @@ export default function StorefrontProductActions({ product }) {
         }`}
       >
         <CartIcon />
-        {soldOut ? "Sold Out" : cartAdded ? "Added" : "Add to Cart"}
+        {soldOut ? "Sold Out" : cartAdded ? "Added" : requiresOptions ? "CHECK OPTIONS" : "ADD TO CART"}
       </button>
     </div>
   );

@@ -4,6 +4,9 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+/**
+ * Displays product details, manages product options and wishlist state, and adds selected items to the cart.
+ */
 export default function ProductDetail() {
   const { id } = useParams();
   const router = useRouter();
@@ -19,6 +22,8 @@ export default function ProductDetail() {
 
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
+
+  const [selectedVariants, setSelectedVariants] = useState([]);
 
   const [customSizing, setCustomSizing] = useState("");
 
@@ -164,41 +169,52 @@ export default function ProductDetail() {
       String(product?.category || "").toLowerCase()
     );
 
-  const hasSizes = variants.length > 0;
+  const hasSizes = variants.some(
+    (v) => Boolean(v.size || v.name || v.value || v.label)
+  );
 
   const needsSizeSelection =
     hasSizes && !isPreOrder;
 
-  const selectedVariant = variants.find((variant) => {
-    const variantSize = String(
+  const selectedColorObject =
+    selectedColor && productColors.length > 0
+      ? productColors.find(
+          (color) =>
+            String(color.id) ===
+            String(selectedColor)
+        )
+      : null;
+
+  const currentExactVariant = variants.find((variant) => {
+    const variantSize =
       variant.size ||
-        variant.name ||
-        variant.value ||
-        variant.label ||
-        ""
-    );
+      variant.name ||
+      variant.value ||
+      variant.label ||
+      null;
 
-    const sizeMatches =
-      !selectedSize ||
-      variantSize === String(selectedSize);
+    const sizeMatches = selectedSize
+      ? Boolean(variantSize) && String(variantSize) === String(selectedSize)
+      : (!hasSizes ? true : false);
 
-    const colorMatches =
-      !selectedColor ||
-      !variant.colorId ||
-      String(variant.colorId) === String(selectedColor);
+    const colorMatches = selectedColor
+      ? Boolean(variant.colorId) && String(variant.colorId) === String(selectedColor)
+      : (productColors.length > 0 ? false : true);
 
     return sizeMatches && colorMatches;
   }) || null;
 
-  const activeStock = selectedVariant?.stock ?? selectedVariant?.inventory ?? inventory;
+  const currentAvailableStock = currentExactVariant
+    ? (currentExactVariant.stock ?? currentExactVariant.inventory ?? 0)
+    : inventory;
 
-  const isOutOfStock = activeStock <= 0;
+  const isOutOfStock = inventory <= 0 && variants.every((v) => (v.stock ?? v.inventory ?? 0) <= 0);
 
   const stockStatus = isOutOfStock
     ? "Sold Out"
-    : activeStock <= 10
+    : stockPercentage <= 25
     ? "Few Left"
-    : activeStock <= 40
+    : stockPercentage <= 50
     ? "Almost Sold Out"
     : "Available";
 
@@ -211,14 +227,103 @@ export default function ProductDetail() {
       ? "text-amber-400"
       : "text-emerald-400";
 
-  const selectedColorObject =
-    selectedColor && productColors.length > 0
-      ? productColors.find(
-          (color) =>
-            String(color.id) ===
-            String(selectedColor)
-        )
+  const addOrUpdateSelectedVariant = (colorId, sizeLabel) => {
+    if (!product) return;
+
+    const chosenColorObj = colorId && productColors.length > 0
+      ? productColors.find((c) => String(c.id) === String(colorId))
       : null;
+
+    const chosenColorName = chosenColorObj?.name || chosenColorObj?.label || chosenColorObj?.value || null;
+
+    const exactVar = variants.find((variant) => {
+      const vSize = variant.size || variant.name || variant.value || variant.label || null;
+
+      const sizeMatches = sizeLabel
+        ? Boolean(vSize) && String(vSize) === String(sizeLabel)
+        : (!hasSizes ? true : !vSize);
+
+      const colorMatches = colorId
+        ? Boolean(variant.colorId) && String(variant.colorId) === String(colorId)
+        : (!chosenColorObj ? true : !variant.colorId);
+
+      return sizeMatches && colorMatches;
+    }) || null;
+
+    const maxStock = exactVar
+      ? (exactVar.stock ?? exactVar.inventory ?? 0)
+      : inventory;
+
+    if (maxStock <= 0) {
+      alert("This item is currently out of stock.");
+      return;
+    }
+
+    const varKey = exactVar?.id ? String(exactVar.id) : "";
+    const key = [
+      product.id,
+      varKey,
+      chosenColorObj?.id || chosenColorName || "",
+      sizeLabel || "",
+    ].join("|");
+
+    setSelectedVariants((prev) => {
+      const existingIndex = prev.findIndex((item) => item.key === key);
+
+      if (existingIndex >= 0) {
+        const existingItem = prev[existingIndex];
+        const nextQty = existingItem.qty + 1;
+
+        if (maxStock > 0 && nextQty > maxStock) {
+          alert(`Cannot select more than available stock (${maxStock}).`);
+          return prev;
+        }
+
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...existingItem,
+          qty: nextQty,
+        };
+        return updated;
+      } else {
+        return [
+          ...prev,
+          {
+            key,
+            exactVariant: exactVar,
+            variantId: exactVar?.id || null,
+            colorId: chosenColorObj?.id || exactVar?.colorId || null,
+            colorName: chosenColorName,
+            colorHex: chosenColorObj ? getColorValue(chosenColorObj) : null,
+            size: sizeLabel || null,
+            qty: 1,
+            maxStock,
+          },
+        ];
+      }
+    });
+  };
+
+  const updateVariantQty = (key, delta) => {
+    setSelectedVariants((prev) =>
+      prev
+        .map((item) => {
+          if (item.key !== key) return item;
+          const newQty = item.qty + delta;
+          if (newQty <= 0) return null;
+          if (item.maxStock > 0 && newQty > item.maxStock) {
+            alert(`Cannot select more than available stock (${item.maxStock}).`);
+            return item;
+          }
+          return { ...item, qty: newQty };
+        })
+        .filter(Boolean)
+    );
+  };
+
+  const removeSelectedVariant = (key) => {
+    setSelectedVariants((prev) => prev.filter((item) => item.key !== key));
+  };
 
   const getColorValue = (color) => {
     if (!color) return "#ffffff";
@@ -279,188 +384,132 @@ export default function ProductDetail() {
   };
 
   const addToCart = () => {
-  if (!product || isOutOfStock) {
-    return;
-  }
-
-  if (
-    needsSizeSelection &&
-    !selectedSize
-  ) {
-    alert(
-      isFootwear
-        ? "Please select your footwear size."
-        : "Please select your size."
-    );
-
-    return;
-  }
-
-  if (
-    isPreOrder &&
-    customSizingEnabled &&
-    !customSizing.trim()
-  ) {
-    alert(
-      "Please enter your sizing or measurements before adding this pre-order to your cart."
-    );
-
-    return;
-  }
-
-  /*
-   * Find the exact variant using BOTH
-   * the selected size and selected color.
-   *
-   * This allows combinations such as:
-   *
-   * Black / 40
-   * Black / 41
-   * Brown / 40
-   * Brown / 41
-   *
-   * to exist independently.
-   */
-  const exactVariant = variants.find(
-    (variant) => {
-      const variantSize = String(
-        variant.size ||
-          variant.name ||
-          variant.value ||
-          variant.label ||
-          ""
-      );
-
-      const sizeMatches =
-        !selectedSize ||
-        variantSize ===
-          String(selectedSize);
-
-      const colorMatches =
-        !selectedColor ||
-        !variant.colorId ||
-        String(variant.colorId) ===
-          String(selectedColor);
-
-      return (
-        sizeMatches &&
-        colorMatches
-      );
+    if (!product || isOutOfStock) {
+      return;
     }
-  ) || null;
 
-  const cartColor =
-    selectedColorObject?.name ||
-    selectedColorObject?.label ||
-    selectedColorObject?.value ||
-    null;
+    if (
+      isPreOrder &&
+      customSizingEnabled &&
+      !customSizing.trim()
+    ) {
+      alert(
+        "Please enter your sizing or measurements before adding this pre-order to your cart."
+      );
+      return;
+    }
 
-  /*
-   * The variant ID is part of the cart
-   * identity whenever a real variant exists.
-   *
-   * This prevents different variants of
-   * the same product from being merged.
-   */
-  const variantKey =
-    exactVariant?.id
-      ? String(exactVariant.id)
-      : "";
+    let itemsToAdd = [...selectedVariants];
 
-  const cartItemKey = [
-    product.id,
-    variantKey,
-    selectedColorObject?.id ||
-      cartColor ||
-      "",
-    selectedSize || "",
-    customSizing.trim() || "",
-  ].join("|");
+    if (itemsToAdd.length === 0) {
+      if (needsSizeSelection && !selectedSize) {
+        alert(
+          isFootwear
+            ? "Please select your footwear size."
+            : "Please select your size."
+        );
+        return;
+      }
 
-  const cart = JSON.parse(
-    localStorage.getItem("cart") ||
-      '{"items":[],"total":0,"event":"Verane"}'
-  );
+      if (productColors.length > 0 && !selectedColor) {
+        alert("Please select a color.");
+        return;
+      }
 
-  if (!Array.isArray(cart.items)) {
-    cart.items = [];
-  }
+      const chosenColorObj = selectedColor && productColors.length > 0
+        ? productColors.find((c) => String(c.id) === String(selectedColor))
+        : null;
 
-  const existing = cart.items.find(
-    (item) =>
-      item.cartItemKey ===
-      cartItemKey
-  );
+      const chosenColorName = chosenColorObj?.name || chosenColorObj?.label || chosenColorObj?.value || null;
 
-  if (existing) {
-    existing.qty =
-      Number(existing.qty || 0) +
-      Number(qty || 1);
-  } else {
-    cart.items.push({
-      ...product,
+      const exactVar = variants.find((variant) => {
+        const vSize = variant.size || variant.name || variant.value || variant.label || null;
 
-      /*
-       * Keep the exact variant attached
-       * to this cart item.
-       */
-      variantId:
-        exactVariant?.id ||
-        null,
+        const sizeMatches = selectedSize
+          ? Boolean(vSize) && String(vSize) === String(selectedSize)
+          : (!hasSizes ? true : !vSize);
 
-      variant:
-        exactVariant || null,
+        const colorMatches = selectedColor
+          ? Boolean(variant.colorId) && String(variant.colorId) === String(selectedColor)
+          : (!chosenColorObj ? true : !variant.colorId);
 
-      /*
-       * If the variant has its own stock,
-       * preserve it for the cart.
-       */
-      variantInventory:
-        exactVariant?.inventory ??
-        exactVariant?.stock ??
-        null,
+        return sizeMatches && colorMatches;
+      }) || null;
 
-      qty,
+      const varKey = exactVar?.id ? String(exactVar.id) : "";
+      const key = [
+        product.id,
+        varKey,
+        chosenColorObj?.id || chosenColorName || "",
+        selectedSize || "",
+      ].join("|");
 
-      cartItemKey,
+      itemsToAdd = [{
+        key,
+        exactVariant: exactVar,
+        variantId: exactVar?.id || null,
+        colorId: chosenColorObj?.id || exactVar?.colorId || null,
+        colorName: chosenColorName,
+        colorHex: chosenColorObj ? getColorValue(chosenColorObj) : null,
+        size: selectedSize || null,
+        qty: qty || 1,
+        maxStock: exactVar ? (exactVar.stock ?? exactVar.inventory ?? 0) : inventory,
+      }];
+    }
 
-      selectedColor:
-        cartColor,
+    const cart = JSON.parse(
+      localStorage.getItem("cart") ||
+        '{"items":[],"total":0,"event":"Verane"}'
+    );
 
-      selectedColorId:
-        selectedColorObject?.id ||
-        exactVariant?.colorId ||
-        null,
+    if (!Array.isArray(cart.items)) {
+      cart.items = [];
+    }
 
-      selectedSize:
-        selectedSize || null,
+    for (const item of itemsToAdd) {
+      const variantKey = item.variantId ? String(item.variantId) : "";
 
-      customSizing:
-        customSizing.trim() ||
-        null,
+      const cartItemKey = [
+        product.id,
+        variantKey,
+        item.colorId || item.colorName || "",
+        item.size || "",
+        customSizing.trim() || "",
+      ].join("|");
 
-      isPreOrder,
+      const existing = cart.items.find(
+        (cItem) => cItem.cartItemKey === cartItemKey
+      );
 
-      fulfillmentTime:
-        fulfillmentTime || null,
-    });
-  }
+      if (existing) {
+        existing.qty = Number(existing.qty || 0) + Number(item.qty || 1);
+      } else {
+        cart.items.push({
+          ...product,
+          variantId: item.variantId || null,
+          variant: item.exactVariant || null,
+          variantInventory: item.maxStock ?? null,
+          qty: item.qty,
+          cartItemKey,
+          selectedColor: item.colorName || null,
+          selectedColorId: item.colorId || null,
+          selectedSize: item.size || null,
+          customSizing: customSizing.trim() || null,
+          isPreOrder,
+          fulfillmentTime: fulfillmentTime || null,
+        });
+      }
+    }
 
-  cart.total = cart.items.reduce(
-    (sum, item) =>
-      sum +
-      Number(item.price || 0) *
-        Number(item.qty || 0),
-    0
-  );
+    cart.total = cart.items.reduce(
+      (sum, item) =>
+        sum + Number(item.price || 0) * Number(item.qty || 0),
+      0
+    );
 
-  localStorage.setItem(
-    "cart",
-    JSON.stringify(cart)
-  );
-
-  router.push("/cart");
-};
+    localStorage.setItem("cart", JSON.stringify(cart));
+    router.push("/cart");
+  };
 
   const getVariantLabel = (variant) => {
     return (
@@ -751,13 +800,13 @@ export default function ProductDetail() {
                           color
                         );
 
+                      const isSelectedInCollection = selectedVariants.some(
+                        (v) => String(v.colorId) === String(colorId)
+                      );
+
                       const active =
-                        String(
-                          selectedColor
-                        ) ===
-                        String(
-                          colorId
-                        );
+                        String(selectedColor) === String(colorId) ||
+                        (!hasSizes && isSelectedInCollection);
 
                       return (
                         <button
@@ -765,11 +814,14 @@ export default function ProductDetail() {
                           key={String(
                             colorId
                           )}
-                          onClick={() =>
-                            setSelectedColor(
-                              colorId
-                            )
-                          }
+                          onClick={() => {
+                            setSelectedColor(colorId);
+                            if (!hasSizes) {
+                              addOrUpdateSelectedVariant(colorId, null);
+                            } else if (selectedSize) {
+                              addOrUpdateSelectedVariant(colorId, selectedSize);
+                            }
+                          }}
                           className={`flex items-center gap-3 rounded-full border px-4 py-2.5 transition-all ${
                             active
                               ? "border-white bg-white/10"
@@ -833,18 +885,23 @@ export default function ProductDetail() {
                       ).filter(Boolean)
                     )
                   ).map((sizeLabel) => {
-                    const matchingVariant = variants.find(
-                      (v) =>
-                        String(
-                          v.size ||
-                            v.name ||
-                            v.value ||
-                            v.label
-                        ) === String(sizeLabel) &&
-                        (!selectedColor ||
-                          !v.colorId ||
-                          String(v.colorId) === String(selectedColor))
-                    );
+                    const matchingVariant = variants.find((v) => {
+                      const vSize =
+                        v.size ||
+                        v.name ||
+                        v.value ||
+                        v.label ||
+                        null;
+
+                      const sizeMatches =
+                        Boolean(vSize) && String(vSize) === String(sizeLabel);
+
+                      const colorMatches = selectedColor
+                        ? Boolean(v.colorId) && String(v.colorId) === String(selectedColor)
+                        : true;
+
+                      return sizeMatches && colorMatches;
+                    });
 
                     const available =
                       matchingVariant &&
@@ -860,9 +917,10 @@ export default function ProductDetail() {
                         key={sizeLabel}
                         type="button"
                         disabled={!available}
-                        onClick={() =>
-                          setSelectedSize(sizeLabel)
-                        }
+                        onClick={() => {
+                          setSelectedSize(sizeLabel);
+                          addOrUpdateSelectedVariant(selectedColor, sizeLabel);
+                        }}
                         className={`min-w-[52px] px-4 py-3 rounded-xl border text-xs font-bold transition-all ${
                           !available
                             ? "border-white/5 text-neutral-700 line-through cursor-not-allowed"
@@ -1020,6 +1078,85 @@ export default function ProductDetail() {
               </div>
             )}
 
+            {/* SELECTED VARIANTS COLLECTION LIST */}
+            {selectedVariants.length > 0 && (
+              <div className="mt-8 rounded-2xl border border-white/10 bg-neutral-950 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[10px] text-amber-400 font-bold uppercase tracking-[0.2em]">
+                    Selected Variants ({selectedVariants.reduce((sum, item) => sum + item.qty, 0)})
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVariants([])}
+                    className="text-[10px] text-neutral-500 hover:text-white uppercase tracking-wider"
+                  >
+                    Clear All
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {selectedVariants.map((item) => (
+                    <div
+                      key={item.key}
+                      className="flex items-center justify-between gap-4 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-xs"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {item.colorHex && (
+                          <span
+                            className="w-4 h-4 rounded-full border border-white/20 shrink-0"
+                            style={{ backgroundColor: item.colorHex }}
+                          />
+                        )}
+                        <div className="truncate">
+                          <span className="font-bold text-white">
+                            {item.colorName || "Standard"}
+                          </span>
+                          {item.size && (
+                            <span className="text-neutral-400 font-semibold ml-2">
+                              / {item.size}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="inline-flex items-center gap-2 border border-white/10 rounded-full px-2 py-1 bg-black">
+                          <button
+                            type="button"
+                            onClick={() => updateVariantQty(item.key, -1)}
+                            className="w-5 h-5 rounded-full hover:bg-neutral-800 text-neutral-300 font-bold flex items-center justify-center"
+                            aria-label="Decrease quantity"
+                          >
+                            −
+                          </button>
+                          <span className="font-bold text-xs w-4 text-center text-white">
+                            {item.qty}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => updateVariantQty(item.key, 1)}
+                            className="w-5 h-5 rounded-full hover:bg-neutral-800 text-neutral-300 font-bold flex items-center justify-center"
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => removeSelectedVariant(item.key)}
+                          className="text-neutral-500 hover:text-red-400 text-[10px] uppercase font-bold tracking-wider"
+                          aria-label="Remove item"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ADD TO CART */}
             <button
               type="button"
@@ -1034,9 +1171,10 @@ export default function ProductDetail() {
               {isOutOfStock
                 ? "Sold Out"
                 : `Add to Cart — ₦${(
-                    Number(
-                      product.price || 0
-                    ) * qty
+                    Number(product.price || 0) *
+                    (selectedVariants.length > 0
+                      ? selectedVariants.reduce((sum, item) => sum + item.qty, 0)
+                      : qty)
                   ).toLocaleString()}`}
             </button>
 

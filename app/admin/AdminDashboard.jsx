@@ -2,6 +2,11 @@
 
 import { useRouter } from "next/navigation";
 
+/**
+ * Render the role-specific administration dashboard.
+ * @param {{role?: string, name?: string}} admin - The administrator identity and role used to determine dashboard access and branding.
+ * @returns {JSX.Element} The administration dashboard interface.
+ */
 export default function AdminDashboard({ admin }) {
   const router = useRouter();
 
@@ -136,6 +141,30 @@ export default function AdminDashboard({ admin }) {
                   router.push("/admin/subscribers")
                 }
               />
+
+              <AdminLink
+                title="Marketing"
+                description="Manage tracking links and campaigns"
+                onClick={() =>
+                  router.push("/admin/marketing")
+                }
+              />
+
+              <AdminLink
+                title="Collaborations"
+                description="Co-create capsule drops"
+                onClick={() =>
+                  router.push("/admin/collaborations")
+                }
+              />
+
+              <AdminLink
+                title="Analytics"
+                description="View brand performance dashboard"
+                onClick={() =>
+                  router.push("/admin/analytics")
+                }
+              />
             </div>
           </section>
         )}
@@ -222,14 +251,6 @@ export default function AdminDashboard({ admin }) {
                 description="Manage global site settings"
                 onClick={() =>
                   router.push("/admin/settings")
-                }
-              />
-
-              <AdminLink
-                title="Analytics"
-                description="View platform analytics"
-                onClick={() =>
-                  router.push("/admin")
                 }
               />
             </div>

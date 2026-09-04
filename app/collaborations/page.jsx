@@ -5,13 +5,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SiteFooter from "@/components/SiteFooter";
 
+/**
+ * Display active collaboration products with galleries, options, and cart actions.
+ * @returns {JSX.Element} The collaboration collection page.
+ */
 export default function CollaborationPage() {
   const router = useRouter();
   const [collaborations, setCollaborations] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Selected product & variant choices per collaboration product
-  const [selections, setSelections] = useState({});
+  // Active image index & selections per collaboration product
+  const [selectedImages, setSelectedImages] = useState({});
+  const [selectedVariants, setSelectedVariants] = useState({});
+  const [selectedColors, setSelectedColors] = useState({});
+  const [selectedSizes, setSelectedSizes] = useState({});
   const [addedIds, setAddedIds] = useState({});
 
   useEffect(() => {
@@ -45,39 +52,77 @@ export default function CollaborationPage() {
     return "₦" + Number(amount || 0).toLocaleString("en-NG");
   }
 
-  function handleVariantSelect(collabProductId, variant) {
-    setSelections((prev) => ({
-      ...prev,
-      [collabProductId]: variant,
-    }));
+  function getProductImages(collabProduct) {
+    let images = parseImages(collabProduct.images);
+    if (images.length === 0 && collabProduct.productA) {
+      images = parseImages(collabProduct.productA.images);
+    }
+    if (images.length === 0 && collabProduct.productB && collabProduct.productB.id !== collabProduct.productA?.id) {
+      images = parseImages(collabProduct.productB.images);
+    }
+    return images;
+  }
+
+  function getAvailableColors(sourceProduct) {
+    if (!sourceProduct) return [];
+    if (Array.isArray(sourceProduct.productColors) && sourceProduct.productColors.length > 0) {
+      return sourceProduct.productColors;
+    }
+    const colorMap = new Map();
+    if (Array.isArray(sourceProduct.variants)) {
+      for (const v of sourceProduct.variants) {
+        if (v.color?.name && !colorMap.has(v.color.name)) {
+          colorMap.set(v.color.name, v.color);
+        }
+      }
+    }
+    return Array.from(colorMap.values());
+  }
+
+  function getAvailableSizes(sourceProduct) {
+    if (!sourceProduct || !Array.isArray(sourceProduct.variants)) return [];
+    const sizes = new Set();
+    for (const v of sourceProduct.variants) {
+      if (v.size) sizes.add(v.size);
+    }
+    return Array.from(sizes);
   }
 
   function addToCart(collabProduct) {
-    const selectedVariant = selections[collabProduct.id] || collabProduct.variants?.[0];
+    const sourceProduct = collabProduct.productA;
+    const images = getProductImages(collabProduct);
+    const primaryImage = images[0] || "";
 
-    const images = parseImages(collabProduct.images);
-    const primaryImage = images[0] || collabProduct.productA?.images?.[0] || "";
+    const selectedColor = selectedColors[collabProduct.id] || getAvailableColors(sourceProduct)[0]?.name || null;
+    const selectedSize = selectedSizes[collabProduct.id] || getAvailableSizes(sourceProduct)[0] || null;
 
-    const cartItemKey = `collab_${collabProduct.id}_${selectedVariant?.id || "default"}`;
+    let matchedVariant = null;
+    if (sourceProduct && Array.isArray(sourceProduct.variants)) {
+      matchedVariant = sourceProduct.variants.find((v) => {
+        const matchesColor = !selectedColor || v.color?.name === selectedColor;
+        const matchesSize = !selectedSize || v.size === selectedSize;
+        return matchesColor && matchesSize;
+      }) || sourceProduct.variants[0];
+    }
+
+    const cartItemKey = `collab_${collabProduct.id}_${matchedVariant?.id || "default"}_${selectedColor || "nocolor"}_${selectedSize || "nosize"}`;
 
     const cartLine = {
       id: `collab_${collabProduct.id}`,
       cartItemKey,
       isCollaboration: true,
       collaborationProductId: collabProduct.id,
-      collaborationVariantId: selectedVariant?.id || null,
+      collaborationVariantId: matchedVariant?.id || null,
+      productId: sourceProduct?.id || collabProduct.productAId,
       productAId: collabProduct.productAId,
       productBId: collabProduct.productBId,
-      productASize: selectedVariant?.productASize || null,
-      productAColor: selectedVariant?.productAColor || null,
-      productBSize: selectedVariant?.productBSize || null,
-      productBColor: selectedVariant?.productBColor || null,
+      variantId: matchedVariant?.id || null,
       name: collabProduct.name,
       brand: "VÉRANE COLLABORATION",
       price: collabProduct.price,
       images: JSON.stringify([primaryImage]),
-      selectedColor: selectedVariant ? `${selectedVariant.productAColor || ""} / ${selectedVariant.productBColor || ""}` : null,
-      selectedSize: selectedVariant ? `UTHY: ${selectedVariant.productASize || "STD"} + ALOMZIEE: ${selectedVariant.productBSize || "STD"}` : null,
+      selectedColor: selectedColor,
+      selectedSize: selectedSize,
       qty: 1,
     };
 
@@ -124,7 +169,9 @@ export default function CollaborationPage() {
     );
   }
 
-  const allCollabProducts = collaborations.flatMap((c) => c.products || []);
+  const activeCollabsWithProducts = collaborations.filter(
+    (c) => Array.isArray(c.products) && c.products.length > 0
+  );
 
   return (
     <main className="min-h-screen bg-black text-white">
@@ -138,24 +185,24 @@ export default function CollaborationPage() {
           </p>
 
           <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tighter mt-4 leading-[0.85]">
-            UTHY <span className="text-amber-400">×</span> ALOMZIEE
+            COLLABORATIONS
           </h1>
 
           <p className="mt-6 max-w-2xl text-neutral-400 text-base md:text-lg leading-relaxed">
-            Where luxury handmade apparel meets bespoke handcrafted footwear and accessories.
-            Each collaboration represents a unified expression crafted across both houses, purchased as one complete piece.
+            Where luxury apparel meets bespoke handcrafted footwear and accessories.
+            Each collaboration represents a unified expression co-created across both houses, purchased as one complete piece.
           </p>
         </div>
       </section>
 
-      {/* PRODUCTS LIST */}
+      {/* COLLABORATIONS LIST */}
       <section className="max-w-7xl mx-auto px-5 sm:px-8 py-20">
-        {allCollabProducts.length === 0 ? (
+        {activeCollabsWithProducts.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-neutral-950 p-16 text-center">
             <p className="text-amber-400 text-[10px] font-bold uppercase tracking-[0.3em]">
               Limited Drops
             </p>
-            <h2 className="text-3xl font-black mt-3">No active collaborations at this time</h2>
+            <h2 className="text-3xl font-black mt-3">No active collaboration drops at this time</h2>
             <p className="text-neutral-500 text-sm mt-3 max-w-md mx-auto">
               Check back soon for exclusive capsule releases co-created by UTHY LUXURY and ALOMZIEE FOOTIES.
             </p>
@@ -167,153 +214,255 @@ export default function CollaborationPage() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-24">
-            {allCollabProducts.map((collabProduct) => {
-              const images = parseImages(collabProduct.images);
-              const selectedVar = selections[collabProduct.id] || collabProduct.variants?.[0];
-              const isAdded = addedIds[collabProduct.id];
+          <div className="space-y-32">
+            {activeCollabsWithProducts.map((collaboration) => (
+              <div key={collaboration.id} className="space-y-10">
+                {/* COLLABORATION HEADER */}
+                <div className="border-b border-white/10 pb-6">
+                  <p className="text-amber-400 text-xs font-bold uppercase tracking-[0.3em]">
+                    {collaboration.brandA} × {collaboration.brandB}
+                  </p>
+                  <h2 className="text-3xl sm:text-5xl font-black tracking-tight mt-2">
+                    {collaboration.name}
+                  </h2>
+                  {collaboration.description && (
+                    <p className="text-neutral-400 text-sm mt-3 max-w-3xl leading-relaxed">
+                      {collaboration.description}
+                    </p>
+                  )}
+                </div>
 
-              return (
-                <div
-                  key={collabProduct.id}
-                  className="rounded-[2.5rem] border border-white/10 bg-neutral-950 overflow-hidden grid lg:grid-cols-2 gap-8 md:gap-12 p-6 sm:p-10"
-                >
+                {/* COLLABORATION PRODUCTS */}
+                <div className="space-y-16">
+                  {collaboration.products.map((collabProduct) => {
+                    const images = getProductImages(collabProduct);
+                    const activeImageIdx = selectedImages[collabProduct.id] || 0;
+                    const primaryImage = images[activeImageIdx] || images[0] || "";
+                    const isAdded = addedIds[collabProduct.id];
 
-                  {/* IMAGES */}
-                  <div>
-                    <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-neutral-900 border border-white/5">
-                      {images[0] ? (
-                        <img
-                          src={images[0]}
-                          alt={collabProduct.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-neutral-600 uppercase text-xs tracking-widest">
-                          Collaboration Piece
-                        </div>
-                      )}
+                    const sourceProduct = collabProduct.productA;
+                    const colors = getAvailableColors(sourceProduct);
+                    const sizes = getAvailableSizes(sourceProduct);
 
-                      <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-md border border-amber-400/30 text-amber-400 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em]">
-                        Co-Created
-                      </div>
-                    </div>
+                    const activeColor = selectedColors[collabProduct.id] || colors[0]?.name || null;
+                    const activeSize = selectedSizes[collabProduct.id] || sizes[0] || null;
 
-                    {images.length > 1 && (
-                      <div className="flex gap-3 mt-4 overflow-x-auto pb-1">
-                        {images.slice(1).map((img, idx) => (
-                          <div
-                            key={idx}
-                            className="w-20 h-24 rounded-xl overflow-hidden bg-neutral-900 border border-white/10 shrink-0"
-                          >
-                            <img src={img} alt="" className="w-full h-full object-cover" />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                    return (
+                      <div
+                        key={collabProduct.id}
+                        className="rounded-[2.5rem] border border-white/10 bg-neutral-950 overflow-hidden grid lg:grid-cols-2 gap-8 md:gap-12 p-6 sm:p-10"
+                      >
 
-                  {/* DETAILS */}
-                  <div className="flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">
-                        <span>UTHY LUXURY</span>
-                        <span>×</span>
-                        <span>ALOMZIEE FOOTIES</span>
-                      </div>
+                        {/* GALLERY */}
+                        <div>
+                          <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-neutral-900 border border-white/5 group">
+                            {primaryImage ? (
+                              <img
+                                src={primaryImage}
+                                alt={collabProduct.name}
+                                className="w-full h-full object-cover transition-transform duration-500"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-neutral-600 uppercase text-xs tracking-widest">
+                                Collaboration Piece
+                              </div>
+                            )}
 
-                      <h2 className="text-3xl sm:text-5xl font-black tracking-tight mt-3">
-                        {collabProduct.name}
-                      </h2>
+                            <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-md border border-amber-400/30 text-amber-400 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em]">
+                              Co-Created
+                            </div>
 
-                      <p className="text-2xl sm:text-3xl font-bold mt-4 text-white">
-                        {formatPrice(collabProduct.price)}
-                      </p>
-
-                      {collabProduct.description && (
-                        <p className="text-neutral-400 text-sm mt-6 leading-relaxed">
-                          {collabProduct.description}
-                        </p>
-                      )}
-
-                      {/* UNDERLYING PIECES BREAKDOWN */}
-                      <div className="grid grid-cols-2 gap-4 mt-8 pt-6 border-t border-white/10">
-                        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-                          <p className="text-[9px] font-bold uppercase tracking-widest text-amber-400">
-                            Garment Piece
-                          </p>
-                          <p className="text-sm font-bold mt-1 truncate">
-                            {collabProduct.productA?.name || "UTHY Garment"}
-                          </p>
-                          <p className="text-[10px] text-neutral-500 mt-0.5">UTHY LUXURY</p>
-                        </div>
-
-                        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-                          <p className="text-[9px] font-bold uppercase tracking-widest text-amber-400">
-                            Footwear / Accessory
-                          </p>
-                          <p className="text-sm font-bold mt-1 truncate">
-                            {collabProduct.productB?.name || "ALOMZIEE Footwear"}
-                          </p>
-                          <p className="text-[10px] text-neutral-500 mt-0.5">ALOMZIEE FOOTIES</p>
-                        </div>
-                      </div>
-
-                      {/* VARIANT SELECTION */}
-                      {collabProduct.variants && collabProduct.variants.length > 0 && (
-                        <div className="mt-8">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 mb-3">
-                            Select Size / Combination
-                          </p>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {collabProduct.variants.map((v) => {
-                              const isSelected = selectedVar?.id === v.id;
-
-                              return (
+                            {/* SWIPE / PREV-NEXT CONTROLS */}
+                            {images.length > 1 && (
+                              <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
-                                  key={v.id}
                                   type="button"
-                                  onClick={() => handleVariantSelect(collabProduct.id, v)}
-                                  className={`p-3.5 rounded-xl border text-left transition ${
-                                    isSelected
-                                      ? "border-amber-400 bg-amber-400/10 text-white"
-                                      : "border-white/10 text-neutral-400 hover:border-white/20"
+                                  onClick={() =>
+                                    setSelectedImages((prev) => ({
+                                      ...prev,
+                                      [collabProduct.id]:
+                                        (activeImageIdx - 1 + images.length) % images.length,
+                                    }))
+                                  }
+                                  className="w-10 h-10 rounded-full bg-black/70 border border-white/20 text-white flex items-center justify-center text-sm hover:bg-black"
+                                >
+                                  ←
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedImages((prev) => ({
+                                      ...prev,
+                                      [collabProduct.id]: (activeImageIdx + 1) % images.length,
+                                    }))
+                                  }
+                                  className="w-10 h-10 rounded-full bg-black/70 border border-white/20 text-white flex items-center justify-center text-sm hover:bg-black"
+                                >
+                                  →
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* THUMBNAILS */}
+                          {images.length > 1 && (
+                            <div className="flex gap-3 mt-4 overflow-x-auto pb-1">
+                              {images.map((img, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedImages((prev) => ({
+                                      ...prev,
+                                      [collabProduct.id]: idx,
+                                    }))
+                                  }
+                                  className={`w-20 h-24 rounded-xl overflow-hidden bg-neutral-900 border transition shrink-0 ${
+                                    activeImageIdx === idx
+                                      ? "border-amber-400 ring-2 ring-amber-400/30"
+                                      : "border-white/10 hover:border-white/30"
                                   }`}
                                 >
-                                  <p className="text-xs font-bold text-white">
-                                    UTHY: {v.productASize || "Standard"} ({v.productAColor || "Color"})
-                                  </p>
-                                  <p className="text-[11px] text-neutral-400 mt-1">
-                                    ALOMZIEE: {v.productBSize || "Standard"} ({v.productBColor || "Color"})
-                                  </p>
+                                  <img src={img} alt="" className="w-full h-full object-cover" />
                                 </button>
-                              );
-                            })}
-                          </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
 
-                    {/* ADD TO CART */}
-                    <div className="mt-10 pt-6 border-t border-white/10">
-                      <button
-                        type="button"
-                        onClick={() => addToCart(collabProduct)}
-                        className={`w-full py-4 rounded-full font-black text-xs uppercase tracking-[0.18em] transition ${
-                          isAdded
-                            ? "bg-emerald-400 text-black"
-                            : "bg-amber-500 text-black hover:bg-amber-400"
-                        }`}
-                      >
-                        {isAdded ? "Added to Bag" : "Add Collaboration to Bag"}
-                      </button>
-                    </div>
+                        {/* DETAILS & OPTIONS */}
+                        <div className="flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">
+                              <span>UTHY LUXURY</span>
+                              <span>×</span>
+                              <span>ALOMZIEE FOOTIES</span>
+                            </div>
 
-                  </div>
+                            <h2 className="text-3xl sm:text-5xl font-black tracking-tight mt-3">
+                              {collabProduct.name}
+                            </h2>
+
+                            <p className="text-2xl sm:text-3xl font-bold mt-4 text-white">
+                              {formatPrice(collabProduct.price)}
+                            </p>
+
+                            {collabProduct.description && (
+                              <p className="text-neutral-400 text-sm mt-6 leading-relaxed">
+                                {collabProduct.description}
+                              </p>
+                            )}
+
+                            {/* SOURCE PRODUCT INFO */}
+                            {sourceProduct && (
+                              <div className="mt-8 pt-6 border-t border-white/10">
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-amber-400">
+                                  Base Piece
+                                </p>
+                                <p className="text-sm font-bold mt-1 text-neutral-200">
+                                  {sourceProduct.name}
+                                </p>
+                                <p className="text-xs text-neutral-500 mt-1">
+                                  Category: {sourceProduct.category || "Atelier"}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* COLOR SELECTION */}
+                            {colors.length > 0 && (
+                              <div className="mt-8">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 mb-3">
+                                  Select Color
+                                </p>
+                                <div className="flex flex-wrap gap-3">
+                                  {colors.map((c) => {
+                                    const isSelected = activeColor === c.name;
+                                    return (
+                                      <button
+                                        key={c.id || c.name}
+                                        type="button"
+                                        onClick={() =>
+                                          setSelectedColors((prev) => ({
+                                            ...prev,
+                                            [collabProduct.id]: c.name,
+                                          }))
+                                        }
+                                        className={`px-4 py-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-2 ${
+                                          isSelected
+                                            ? "border-amber-400 bg-amber-400/10 text-white"
+                                            : "border-white/10 text-neutral-400 hover:border-white/20"
+                                        }`}
+                                      >
+                                        {c.hex && (
+                                          <span
+                                            className="w-3.5 h-3.5 rounded-full border border-white/20 inline-block"
+                                            style={{ backgroundColor: c.hex }}
+                                          />
+                                        )}
+                                        {c.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* SIZE SELECTION */}
+                            {sizes.length > 0 && (
+                              <div className="mt-8">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 mb-3">
+                                  Select Size
+                                </p>
+                                <div className="flex flex-wrap gap-2.5">
+                                  {sizes.map((s) => {
+                                    const isSelected = activeSize === s;
+                                    return (
+                                      <button
+                                        key={s}
+                                        type="button"
+                                        onClick={() =>
+                                          setSelectedSizes((prev) => ({
+                                            ...prev,
+                                            [collabProduct.id]: s,
+                                          }))
+                                        }
+                                        className={`min-w-12 h-11 px-3.5 rounded-xl border text-xs font-bold transition ${
+                                          isSelected
+                                            ? "border-amber-400 bg-amber-400/10 text-white"
+                                            : "border-white/10 text-neutral-400 hover:border-white/20"
+                                        }`}
+                                      >
+                                        {s}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* ADD TO CART */}
+                          <div className="mt-10 pt-6 border-t border-white/10">
+                            <button
+                              type="button"
+                              onClick={() => addToCart(collabProduct)}
+                              className={`w-full py-4 rounded-full font-black text-xs uppercase tracking-[0.18em] transition ${
+                                isAdded
+                                  ? "bg-emerald-400 text-black"
+                                  : "bg-amber-500 text-black hover:bg-amber-400"
+                              }`}
+                            >
+                              {isAdded ? "Added to Bag" : "Add Collaboration to Bag"}
+                            </button>
+                          </div>
+
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </section>

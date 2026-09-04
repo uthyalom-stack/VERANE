@@ -1,25 +1,43 @@
 import { NextResponse } from "next/server";
+import { createSignedAdminToken } from "@/lib/admin-auth";
 
-const ADMINS = {
+const ADMIN_CONFIG = {
   UTHY: {
-    password: "uthy2026",
+    getEnvPassword: () => process.env.ADMIN_UTHY_PASSWORD,
     brand: "UTHY_LUXURY",
     name: "UTHY LUXURY",
   },
 
   ALOMZIEE: {
-    password: "alomziee2026",
+    getEnvPassword: () => process.env.ADMIN_ALOMZIEE_PASSWORD,
     brand: "ALOMZIEE_FOOTIES",
     name: "ALOMZIEE FOOTIES",
   },
 
   SUPERADMIN: {
-    password: "verane2026",
+    getEnvPassword: () => process.env.ADMIN_SUPERADMIN_PASSWORD,
     brand: "ALL",
     name: "VÉRANE ADMIN",
   },
 };
 
+/**
+ * Determines whether a value identifies a configured administrator role.
+ * @param {*} role - The value to validate as an administrator role.
+ * @return {boolean} `true` if the value is a configured administrator role, `false` otherwise.
+ */
+function isValidRole(role) {
+  if (typeof role !== "string") {
+    return false;
+  }
+  return Object.prototype.hasOwnProperty.call(ADMIN_CONFIG, role);
+}
+
+/**
+ * Authenticates an administrator and establishes an authenticated session.
+ * @param {Request} request - The request containing the administrator role and password.
+ * @return {Response} A response indicating the authentication result and, on success, setting the administrator authentication cookie.
+ */
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -49,9 +67,7 @@ export async function POST(request) {
       );
     }
 
-    const account = ADMINS[role];
-
-    if (!account) {
+    if (!isValidRole(role)) {
       return NextResponse.json(
         {
           error: "Invalid administration.",
@@ -62,7 +78,24 @@ export async function POST(request) {
       );
     }
 
-    if (account.password !== password) {
+    const account = ADMIN_CONFIG[role];
+    const expectedPassword = account.getEnvPassword();
+
+    if (!expectedPassword) {
+      console.error(
+        `Admin login failed: Missing required password environment variable for role '${role}'.`
+      );
+      return NextResponse.json(
+        {
+          error: "Authentication service unavailable.",
+        },
+        {
+          status: 503,
+        }
+      );
+    }
+
+    if (expectedPassword !== password) {
       return NextResponse.json(
         {
           error: "Incorrect password.",
@@ -73,18 +106,34 @@ export async function POST(request) {
       );
     }
 
-    const session = {
+    const sessionPayload = {
       role,
       name: account.name,
       brand: account.brand,
     };
 
+    const token = createSignedAdminToken(sessionPayload);
+
+    if (!token) {
+      console.error(
+        "Admin login failed: Unable to sign session token (missing ADMIN_AUTH_SECRET)."
+      );
+      return NextResponse.json(
+        {
+          error: "Authentication service unavailable.",
+        },
+        {
+          status: 503,
+        }
+      );
+    }
+
     const response = NextResponse.json({
       success: true,
-      admin: session,
+      admin: sessionPayload,
     });
 
-    response.cookies.set("adminAuth", JSON.stringify(session), {
+    response.cookies.set("adminAuth", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

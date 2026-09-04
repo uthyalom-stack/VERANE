@@ -24,6 +24,9 @@ const BRAND_INFO = {
   },
 };
 
+/**
+ * Manage collaboration requests and products for the authenticated brand.
+ */
 export default function CollaborationsPage() {
   const router = useRouter();
 
@@ -49,9 +52,40 @@ export default function CollaborationsPage() {
   const [selectedCollaboration, setSelectedCollaboration] =
     useState(null);
 
+  const [editingProduct, setEditingProduct] =
+    useState(null);
+
   useEffect(() => {
     loadPage();
   }, []);
+
+  async function deleteCollaborationProduct(productId) {
+    if (!window.confirm("Are you sure you want to delete this collaboration product? The original store product will NOT be deleted.")) {
+      return;
+    }
+
+    try {
+      setError("");
+      setSuccess("");
+
+      const response = await fetch(`/api/admin/collaborations/products/${productId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to delete collaboration product.");
+      }
+
+      setSuccess("Collaboration product deleted. Source store product remains safe.");
+      await loadPage();
+    } catch (err) {
+      console.error("Delete product error:", err);
+      setError(err?.message || "Failed to delete collaboration product.");
+    }
+  }
 
   async function loadPage() {
     try {
@@ -81,28 +115,10 @@ export default function CollaborationsPage() {
       const currentAdmin =
         sessionData.admin;
 
-      if (
-        currentAdmin.role !== "UTHY" &&
-        currentAdmin.role !== "ALOMZIEE"
-      ) {
-        router.replace("/admin");
-        return;
-      }
-
       setAdmin(currentAdmin);
 
-      /*
-       * IMPORTANT:
-       * We now explicitly send the brand.
-       */
-
-      const brand =
-        normalizeBrand(currentAdmin.role);
-
       const response = await fetch(
-        `/api/admin/collaborations?brand=${encodeURIComponent(
-          brand
-        )}`,
+        `/api/admin/collaborations`,
         {
           cache: "no-store",
           credentials: "include",
@@ -590,18 +606,12 @@ export default function CollaborationsPage() {
                 {activeCollaborations.map(
                   (collaboration) => (
                     <ActiveCollaborationCard
-                      key={
-                        collaboration.id
-                      }
-                      collaboration={
-                        collaboration
-                      }
+                      key={collaboration.id}
+                      collaboration={collaboration}
                       brand={brand}
-                      onOpen={() =>
-                        setSelectedCollaboration(
-                          collaboration
-                        )
-                      }
+                      onOpen={() => setSelectedCollaboration(collaboration)}
+                      onOpenEdit={(product) => setEditingProduct(product)}
+                      onDeleteProduct={(productId) => deleteCollaborationProduct(productId)}
                     />
                   )
                 )}
@@ -787,18 +797,38 @@ export default function CollaborationsPage() {
           }}
         />
       )}
+
+      {/* EDIT COLLABORATION PRODUCT MODAL */}
+
+      {editingProduct && (
+        <EditCollaborationProductModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onUpdated={async () => {
+            setEditingProduct(null);
+            setSuccess("Collaboration product updated successfully.");
+            await loadPage();
+          }}
+        />
+      )}
     </main>
   );
 }
 
-/* ============================================================
-   ACTIVE COLLABORATION CARD
-============================================================ */
+/**
+ * Displays an active collaboration and its associated products.
+ * @param {Object} collaboration - The collaboration and its products to display.
+ * @param {Function} onOpen - Opens the collaborative product creation flow.
+ * @param {Function} onOpenEdit - Opens the editor for a selected product.
+ * @param {Function} onDeleteProduct - Handles deletion of a selected product.
+ */
 
 function ActiveCollaborationCard({
   collaboration,
   brand,
   onOpen,
+  onOpenEdit,
+  onDeleteProduct,
 }) {
   const products =
     Array.isArray(
@@ -866,52 +896,50 @@ function ActiveCollaborationCard({
 
       {products.length > 0 && (
         <div className="grid md:grid-cols-2 gap-3 mt-6">
+          {products.map((product) => (
+            <div
+              key={product.id}
+              className="rounded-2xl border border-white/[0.07] bg-black/30 p-4 flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[8px] uppercase tracking-[0.2em] text-emerald-400">
+                    Collaborative Product
+                  </p>
+                  <StatusBadge
+                    status={String(product.status || "draft").toLowerCase()}
+                  />
+                </div>
 
-          {products.map(
-            (product) => (
-              <div
-                key={product.id}
-                className="rounded-2xl border border-white/[0.07] bg-black/30 p-4"
-              >
+                <h4 className="text-sm font-black mt-2">{product.name}</h4>
 
-                <p className="text-[8px] uppercase tracking-[0.2em] text-emerald-400">
-                  Collaborative Product
+                <p className="text-[10px] text-neutral-500 mt-1">
+                  Source Product: <strong className="text-white">{product.productA?.name || "Original Store Product"}</strong>
                 </p>
 
-                <h4 className="text-sm font-black mt-2">
-                  {product.name}
-                </h4>
-
-                <p className="text-[10px] text-neutral-600 mt-2">
-                  {formatBrand(
-                    product.productA
-                      ?.brand
-                  )}{" "}
-                  +{" "}
-                  {formatBrand(
-                    product.productB
-                      ?.brand
-                  )}
+                <p className="text-sm font-black mt-3">
+                  ₦{Number(product.price || 0).toLocaleString()}
                 </p>
-
-                <p className="text-sm font-black mt-4">
-                  ₦
-                  {Number(
-                    product.price
-                  ).toLocaleString()}
-                </p>
-
-                <StatusBadge
-                  status={String(
-                    product.status ||
-                      "draft"
-                  ).toLowerCase()}
-                />
-
               </div>
-            )
-          )}
 
+              <div className="flex items-center gap-2 mt-4 pt-3 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => onOpenEdit && onOpenEdit(product)}
+                  className="flex-1 rounded-xl border border-white/10 px-3 py-2 text-[10px] font-bold text-neutral-300 hover:bg-white/10 transition"
+                >
+                  Edit Product
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDeleteProduct && onDeleteProduct(product.id)}
+                  className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-bold text-red-300 hover:bg-red-500/20 transition"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -919,9 +947,12 @@ function ActiveCollaborationCard({
   );
 }
 
-/* ============================================================
-   COLLABORATION PRODUCT MODAL
-============================================================ */
+/**
+ * Create a collaborative product by combining products from both participating brands.
+ * @param {Object} collaboration - The active collaboration associated with the product.
+ * @param {Function} onClose - Closes the modal.
+ * @param {Function} onCreated - Handles successful product creation.
+ */
 
 function CollaborationProductModal({
   collaboration,
@@ -956,6 +987,9 @@ function CollaborationProductModal({
     useState("");
 
   const [price, setPrice] =
+    useState("");
+
+  const [customPhotos, setCustomPhotos] =
     useState("");
 
   useEffect(() => {
@@ -1024,6 +1058,9 @@ function CollaborationProductModal({
         product.id === productBId
     );
 
+  /**
+   * Creates a published collaborative product from one product selected from each brand.
+   */
   async function createProduct() {
     setError("");
 
@@ -1043,7 +1080,7 @@ function CollaborationProductModal({
 
     if (
       !price ||
-      Number(price) < 0
+      Number(price) <= 0
     ) {
       setError(
         "Enter a valid price."
@@ -1071,6 +1108,8 @@ function CollaborationProductModal({
             description:
               description.trim(),
             price: Number(price),
+            status: "published",
+            customImages: customPhotos.trim(),
           }),
         }
       );
@@ -1280,7 +1319,7 @@ function CollaborationProductModal({
                     </label>
 
                     <textarea
-                      rows={5}
+                      rows={4}
                       value={
                         description
                       }
@@ -1291,6 +1330,24 @@ function CollaborationProductModal({
                       }
                       placeholder="Describe the exclusive collaboration product..."
                       className="w-full resize-none rounded-2xl border border-white/10 bg-[#080808] px-5 py-4 text-sm text-white outline-none focus:border-emerald-400/40"
+                    />
+
+                  </div>
+
+                  <div className="mt-5">
+
+                    <label className="block text-[10px] uppercase tracking-[0.15em] font-bold text-neutral-400 mb-1">
+                      Custom Collaboration Photos (Optional)
+                    </label>
+                    <p className="text-[10px] text-neutral-500 mb-2">
+                      Enter image URLs separated by commas. If left empty, the collaboration product will automatically use all photos from the selected store product.
+                    </p>
+
+                    <input
+                      value={customPhotos}
+                      onChange={(e) => setCustomPhotos(e.target.value)}
+                      placeholder="https://example.com/collab1.jpg, https://example.com/collab2.jpg"
+                      className="w-full rounded-2xl border border-white/10 bg-[#080808] px-5 py-4 text-sm text-white outline-none focus:border-emerald-400/40"
                     />
 
                   </div>
@@ -1327,6 +1384,207 @@ function CollaborationProductModal({
               </div>
             )}
 
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Provides a form for editing a collaboration product.
+ * @param {Object} props - Component properties.
+ * @param {Object} props.product - Collaboration product to edit.
+ * @param {Function} props.onClose - Callback invoked when the modal closes.
+ * @param {Function} props.onUpdated - Callback invoked after the product is updated.
+ * @returns {JSX.Element} The collaboration product editing modal.
+ */
+
+function EditCollaborationProductModal({
+  product,
+  onClose,
+  onUpdated,
+}) {
+  const [name, setName] = useState(product?.name || "");
+  const [description, setDescription] = useState(product?.description || "");
+  const [price, setPrice] = useState(product?.price != null ? String(product.price) : "");
+  const [status, setStatus] = useState(product?.status || "published");
+
+  const initialImages = useMemo(() => {
+    if (!product?.images) return "";
+    try {
+      const parsed = JSON.parse(product.images);
+      return Array.isArray(parsed) ? parsed.join(", ") : String(product.images);
+    } catch {
+      return String(product.images || "");
+    }
+  }, [product]);
+
+  const [customPhotos, setCustomPhotos] = useState(initialImages);
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  /**
+   * Updates the collaboration product with the current form values.
+   */
+  async function updateProduct() {
+    setError("");
+
+    if (!name.trim()) {
+      setError("Collaboration product name is required.");
+      return;
+    }
+
+    if (!price || Number(price) <= 0) {
+      setError("Enter a valid price.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const response = await fetch(`/api/admin/collaborations/products/${product.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim(),
+          price: Number(price),
+          status,
+          customImages: customPhotos.trim(),
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to update collaboration product.");
+      }
+
+      await onUpdated();
+    } catch (err) {
+      setError(err?.message || "Failed to update collaboration product.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md overflow-y-auto p-5">
+      <div className="min-h-full flex items-center justify-center">
+        <div className="w-full max-w-3xl rounded-[2rem] border border-white/10 bg-[#0b0b0b] shadow-2xl overflow-hidden">
+          <div className="p-6 md:p-8 border-b border-white/[0.06] flex items-start justify-between gap-5">
+            <div>
+              <p className="text-[9px] uppercase tracking-[0.3em] text-emerald-400 font-bold">
+                Edit Collaboration Product
+              </p>
+              <h2 className="text-2xl md:text-3xl font-black tracking-[-0.04em] mt-2">
+                {product.name}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-10 h-10 rounded-xl border border-white/10 text-neutral-500 hover:text-white hover:bg-white/5"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="p-6 md:p-8 space-y-5">
+            {error && (
+              <div className="rounded-2xl border border-red-500/20 bg-red-500/[0.05] px-5 py-4 text-sm text-red-300">
+                {error}
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.15em] font-bold text-neutral-400 mb-2">
+                  Product Name *
+                </label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-[#080808] px-5 py-4 text-sm text-white outline-none focus:border-emerald-400/40"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.15em] font-bold text-neutral-400 mb-2">
+                  Selling Price *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-[#080808] px-5 py-4 text-sm text-white outline-none focus:border-emerald-400/40"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.15em] font-bold text-neutral-400 mb-2">
+                Status
+              </label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full rounded-2xl border border-white/10 bg-[#080808] px-5 py-4 text-sm text-white outline-none focus:border-emerald-400/40"
+              >
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.15em] font-bold text-neutral-400 mb-2">
+                Description
+              </label>
+              <textarea
+                rows={4}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full resize-none rounded-2xl border border-white/10 bg-[#080808] px-5 py-4 text-sm text-white outline-none focus:border-emerald-400/40"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase tracking-[0.15em] font-bold text-neutral-400 mb-1">
+                Custom Photos (Comma-separated URLs)
+              </label>
+              <p className="text-[10px] text-neutral-500 mb-2">
+                Clearing this field will automatically restore all images from the original source product.
+              </p>
+              <input
+                value={customPhotos}
+                onChange={(e) => setCustomPhotos(e.target.value)}
+                placeholder="https://example.com/photo1.jpg, https://example.com/photo2.jpg"
+                className="w-full rounded-2xl border border-white/10 bg-[#080808] px-5 py-4 text-sm text-white outline-none focus:border-emerald-400/40"
+              />
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full border border-white/10 px-7 py-3 text-xs font-bold text-neutral-400 hover:text-white hover:bg-white/5"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={updateProduct}
+                className="rounded-full bg-emerald-400 px-7 py-3 text-xs font-black text-black hover:bg-emerald-300 disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PrismaClient } from "@prisma/client";
 import SiteFooter from "@/components/SiteFooter";
 import StorefrontProductActions from "@/components/StorefrontProductActions";
+import { getProductStockStatus } from "@/lib/product-options";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +24,7 @@ const FALLBACK_SECTIONS = [
     subtitle: "",
     description:
       "UTHY LUXURY and ALOMZIEE FOOTIES. Clothing, footwear and accessories made for people who refuse to look ordinary.",
-    image:
-      "https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1800&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "Explore Collection",
     buttonLink: "/catalog",
@@ -37,8 +37,7 @@ const FALLBACK_SECTIONS = [
     title: "Selected Pieces",
     subtitle: "Curated for you",
     description: "",
-    image:
-      "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=900&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "View Collection",
     buttonLink: "/catalog",
@@ -50,8 +49,7 @@ const FALLBACK_SECTIONS = [
     subtitle: "UTHY LUXURY",
     description:
       "Custom shirts, tailored trousers, hoodies and traditional pieces crafted to give your wardrobe its own identity.",
-    image:
-      "https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?auto=format&fit=crop&w=1800&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "Explore UTHY",
     buttonLink: "/uthy",
@@ -63,8 +61,7 @@ const FALLBACK_SECTIONS = [
     subtitle: "ALOMZIEE FOOTIES",
     description:
       "Handmade footwear and accessories built with character - shoes, sandals, slides, boots, belts and bags.",
-    image:
-      "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=1800&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "Explore Alomziee",
     buttonLink: "/alomziee",
@@ -76,8 +73,7 @@ const FALLBACK_SECTIONS = [
     subtitle: "EXCLUSIVE EDITIONS",
     description:
       "Garments from UTHY LUXURY and footwear from ALOMZIEE FOOTIES crafted in unison. Co-created capsule collections designed to be worn together.",
-    image:
-      "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1800&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "Explore Collaborations",
     buttonLink: "/collaborations",
@@ -100,8 +96,7 @@ const FALLBACK_SECTIONS = [
     title: "New Arrivals",
     subtitle: "Just dropped",
     description: "",
-    image:
-      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&w=900&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "View Everything",
     buttonLink: "/catalog",
@@ -113,8 +108,7 @@ const FALLBACK_SECTIONS = [
     subtitle: "The philosophy",
     description:
       "Two expressions. One philosophy. Pieces created with intention for people who do not want to look like everybody else.",
-    image:
-      "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1800&q=85",
+    image: "",
     mobileImage: "",
     buttonText: "Discover the Story",
     buttonLink: "/about",
@@ -246,37 +240,57 @@ function formatPrice(price) {
   );
 }
 
-/* =========================================================
-   SECTION IMAGE
-========================================================= */
+/**
+ * Determines whether a section has a desktop or mobile image configured.
+ * @param {Object} section - The section to inspect.
+ * @return {boolean} `true` if a trimmed desktop or mobile image exists, `false` otherwise.
+ */
 
+function hasSectionImage(section) {
+  return Boolean(section?.image?.trim() || section?.mobileImage?.trim());
+}
+
+/**
+ * Render responsive imagery for a homepage section.
+ * @param {Object} section - The section containing desktop and optional mobile image URLs.
+ * @param {string} [className=""] - CSS classes applied to the image.
+ * @returns {JSX.Element|null} The responsive image element, or `null` when no image is configured.
+ */
 function SectionImage({ section, className = "" }) {
-  if (!section?.image) return null;
+  const desktopImg = section?.image?.trim();
+  const mobileImg = section?.mobileImage?.trim();
+
+  if (!desktopImg && !mobileImg) return null;
+
+  const primarySrc = desktopImg || mobileImg;
 
   return (
-    <picture>
-      {section.mobileImage && (
+    <picture className="contents">
+      {mobileImg && (
         <source
           media="(max-width: 768px)"
-          srcSet={section.mobileImage}
+          srcSet={mobileImg}
         />
       )}
 
       <img
-        src={section.image}
-        alt={section.title || "VERANE"}
+        src={primarySrc}
+        alt={section?.title || "VERANE"}
         className={className}
       />
     </picture>
   );
 }
 
-/* =========================================================
-   PRODUCT CARD
-========================================================= */
+/**
+ * Render a product card with imagery, stock status, product details, and storefront actions.
+ * @param {Object} product - The product to display.
+ * @returns {JSX.Element} The rendered product card.
+ */
 
 function ProductCard({ product }) {
   const image = getProductImage(product.images);
+  const stockStatus = getProductStockStatus(product);
 
   return (
     <div className="group shrink-0 w-[72vw] sm:w-[42vw] md:w-[30vw] lg:w-[23vw]">
@@ -301,29 +315,9 @@ function ProductCard({ product }) {
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
           <div className="absolute left-3 top-3 flex flex-col gap-1 z-10">
-            {product.preOrderEnabled ? (
-              <span className="rounded-full border border-amber-400/40 bg-amber-400 text-black px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]">
-                Pre-Order
-              </span>
-            ) : (
-              <span className={`rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] backdrop-blur-md ${
-                Number(product.inventory ?? 0) <= 0
-                  ? "border-red-500/40 bg-black/80 text-red-400"
-                  : Number(product.inventory ?? 0) <= 10
-                  ? "border-orange-400/40 bg-black/80 text-orange-400"
-                  : Number(product.inventory ?? 0) <= 40
-                  ? "border-amber-400/40 bg-black/80 text-amber-400"
-                  : "border-emerald-400/40 bg-black/80 text-emerald-400"
-              }`}>
-                {Number(product.inventory ?? 0) <= 0
-                  ? "Sold Out"
-                  : Number(product.inventory ?? 0) <= 10
-                  ? "Few Left"
-                  : Number(product.inventory ?? 0) <= 40
-                  ? "Almost Sold Out"
-                  : "Available"}
-              </span>
-            )}
+            <span className={`rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] backdrop-blur-md ${stockStatus.colorClass}`}>
+              {stockStatus.label}
+            </span>
             <span className="rounded-full border border-white/10 bg-black/60 backdrop-blur-md px-3 py-1.5 text-[8px] font-bold uppercase tracking-[0.18em] text-white/80">
               View
             </span>
@@ -412,9 +406,9 @@ function ProductRail({
   );
 }
 
-/* =========================================================
-   HOME PAGE
-========================================================= */
+/**
+ * Render the storefront homepage with configurable content sections and product collections.
+ */
 
 export default async function HomePage() {
   const [sections, products] = await Promise.all([
@@ -464,22 +458,6 @@ export default async function HomePage() {
               section={hero}
               className="absolute inset-0 w-full h-full object-cover"
             />
-
-            {!hero?.image && (
-              <>
-                <img
-                  src="https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1400&q=85"
-                  alt="Fashion"
-                  className="absolute left-[-10%] top-[-5%] w-[65%] h-[110%] object-cover opacity-35"
-                />
-
-                <img
-                  src="https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=1400&q=85"
-                  alt="Footwear"
-                  className="absolute right-[-10%] top-[-5%] w-[60%] h-[110%] object-cover opacity-30"
-                />
-              </>
-            )}
 
             <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black" />
             <div className="absolute inset-0 bg-gradient-to-r from-black via-black/20 to-black" />
@@ -576,7 +554,7 @@ export default async function HomePage() {
               className="absolute inset-0 w-full h-full object-cover"
             />
 
-            {!uthy?.image && (
+            {!hasSectionImage(uthy) && (
               <div className="absolute inset-0 bg-neutral-900" />
             )}
 
@@ -653,7 +631,7 @@ export default async function HomePage() {
               className="absolute inset-0 w-full h-full object-cover"
             />
 
-            {!alomziee?.image && (
+            {!hasSectionImage(alomziee) && (
               <div className="absolute inset-0 bg-neutral-900" />
             )}
 
@@ -732,7 +710,7 @@ export default async function HomePage() {
             className="absolute inset-0 w-full h-full object-cover"
           />
 
-          {!collaborationsSection?.image && (
+          {!hasSectionImage(collaborationsSection) && (
             <div className="absolute inset-0 bg-neutral-900" />
           )}
 
@@ -896,7 +874,7 @@ export default async function HomePage() {
             className="absolute inset-0 w-full h-full object-cover"
           />
 
-          {!story?.image && (
+          {!hasSectionImage(story) && (
             <div className="absolute inset-0 bg-neutral-900" />
           )}
 

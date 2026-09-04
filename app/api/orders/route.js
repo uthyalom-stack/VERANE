@@ -1,20 +1,30 @@
 import { NextResponse } from "next/server";
-import prisma from "../../../lib/prisma";
+import { cookies } from "next/headers";
+import prisma from "@/lib/prisma";
+import { verifyCustomerSession, getCustomerCookieName } from "@/lib/auth/customer";
 
-async function getSession(request) {
-  const response = await fetch(
-    new URL("/api/auth/session", request.url),
-    {
-      headers: {
-        cookie: request.headers.get("cookie") || "",
-      },
-      cache: "no-store",
+/**
+ * Retrieves the authenticated customer from the session cookie.
+ * @returns {{authenticated: boolean, user: object|null}} The authentication status and customer data when the session is valid.
+ */
+async function getSession() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(getCustomerCookieName())?.value;
+    const user = verifyCustomerSession(token);
+    if (user) {
+      return { authenticated: true, user };
     }
-  );
-
-  return response.json();
+  } catch (err) {
+    console.error("Direct session verification error in /api/orders:", err);
+  }
+  return { authenticated: false, user: null };
 }
 
+/**
+ * Generates an order identifier containing the current UTC date and a six-digit random number.
+ * @returns {string} The generated order identifier.
+ */
 function generateOrderNumber() {
   const date = new Date()
     .toISOString()
@@ -28,9 +38,13 @@ function generateOrderNumber() {
   return `VR-${date}-${random}`;
 }
 
+/**
+ * Retrieve the authenticated customer's orders with their item details.
+ * @returns {Promise<Response>} A response containing the orders, or an authentication or server error.
+ */
 export async function GET(request) {
   try {
-    const session = await getSession(request);
+    const session = await getSession();
 
     if (!session.authenticated || !session.user?.id) {
       return NextResponse.json(
@@ -79,9 +93,14 @@ export async function GET(request) {
   }
 }
 
+/**
+ * Creates an order for the authenticated customer.
+ * @param {Request} request - The request containing order and customer details.
+ * @return {NextResponse} A response containing the created order or an error message.
+ */
 export async function POST(request) {
   try {
-    const session = await getSession(request);
+    const session = await getSession();
 
     if (!session.authenticated || !session.user?.id) {
       return NextResponse.json(
@@ -156,6 +175,30 @@ export async function POST(request) {
         items: true,
       },
     });
+
+    // Record Campaign Attribution if attribution cookie is present
+    try {
+      const cookieStore = await cookies();
+      const attrCookie = cookieStore.get("verane_campaign_attr")?.value;
+
+      if (attrCookie) {
+        const attrData = JSON.parse(attrCookie);
+
+        if (attrData?.campaignId) {
+          await prisma.orderAttribution.create({
+            data: {
+              orderId: order.id,
+              campaignId: attrData.campaignId,
+              brand: attrData.brand || "UTHY",
+              visitorId: attrData.visitorId || null,
+              attributionModel: "last_touch",
+            },
+          });
+        }
+      }
+    } catch (attrErr) {
+      console.error("Order attribution creation error:", attrErr);
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { getAdminSession } from "@/lib/admin-auth";
 
+/**
+ * Check the current administrator's authentication status.
+ * @returns {Response} A JSON response containing authentication status and, when authenticated, the administrator's role, brand, and name.
+ */
 export async function GET() {
   try {
-    const cookieStore = await cookies();
+    const admin = await getAdminSession();
 
-    const authCookie = cookieStore.get("adminAuth")?.value;
-
-    if (!authCookie) {
+    if (!admin) {
       return NextResponse.json(
         {
           authenticated: false,
@@ -19,41 +21,13 @@ export async function GET() {
       );
     }
 
-    let admin;
-
-    try {
-      admin = JSON.parse(authCookie);
-    } catch {
-      return NextResponse.json(
-        {
-          authenticated: false,
-          error: "Invalid session.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    if (
-      !admin?.role ||
-      !admin?.brand ||
-      !admin?.name
-    ) {
-      return NextResponse.json(
-        {
-          authenticated: false,
-          error: "Invalid admin session.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
     return NextResponse.json({
       authenticated: true,
-      admin,
+      admin: {
+        role: admin.role,
+        brand: admin.brand,
+        name: admin.name,
+      },
     });
   } catch (error) {
     console.error("Admin session error:", error);

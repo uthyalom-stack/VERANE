@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+/**
+ * Display the authenticated user's order history.
+ */
 export default function OrdersPage() {
   const router = useRouter();
 
@@ -15,11 +18,12 @@ export default function OrdersPage() {
       try {
         const response = await fetch("/api/orders", {
           cache: "no-store",
+          credentials: "include",
         });
 
         const data = await response.json();
 
-        if (!response.ok || !data.authenticated) {
+        if (!response.ok || data.authenticated === false) {
           router.replace("/login");
           return;
         }

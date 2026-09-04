@@ -3,6 +3,10 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 
+/**
+ * Display and manage the details of an administrator-selected order.
+ * @param {Object} params - Route parameters containing the order identifier.
+ */
 export default function AdminOrderDetailsPage({ params }) {
   const resolvedParams = use(params);
   const id = resolvedParams.id;
@@ -52,6 +56,40 @@ export default function AdminOrderDetailsPage({ params }) {
 
   function formatMoney(amount) {
     return "₦" + Number(amount || 0).toLocaleString("en-NG");
+  }
+
+  function getBrandName(brand) {
+    if (brand === "UTHY_LUXURY" || brand === "UTHY") return "UTHY LUXURY";
+    if (brand === "ALOMZIEE_FOOTIES" || brand === "ALOMZIEE") return "ALOMZIEE FOOTIES";
+    return brand || "VÉRANE";
+  }
+
+  function parseImages(images) {
+    if (!images) return [];
+    try {
+      const parsed = typeof images === "string" ? JSON.parse(images) : images;
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return typeof images === "string" ? images.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    }
+  }
+
+  function getItemImage(item) {
+    const itemImages = parseImages(item.product?.images);
+    if (itemImages.length > 0 && itemImages[0]) return itemImages[0];
+
+    if (item.collaborationProduct) {
+      const collabImages = parseImages(item.collaborationProduct.images);
+      if (collabImages.length > 0 && collabImages[0]) return collabImages[0];
+
+      const prodAImages = parseImages(item.collaborationProduct.productA?.images);
+      if (prodAImages.length > 0 && prodAImages[0]) return prodAImages[0];
+
+      const prodBImages = parseImages(item.collaborationProduct.productB?.images);
+      if (prodBImages.length > 0 && prodBImages[0]) return prodBImages[0];
+    }
+
+    return null;
   }
 
   if (loading) {
@@ -116,48 +154,101 @@ export default function AdminOrderDetailsPage({ params }) {
               </h2>
 
               <div className="space-y-4">
-                {order.items?.map((item) => (
-                  <div key={item.id} className="flex gap-4 border-b border-white/5 pb-4 last:border-0 last:pb-0">
-                    <div className="w-16 h-20 bg-neutral-900 rounded-lg overflow-hidden shrink-0 border border-white/5">
-                      {item.product?.images ? (
-                        <img
-                          src={typeof item.product.images === "string" ? JSON.parse(item.product.images)[0] : item.product.images[0]}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : null}
-                    </div>
+                {order.items?.map((item) => {
+                  const image = getItemImage(item);
+                  const isCollab = Boolean(item.collaborationProduct || item.collaborationProductId);
 
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate">{item.product?.name || "Product Item"}</p>
-                      <p className="text-[10px] text-amber-400 font-bold uppercase mt-0.5">{item.product?.brand}</p>
+                  const itemName = item.collaborationProduct?.name || item.product?.name || "Purchased Product";
+                  const itemBrand = isCollab
+                    ? "UTHY × ALOMZIEE COLLABORATION"
+                    : getBrandName(item.product?.brand);
 
-                      <div className="flex flex-wrap gap-2 text-[10px] text-neutral-400 mt-2">
-                        {item.selectedColor && (
-                          <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5">
-                            Color: {item.selectedColor}
-                          </span>
-                        )}
-                        {item.selectedSize && (
-                          <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5">
-                            Size: {item.selectedSize}
-                          </span>
+                  const colorName = item.selectedColor || item.variant?.color?.name || item.variant?.color?.label || null;
+                  const colorHex = item.selectedColorHex || item.variant?.color?.hex || item.variant?.color?.value || null;
+
+                  const sizeName = item.selectedSize || item.variant?.size || item.variant?.name || item.variant?.value || item.collaborationVariant?.size || null;
+
+                  const variantName = item.variant?.name || item.collaborationVariant?.name || null;
+
+                  const isPreOrder = Boolean(item.isPreOrder || item.product?.preOrderEnabled || item.product?.isPreOrder);
+
+                  return (
+                    <div key={item.id} className="flex gap-4 border-b border-white/5 pb-4 last:border-0 last:pb-0">
+                      <div className="w-16 h-20 bg-neutral-900 rounded-lg overflow-hidden shrink-0 border border-white/5 relative">
+                        {image ? (
+                          <img
+                            src={image}
+                            alt={itemName}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs text-neutral-600 font-bold">
+                            VÉRANE
+                          </div>
                         )}
                       </div>
 
-                      {item.customMeasurements && (
-                        <p className="mt-2 text-[10px] text-neutral-300 bg-white/[0.02] border border-white/5 p-2 rounded-lg">
-                          <span className="font-bold text-amber-400">Measurements:</span> {item.customMeasurements}
-                        </p>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-bold truncate">{itemName}</p>
 
-                      <div className="mt-2 flex justify-between text-xs font-semibold">
-                        <span>Qty: {item.quantity} × {formatMoney(item.price)}</span>
-                        <span className="text-white font-bold">{formatMoney(item.quantity * item.price)}</span>
+                          {isCollab && (
+                            <span className="rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-400 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider">
+                              Collaboration
+                            </span>
+                          )}
+
+                          {isPreOrder && (
+                            <span className="rounded-full bg-amber-400 text-black px-2 py-0.5 text-[8px] font-black uppercase tracking-wider">
+                              Pre-Order
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[10px] text-amber-400 font-bold uppercase mt-0.5">{itemBrand}</p>
+
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] text-neutral-400 mt-2">
+                          {colorName && (
+                            <span className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-medium">
+                              {colorHex && (
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0"
+                                  style={{ backgroundColor: colorHex }}
+                                />
+                              )}
+                              Color: <strong className="text-white">{colorName}</strong>
+                            </span>
+                          )}
+
+                          {sizeName && (
+                            <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-medium">
+                              Size: <strong className="text-white">{sizeName}</strong>
+                            </span>
+                          )}
+
+                          {variantName && variantName !== sizeName && variantName !== colorName && (
+                            <span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-medium">
+                              Variant: <strong className="text-white">{variantName}</strong>
+                            </span>
+                          )}
+                        </div>
+
+                        {item.customMeasurements && (
+                          <p className="mt-2 text-[10px] text-neutral-300 bg-white/[0.02] border border-white/5 p-2 rounded-lg">
+                            <span className="font-bold text-amber-400">Custom Sizing / Measurements:</span> {item.customMeasurements}
+                          </p>
+                        )}
+
+                        <div className="mt-2.5 flex justify-between items-center text-xs font-semibold">
+                          <span className="text-neutral-400">
+                            Qty: <strong className="text-white">{item.quantity}</strong> × {formatMoney(item.price)}
+                          </span>
+                          <span className="text-amber-400 font-bold">{formatMoney(item.quantity * item.price)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { verifyPaystackWebhookSignature } from "@/lib/paystack";
+import { verifyPaystackWebhookSignature, finalizePaystackOrder } from "@/lib/paystack";
 
+/**
+ * Processes Paystack webhook events and finalizes successful payments.
+ * @param {Request} request - The incoming Paystack webhook request.
+ * @return {Promise<NextResponse>} An HTTP response acknowledging the event, rejecting invalid signatures, or reporting processing errors.
+ */
 export async function POST(request) {
   try {
     const rawBody = await request.text();
@@ -20,104 +25,21 @@ export async function POST(request) {
 
     // 2. Handle charge.success event
     if (event === "charge.success") {
-      const reference = data.reference;
+      const reference = data?.reference;
 
       if (!reference) {
         return NextResponse.json({ success: true, message: "No reference found in event payload." });
       }
 
-      const existingOrder = await prisma.order.findUnique({
-        where: { paymentReference: reference },
-        include: { items: true },
-      });
-
-      if (existingOrder && existingOrder.paymentStatus !== "paid") {
-        let checkoutData = {};
-        try {
-          if (existingOrder.pendingCheckoutData) {
-            checkoutData = JSON.parse(existingOrder.pendingCheckoutData);
-          }
-        } catch {
-          checkoutData = {};
-        }
-
-        const items = Array.isArray(checkoutData.items) ? checkoutData.items : [];
-
-        await prisma.$transaction(async (tx) => {
-          if (items.length > 0 && existingOrder.items.length === 0) {
-            await tx.orderItem.createMany({
-              data: items.map((item) => ({
-                orderId: existingOrder.id,
-                productId: item.isCollaboration ? item.productAId : item.id,
-                quantity: Number(item.qty || 1),
-                price: Number(item.price || 0),
-                selectedColor: item.selectedColor || null,
-                selectedColorHex: item.selectedColorHex || null,
-                selectedSize: item.selectedSize || null,
-                variantId: item.variantId || null,
-                collaborationProductId: item.collaborationProductId || null,
-                collaborationVariantId: item.collaborationVariantId || null,
-                customMeasurements: item.customSizing || null,
-              })),
-            });
-
-            for (const item of items) {
-              const qty = Number(item.qty || 1);
-
-              if (item.variantId) {
-                await tx.productVariant.updateMany({
-                  where: { id: item.variantId },
-                  data: { stock: { decrement: qty } },
-                });
-              }
-
-              if (item.id && !item.isCollaboration) {
-                await tx.product.updateMany({
-                  where: { id: item.id },
-                  data: { inventory: { decrement: qty } },
-                });
-              }
-            }
-          }
-
-          await tx.order.update({
-            where: { id: existingOrder.id },
-            data: {
-              paymentStatus: "paid",
-              status: "processing",
-              paymentMethod: data.channel || "card",
-              paidAt: data.paid_at ? new Date(data.paid_at) : new Date(),
-            },
-          });
-        });
-
-        // Send PDF receipt email asynchronously with full order details
-        try {
-          const fullOrder = await prisma.order.findUnique({
-            where: { id: existingOrder.id },
-            include: { items: { include: { product: true } } },
-          });
-
-          if (fullOrder) {
-            const { generateOrderReceiptPDF } = await import("@/lib/receipt-pdf");
-            const { sendOrderReceiptEmail } = await import("@/lib/email");
-
-            const pdfBuffer = await generateOrderReceiptPDF(fullOrder.id);
-            sendOrderReceiptEmail({ order: fullOrder, pdfBuffer }).catch((e) =>
-              console.error("Webhook receipt email async error:", e)
-            );
-          }
-        } catch (e) {
-          console.error("Webhook receipt PDF error:", e);
-        }
-      }
+      // Delegate order finalization to centralized idempotent helper
+      await finalizePaystackOrder({ reference, txData: data });
     }
 
     return NextResponse.json({ success: true, received: true });
   } catch (error) {
     console.error("Paystack webhook error:", error);
     return NextResponse.json(
-      { success: false, error: "Webhook handler failed." },
+      { success: false, error: error?.message || "Webhook handler failed." },
       { status: 500 }
     );
   }

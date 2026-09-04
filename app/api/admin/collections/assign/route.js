@@ -1,8 +1,30 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAdminSession } from "@/lib/admin-auth";
 
+/**
+ * Assigns a product to a collection managed by the authenticated brand admin.
+ * @param {Request} request - The request containing the collection and product IDs.
+ * @return {Promise<NextResponse>} A response containing the updated product or an error.
+ */
 export async function POST(request) {
   try {
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (admin.isSuperAdmin) {
+      return NextResponse.json(
+        { error: "Super Admin does not manage store collection assignments." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     const collectionId = body.collectionId;
@@ -26,6 +48,13 @@ export async function POST(request) {
       );
     }
 
+    if (collection.brand !== admin.brand) {
+      return NextResponse.json(
+        { error: "Collection belongs to another brand." },
+        { status: 403 }
+      );
+    }
+
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });
@@ -34,6 +63,13 @@ export async function POST(request) {
       return NextResponse.json(
         { error: "Product not found." },
         { status: 404 }
+      );
+    }
+
+    if (product.brand !== admin.brand) {
+      return NextResponse.json(
+        { error: "Product belongs to another brand." },
+        { status: 403 }
       );
     }
 
@@ -64,8 +100,28 @@ export async function POST(request) {
   }
 }
 
+/**
+ * Removes a product from its assigned collection.
+ * @returns {Promise<Response>} A success response or an error response with the appropriate status.
+ */
 export async function DELETE(request) {
   try {
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (admin.isSuperAdmin) {
+      return NextResponse.json(
+        { error: "Super Admin does not manage store collection assignments." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     const productId = body.productId;
@@ -85,6 +141,13 @@ export async function DELETE(request) {
       return NextResponse.json(
         { error: "Product not found." },
         { status: 404 }
+      );
+    }
+
+    if (product.brand !== admin.brand) {
+      return NextResponse.json(
+        { error: "Product belongs to another brand." },
+        { status: 403 }
       );
     }
 

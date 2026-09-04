@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { getAdminSession } from "@/lib/admin-auth";
 
 const globalForPrisma = globalThis;
 
@@ -68,8 +69,22 @@ const DEFAULT_SECTIONS = [
     secondaryButtonLink: "",
   },
   {
-    key: "outfit-builder",
+    key: "collaborations",
     sortOrder: 4,
+    title: "UTHY × ALOMZIEE.",
+    subtitle: "EXCLUSIVE EDITIONS",
+    description:
+      "Garments from UTHY LUXURY and footwear from ALOMZIEE FOOTIES crafted in unison. Co-created capsule collections designed to be worn together.",
+    image: "",
+    mobileImage: "",
+    buttonText: "Explore Collaborations",
+    buttonLink: "/collaborations",
+    secondaryButtonText: "",
+    secondaryButtonLink: "",
+  },
+  {
+    key: "outfit-builder",
+    sortOrder: 5,
     title: "BUILD YOUR LOOK.",
     subtitle: "Your wardrobe. Your rules.",
     description:
@@ -83,7 +98,7 @@ const DEFAULT_SECTIONS = [
   },
   {
     key: "new-arrivals",
-    sortOrder: 5,
+    sortOrder: 6,
     title: "New Arrivals",
     subtitle: "Just dropped",
     description: "",
@@ -96,7 +111,7 @@ const DEFAULT_SECTIONS = [
   },
   {
     key: "story",
-    sortOrder: 6,
+    sortOrder: 7,
     title: "CRAFTED WITH INTENTION.",
     subtitle: "The philosophy",
     description:
@@ -110,7 +125,7 @@ const DEFAULT_SECTIONS = [
   },
   {
     key: "newsletter",
-    sortOrder: 7,
+    sortOrder: 8,
     title: "JOIN THE LIST.",
     subtitle: "Stay close",
     description:
@@ -124,6 +139,10 @@ const DEFAULT_SECTIONS = [
   },
 ];
 
+/**
+ * Loads homepage sections in display order and adds any missing default sections.
+ * @return {Promise<NextResponse>} A response containing the homepage sections or an error message.
+ */
 export async function GET() {
   try {
     let sections = await prisma.homepageSection.findMany({
@@ -142,6 +161,22 @@ export async function GET() {
           sortOrder: "asc",
         },
       });
+    } else {
+      // Ensure any missing default section (e.g. collaborations) is present
+      const dbKeys = new Set(sections.map((s) => s.key));
+      const missingDefaults = DEFAULT_SECTIONS.filter((s) => !dbKeys.has(s.key));
+
+      if (missingDefaults.length > 0) {
+        await prisma.homepageSection.createMany({
+          data: missingDefaults,
+        });
+
+        sections = await prisma.homepageSection.findMany({
+          orderBy: {
+            sortOrder: "asc",
+          },
+        });
+      }
     }
 
     return NextResponse.json({
@@ -162,8 +197,32 @@ export async function GET() {
   }
 }
 
+/**
+ * Saves homepage sections for Super Admin users.
+ * @param {Request} request - The request containing a `sections` array in its JSON body.
+ * @returns {Response} A response containing the saved sections, or an error status for unauthorized, forbidden, invalid, or failed requests.
+ */
 export async function PUT(request) {
   try {
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    if (!admin.isSuperAdmin) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden. Site-level homepage sections are managed by Super Admin only.",
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     if (!Array.isArray(body.sections)) {

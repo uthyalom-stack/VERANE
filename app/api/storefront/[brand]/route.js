@@ -33,6 +33,11 @@ function getFirstImage(images) {
   return "";
 }
 
+/**
+ * Converts a database product into its public storefront representation.
+ * @param {Object} product - The product record to convert.
+ * @return {Object} The product data exposed to storefront clients.
+ */
 function toPublicProduct(product) {
   return {
     id: product.id,
@@ -41,10 +46,21 @@ function toPublicProduct(product) {
     brand: product.brand,
     inventory: product.inventory,
     initialInventory: product.initialInventory,
+    preOrderEnabled: Boolean(product.preOrderEnabled || product.isPreOrder),
     images: getFirstImage(product.images) ? [getFirstImage(product.images)] : [],
+    variants: product.variants || [],
+    productColors: product.productColors || [],
+    customSizingEnabled: product.customSizingEnabled || false,
+    sizeType: product.sizeType || "none",
+    sizes: product.sizes || [],
   };
 }
 
+/**
+ * Retrieves storefront data for a supported brand.
+ * @param {{ brand: string }} params - Route parameters containing the requested brand.
+ * @return {Promise<NextResponse>} A JSON response containing the brand, metadata, products, and storefront sections.
+ */
 export async function GET(request, { params }) {
   try {
     const { brand } = await params;
@@ -62,14 +78,20 @@ export async function GET(request, { params }) {
       prisma.product.findMany({
         where: { brand },
         orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          price: true,
-          brand: true,
-          inventory: true,
-          initialInventory: true,
-          images: true,
+        include: {
+          variants: {
+            orderBy: {
+              createdAt: "asc",
+            },
+            include: {
+              color: true,
+            },
+          },
+          productColors: {
+            orderBy: {
+              createdAt: "asc",
+            },
+          },
         },
       }),
       prisma.siteSetting.findUnique({ where: { key: "brandData" } }),

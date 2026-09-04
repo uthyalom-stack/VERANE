@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAdminSession } from "@/lib/admin-auth";
 
 const DEFAULT_SETTINGS = {
   siteName: "VÉRANE",
@@ -42,8 +43,28 @@ const DEFAULT_SETTINGS = {
   alomzieeWebsite: "",
 };
 
+/**
+ * Loads platform settings for an authenticated super administrator.
+ * @returns {Promise<NextResponse>} A response containing the merged platform settings, or an authorization error.
+ */
 export async function GET() {
   try {
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (!admin.isSuperAdmin) {
+      return NextResponse.json(
+        { error: "Forbidden: Platform settings are restricted to Super Admin." },
+        { status: 403 }
+      );
+    }
+
     const rows = await prisma.siteSetting.findMany();
 
     const settings = {
@@ -55,71 +76,59 @@ export async function GET() {
     });
 
     return NextResponse.json(settings);
-
   } catch (error) {
-
-    console.error(
-      "Failed loading settings:",
-      error
-    );
-
+    console.error("Failed loading settings:", error);
     return NextResponse.json(DEFAULT_SETTINGS);
   }
 }
 
-
+/**
+ * Saves platform settings provided by an authenticated super administrator.
+ * @param {Request} request - The request containing settings to save.
+ * @return {Promise<NextResponse>} A response indicating success, authorization failure, or a server error.
+ */
 export async function PUT(request) {
-
   try {
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (!admin.isSuperAdmin) {
+      return NextResponse.json(
+        { error: "Forbidden: Platform settings are restricted to Super Admin." },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
 
-
     for (const key of Object.keys(body)) {
-
       await prisma.siteSetting.upsert({
-
-        where: {
-          key,
-        },
-
-        update: {
-          value: String(body[key]),
-        },
-
-        create: {
-          key,
-          value: String(body[key]),
-        },
-
+        where: { key },
+        update: { value: String(body[key]) },
+        create: { key, value: String(body[key]) },
       });
-
     }
-
 
     return NextResponse.json({
       success: true,
     });
-
-
-  } catch(error) {
-
-    console.error(
-      "Failed saving settings:",
-      error
-    );
-
+  } catch (error) {
+    console.error("Failed saving settings:", error);
 
     return NextResponse.json(
       {
-        success:false,
-        error:"Unable to save settings"
+        success: false,
+        error: "Unable to save settings",
       },
       {
-        status:500
+        status: 500,
       }
     );
-
   }
-
 }

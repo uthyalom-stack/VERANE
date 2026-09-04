@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+/**
+ * Normalizes a brand value and resolves supported brand aliases.
+ * @param {*} value - The brand value to normalize.
+ * @return {string|null} The normalized brand name, or `null` for an empty value.
+ */
 function normalizeBrand(value) {
   if (!value) return null;
 
@@ -25,8 +30,24 @@ function normalizeBrand(value) {
   return brand;
 }
 
+import { getAdminSession } from "@/lib/admin-auth";
+
+/**
+ * Retrieves a collaboration and its products for an authorized admin.
+ * @param {Request} request - The incoming request.
+ * @param {{params: {id: string}}} context - Route parameters containing the collaboration ID.
+ * @return {Promise<Response>} The collaboration, its linked products, and products from both brands.
+ */
 export async function GET(request, { params }) {
   try {
+    const session = await getAdminSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     const collaboration =
@@ -57,15 +78,25 @@ export async function GET(request, { params }) {
       );
     }
 
+    const collabBrandA = normalizeBrand(collaboration.brandA);
+    const collabBrandB = normalizeBrand(collaboration.brandB);
+
+    if (session.role !== "SUPERADMIN") {
+      if (collabBrandA !== session.role && collabBrandB !== session.role) {
+        return NextResponse.json(
+          { success: false, error: "Forbidden. Access denied to this collaboration." },
+          { status: 403 }
+        );
+      }
+    }
+
     const brandAProducts =
       await prisma.product.findMany({
         where: {
           brand: {
             in: [
               collaboration.brandA,
-              normalizeBrand(
-                collaboration.brandA
-              ) === "UTHY"
+              collabBrandA === "UTHY"
                 ? "UTHY_LUXURY"
                 : "ALOMZIEE_FOOTIES",
             ],
@@ -82,9 +113,7 @@ export async function GET(request, { params }) {
           brand: {
             in: [
               collaboration.brandB,
-              normalizeBrand(
-                collaboration.brandB
-              ) === "UTHY"
+              collabBrandB === "UTHY"
                 ? "UTHY_LUXURY"
                 : "ALOMZIEE_FOOTIES",
             ],
@@ -119,8 +148,31 @@ export async function GET(request, { params }) {
   }
 }
 
+/**
+ * Creates a collaboration product from one product contributed by each participating brand.
+ * @param {Request} request - Request containing the collaboration product details.
+ * @param {Promise<{id: string}>} params - Route parameters containing the collaboration ID.
+ * @returns {Promise<NextResponse>} A response containing the created collaboration product or an error.
+ */
 export async function POST(request, { params }) {
   try {
+    const session = await getAdminSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    if (session.role !== "UTHY" && session.role !== "ALOMZIEE") {
+      return NextResponse.json(
+        { success: false, error: "Forbidden. Brand admin session required." },
+        { status: 403 }
+      );
+    }
+
+    const adminBrand = session.role; // "UTHY" or "ALOMZIEE"
+
     const { id } = await params;
 
     const body = await request.json();
@@ -138,6 +190,11 @@ export async function POST(request, { params }) {
       String(body?.description || "").trim();
 
     const price = Number(body?.price);
+
+    const requestedStatus =
+      String(body?.status || "published").trim().toLowerCase();
+
+    const status = requestedStatus === "draft" ? "draft" : "published";
 
     if (!productAId || !productBId) {
       return NextResponse.json(
@@ -161,7 +218,7 @@ export async function POST(request, { params }) {
       );
     }
 
-    if (!Number.isFinite(price) || price < 0) {
+    if (!Number.isFinite(price) || price <= 0) {
       return NextResponse.json(
         {
           success: false,
@@ -189,7 +246,18 @@ export async function POST(request, { params }) {
       );
     }
 
-    if (collaboration.status !== "active") {
+    // Verify brand admin is allowed to manage this collaboration
+    const collabBrandA = normalizeBrand(collaboration.brandA);
+    const collabBrandB = normalizeBrand(collaboration.brandB);
+
+    if (collabBrandA !== adminBrand && collabBrandB !== adminBrand) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden. You can only manage collaboration products for your brand's collaborations." },
+        { status: 403 }
+      );
+    }
+
+    if (collaboration.status !== "active" && collaboration.status !== "accepted") {
       return NextResponse.json(
         {
           success: false,
@@ -235,50 +303,19 @@ export async function POST(request, { params }) {
       );
     }
 
-    /*
-     * Make sure each selected product actually
-     * belongs to one of the two collaborating brands.
-     */
+    const productABrand = normalizeBrand(productA.brand);
+    const productBBrand = normalizeBrand(productB.brand);
 
-    const allowedBrands = [
-      collaboration.brandA,
-      collaboration.brandB,
-      collaboration.brandA === "UTHY"
-        ? "UTHY_LUXURY"
-        : "ALOMZIEE_FOOTIES",
-      collaboration.brandB === "UTHY"
-        ? "UTHY_LUXURY"
-        : "ALOMZIEE_FOOTIES",
-    ];
+    const validPair =
+      (productABrand === collabBrandA && productBBrand === collabBrandB) ||
+      (productABrand === collabBrandB && productBBrand === collabBrandA);
 
-    if (!allowedBrands.includes(productA.brand)) {
+    if (!validPair) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Product A does not belong to a collaborating brand.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!allowedBrands.includes(productB.brand)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Product B does not belong to a collaborating brand.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (productA.brand === productB.brand) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Choose products from two different brands.",
+            "The selected products must come from the two brands in this collaboration.",
         },
         { status: 400 }
       );
@@ -317,6 +354,27 @@ export async function POST(request, { params }) {
       );
     }
 
+    const imagesList = [];
+    if (productA.images) {
+      try {
+        const parsed = JSON.parse(productA.images);
+        if (Array.isArray(parsed)) imagesList.push(...parsed);
+        else if (typeof parsed === "string") imagesList.push(parsed);
+      } catch {
+        imagesList.push(productA.images);
+      }
+    }
+
+    if (productB.images) {
+      try {
+        const parsed = JSON.parse(productB.images);
+        if (Array.isArray(parsed)) imagesList.push(...parsed);
+        else if (typeof parsed === "string") imagesList.push(parsed);
+      } catch {
+        imagesList.push(productB.images);
+      }
+    }
+
     const collaborationProduct =
       await prisma.collaborationProduct.create({
         data: {
@@ -332,23 +390,9 @@ export async function POST(request, { params }) {
 
           price,
 
-          images: JSON.stringify([
-            ...(productA.images
-              ? String(productA.images)
-                  .split(",")
-                  .map((x) => x.trim())
-                  .filter(Boolean)
-              : []),
+          images: JSON.stringify(imagesList),
 
-            ...(productB.images
-              ? String(productB.images)
-                  .split(",")
-                  .map((x) => x.trim())
-                  .filter(Boolean)
-              : []),
-          ]),
-
-          status: "draft",
+          status,
         },
 
         include: {

@@ -55,8 +55,24 @@ function brandName(brand) {
 |--------------------------------------------------------------------------
 */
 
+import { getAdminSession } from "@/lib/admin-auth";
+
+/**
+ * Updates a collaboration request by accepting, declining, or cancelling it.
+ * @param {Request} request - The request containing the action in `action`, `status`, or `decision`.
+ * @param {{ params: Promise<{ id: string }> }} context - The route context containing the collaboration request ID.
+ * @returns {Promise<NextResponse>} A JSON response containing the updated request and, when accepted, its collaboration.
+ */
 export async function PUT(request, { params }) {
   try {
+    const session = await getAdminSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     if (!id) {
@@ -102,12 +118,6 @@ export async function PUT(request, { params }) {
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Find the request
-    |--------------------------------------------------------------------------
-    */
-
     const collaborationRequest =
       await prisma.collaborationRequest.findUnique({
         where: {
@@ -125,23 +135,33 @@ export async function PUT(request, { params }) {
       );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ACCEPT
-    |--------------------------------------------------------------------------
-    |
-    | This is the important part.
-    |
-    | Accepting a request automatically creates the real
-    | Collaboration record.
-    |
-    */
+    // Permission check
+    const adminBrand = session.role; // "UTHY", "ALOMZIEE", or "SUPERADMIN"
+    if (adminBrand !== "SUPERADMIN") {
+      if (normalizedStatus === "ACCEPTED" || normalizedStatus === "DECLINED") {
+        if (collaborationRequest.toBrand !== adminBrand) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Forbidden. Only the receiving brand can accept/decline this request.",
+            },
+            { status: 403 }
+          );
+        }
+      } else if (normalizedStatus === "CANCELLED") {
+        if (collaborationRequest.fromBrand !== adminBrand) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Forbidden. Only the sending brand can cancel this request.",
+            },
+            { status: 403 }
+          );
+        }
+      }
+    }
 
     if (normalizedStatus === "ACCEPTED") {
-      /*
-       * Prevent accepting an already accepted request again.
-       */
-
       if (
         collaborationRequest.status === "ACCEPTED" &&
         collaborationRequest.collaborationId
@@ -172,29 +192,28 @@ export async function PUT(request, { params }) {
       }
 
       /*
-       * Check whether these brands already have
-       * an active collaboration.
+       * Use a transaction to create a NEW Collaboration record specifically for this request.
        */
+      const result = await prisma.$transaction(async (tx) => {
+        const collaboration = await tx.collaboration.create({
+          data: {
+            name:
+              collaborationRequest.title ||
+              `${brandName(
+                collaborationRequest.fromBrand
+              )} × ${brandName(
+                collaborationRequest.toBrand
+              )}`,
 
-      const existingCollaboration =
-        await prisma.collaboration.findFirst({
-          where: {
+            description:
+              collaborationRequest.message ||
+              null,
+
+            brandA: collaborationRequest.fromBrand,
+            brandB: collaborationRequest.toBrand,
             status: "active",
-            OR: [
-              {
-                brandA:
-                  collaborationRequest.fromBrand,
-                brandB:
-                  collaborationRequest.toBrand,
-              },
-              {
-                brandA:
-                  collaborationRequest.toBrand,
-                brandB:
-                  collaborationRequest.fromBrand,
-              },
-            ],
           },
+
           include: {
             products: {
               include: {
@@ -205,135 +224,55 @@ export async function PUT(request, { params }) {
           },
         });
 
-      /*
-       * Use a transaction so the request and collaboration
-       * can never get out of sync.
-       */
-
-      const result =
-        await prisma.$transaction(async (tx) => {
-          let collaboration =
-            existingCollaboration;
-
-          /*
-           * Create the actual collaboration if one
-           * doesn't already exist.
-           */
-
-          if (!collaboration) {
-            collaboration =
-              await tx.collaboration.create({
-                data: {
-                  name:
-                    collaborationRequest.title ||
-                    `${brandName(
-                      collaborationRequest.fromBrand
-                    )} × ${brandName(
-                      collaborationRequest.toBrand
-                    )}`,
-
-                  description:
-                    collaborationRequest.message ||
-                    null,
-
-                  brandA:
-                    collaborationRequest.fromBrand,
-
-                  brandB:
-                    collaborationRequest.toBrand,
-
-                  status: "active",
-                },
-
-                include: {
-                  products: {
-                    include: {
-                      productA: true,
-                      productB: true,
-                    },
-                  },
-                },
-              });
-          }
-
-          /*
-           * Mark request as accepted and connect it
-           * to the collaboration.
-           */
-
-          const updatedRequest =
-            await tx.collaborationRequest.update({
-              where: {
-                id,
-              },
-
-              data: {
-                status: "ACCEPTED",
-                collaborationId:
-                  collaboration.id,
-              },
-            });
-
-          /*
-           * Notify the brand that originally sent
-           * the request.
-           */
-
-          await tx.adminNotification.create({
-            data: {
-              recipientBrand:
-                collaborationRequest.fromBrand,
-
-              type: "COLLABORATION_ACCEPTED",
-
-              title:
-                `${brandName(
-                  collaborationRequest.toBrand
-                )} accepted your collaboration request`,
-
-              message:
-                `Your collaboration request "${collaborationRequest.title}" has been accepted.`,
-
-              requestId: updatedRequest.id,
-            },
-          });
-
-          return {
-            collaboration,
-            updatedRequest,
-          };
-        });
-
-      /*
-       * Return the actual collaboration so the UI
-       * can immediately display it.
-       */
-
-      const fullCollaboration =
-        await prisma.collaboration.findUnique({
+        const updatedRequest = await tx.collaborationRequest.update({
           where: {
-            id: result.collaboration.id,
+            id,
           },
-
-          include: {
-            requests: {
-              orderBy: {
-                createdAt: "desc",
-              },
-            },
-
-            products: {
-              include: {
-                productA: true,
-                productB: true,
-              },
-
-              orderBy: {
-                updatedAt: "desc",
-              },
-            },
+          data: {
+            status: "ACCEPTED",
+            collaborationId: collaboration.id,
           },
         });
+
+        await tx.adminNotification.create({
+          data: {
+            recipientBrand: collaborationRequest.fromBrand,
+            type: "COLLABORATION_ACCEPTED",
+            title: `${brandName(
+              collaborationRequest.toBrand
+            )} accepted your collaboration request`,
+            message: `Your collaboration request "${collaborationRequest.title}" has been accepted.`,
+            requestId: updatedRequest.id,
+          },
+        });
+
+        return {
+          collaboration,
+          updatedRequest,
+        };
+      });
+
+      const fullCollaboration = await prisma.collaboration.findUnique({
+        where: {
+          id: result.collaboration.id,
+        },
+        include: {
+          requests: {
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+          products: {
+            include: {
+              productA: true,
+              productB: true,
+            },
+            orderBy: {
+              updatedAt: "desc",
+            },
+          },
+        },
+      });
 
       return NextResponse.json({
         success: true,
@@ -343,39 +282,24 @@ export async function PUT(request, { params }) {
       });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | DECLINE
-    |--------------------------------------------------------------------------
-    */
-
     if (normalizedStatus === "DECLINED") {
-      const updated =
-        await prisma.collaborationRequest.update({
-          where: {
-            id,
-          },
-
-          data: {
-            status: "DECLINED",
-          },
-        });
+      const updated = await prisma.collaborationRequest.update({
+        where: {
+          id,
+        },
+        data: {
+          status: "DECLINED",
+        },
+      });
 
       await prisma.adminNotification.create({
         data: {
-          recipientBrand:
-            collaborationRequest.fromBrand,
-
+          recipientBrand: collaborationRequest.fromBrand,
           type: "COLLABORATION_DECLINED",
-
-          title:
-            `${brandName(
-              collaborationRequest.toBrand
-            )} declined your collaboration request`,
-
-          message:
-            `Your collaboration request "${collaborationRequest.title}" was declined.`,
-
+          title: `${brandName(
+            collaborationRequest.toBrand
+          )} declined your collaboration request`,
+          message: `Your collaboration request "${collaborationRequest.title}" was declined.`,
           requestId: updated.id,
         },
       });
@@ -387,23 +311,15 @@ export async function PUT(request, { params }) {
       });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | CANCEL / WITHDRAW
-    |--------------------------------------------------------------------------
-    */
-
     if (normalizedStatus === "CANCELLED") {
-      const updated =
-        await prisma.collaborationRequest.update({
-          where: {
-            id,
-          },
-
-          data: {
-            status: "CANCELLED",
-          },
-        });
+      const updated = await prisma.collaborationRequest.update({
+        where: {
+          id,
+        },
+        data: {
+          status: "CANCELLED",
+        },
+      });
 
       return NextResponse.json({
         success: true,
@@ -437,14 +353,23 @@ export async function PUT(request, { params }) {
   }
 }
 
-/*
-|--------------------------------------------------------------------------
-| GET
-|--------------------------------------------------------------------------
-*/
-
+/**
+ * Retrieves a collaboration request and its associated collaboration data.
+ * @param {Object} context - Route context containing the collaboration request identifier.
+ * @param {Object} context.params - Route parameters.
+ * @param {string} context.params.id - Collaboration request identifier.
+ * @return {Promise<NextResponse>} A JSON response containing the request and collaboration data, or an error response.
+ */
 export async function GET(request, { params }) {
   try {
+    const session = await getAdminSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     if (!id) {
@@ -489,6 +414,19 @@ export async function GET(request, { params }) {
         },
         { status: 404 }
       );
+    }
+
+    // Authorization check
+    if (session.role !== "SUPERADMIN") {
+      if (
+        collaborationRequest.fromBrand !== session.role &&
+        collaborationRequest.toBrand !== session.role
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Forbidden. Access denied to this collaboration request." },
+          { status: 403 }
+        );
+      }
     }
 
     return NextResponse.json({

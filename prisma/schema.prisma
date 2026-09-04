@@ -9,15 +9,33 @@ datasource db {
 }
 
 model User {
-  id          String        @id @default(cuid())
-  email       String        @unique
-  password    String
-  name        String?
-  createdAt   DateTime      @default(now())
-  orders      Order[]
-  savedLooks  SavedLook[]
-  waitingList WaitingList[]
-  wishlist    Wishlist[]
+  id             String         @id @default(cuid())
+  email          String         @unique
+  password       String
+  name           String?
+  createdAt      DateTime       @default(now())
+  orders         Order[]
+  savedAddresses SavedAddress[]
+  savedLooks     SavedLook[]
+  waitingList    WaitingList[]
+  wishlist       Wishlist[]
+}
+
+model SavedAddress {
+  id            String   @id @default(cuid())
+  userId        String
+  fullName      String
+  phone         String
+  country       String   @default("Nigeria")
+  state         String
+  city          String
+  streetAddress String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Product {
@@ -143,6 +161,7 @@ model Order {
   orderNumber         String      @unique
   user                User        @relation(fields: [userId], references: [id])
   items               OrderItem[]
+  attribution         OrderAttribution?
 }
 
 model DeliveryLocation {
@@ -158,6 +177,36 @@ model DeliveryLocation {
 
   @@index([country])
   @@index([state])
+  @@index([city])
+}
+
+model DeliveryState {
+  id          String         @id @default(cuid())
+  country     String         @default("Nigeria")
+  state       String         @unique
+  pricingMode String         @default("STATE_DEFAULT") // "STATE_DEFAULT" or "CITY_SPECIFIC"
+  defaultFee  Float          @default(0)
+  enabled     Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  cities      DeliveryCity[]
+
+  @@index([country])
+  @@index([state])
+}
+
+model DeliveryCity {
+  id        String        @id @default(cuid())
+  stateId   String
+  city      String
+  fee       Float         @default(0)
+  enabled   Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  state     DeliveryState @relation(fields: [stateId], references: [id], onDelete: Cascade)
+
+  @@unique([stateId, city])
+  @@index([stateId])
   @@index([city])
 }
 
@@ -407,4 +456,57 @@ model Wishlist {
   @@unique([userId, productId])
   @@index([userId])
   @@index([productId])
+}
+
+model Campaign {
+  id          String             @id @default(cuid())
+  brand       String
+  name        String
+  slug        String             @unique
+  platform    String             @default("Other")
+  source      String?
+  medium      String?
+  destination String             @default("/")
+  active      Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  visits      CampaignVisit[]
+  orders      OrderAttribution[]
+
+  @@index([brand])
+  @@index([slug])
+}
+
+model CampaignVisit {
+  id          String   @id @default(cuid())
+  campaignId  String
+  brand       String
+  visitorId   String
+  ipAddress   String?
+  userAgent   String?
+  destination String
+  createdAt   DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([brand])
+  @@index([visitorId])
+}
+
+model OrderAttribution {
+  id               String   @id @default(cuid())
+  orderId          String   @unique
+  campaignId       String
+  brand            String
+  visitorId        String?
+  attributionModel String   @default("last_touch")
+  createdAt        DateTime @default(now())
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([campaignId])
+  @@index([brand])
 }

@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 
+/**
+ * Render the authenticated administration layout with role-based navigation and page content.
+ * @param {React.ReactNode} children - The administrative page content.
+ * @returns {React.ReactElement} The administration layout or loading screen.
+ */
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -156,6 +161,9 @@ export default function AdminLayout({ children }) {
     { href: "/admin/discounts", label: "Discounts", show: isStoreAdmin },
     { href: "/admin/subscribers", label: "Subscribers", show: true },
     { href: "/admin/collaborations", label: "Collaborations", show: isStoreAdmin },
+    { href: "/admin/marketing", label: "Marketing", show: isStoreAdmin },
+    { href: "/admin/analytics", label: "Analytics", show: isStoreAdmin },
+    { href: "/admin/delivery", label: "Delivery & Logistics", show: isSuperAdmin },
     { href: "/admin/homepage", label: "Homepage", show: isSuperAdmin },
     { href: "/admin/navigation", label: "Navigation", show: isSuperAdmin },
     { href: "/admin/footer", label: "Footer", show: isSuperAdmin },
