@@ -22,9 +22,9 @@ function makeSectionKey(brand, title) {
 }
 
 /**
- * Load sections and products for an authorized brand.
- * @param {Request} request - The request containing the brand query parameter.
- * @return {Promise<NextResponse>} A response containing the brand's sections and products, or an error status.
+ * Retrieves brand-specific storefront sections for the authenticated admin's brand.
+ * @param {Request} request - The Next.js request object with brand query parameter.
+ * @returns {Promise<NextResponse>} JSON response with sections and featured products for the brand.
  */
 export async function GET(request) {
   try {
@@ -125,8 +125,9 @@ export async function GET(request) {
 }
 
 /**
- * Creates a brand-specific product grid section.
- * @return {Promise<NextResponse>} A response containing the created section or an error status.
+ * Creates a new brand-specific storefront section with optional featured products.
+ * @param {Request} request - The Next.js request object containing section details in JSON body.
+ * @returns {Promise<NextResponse>} JSON response with created section data.
  */
 export async function POST(request) {
   try {

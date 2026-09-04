@@ -2,11 +2,6 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
-/**
- * Normalizes a brand identifier to its canonical uppercase form.
- * @param {*} value - The brand value to normalize.
- * @return {string} The canonical brand identifier, or an empty string when no value is provided.
- */
 function normalizeBrand(value) {
   if (!value) return "";
   const brand = String(value).trim().toUpperCase();
@@ -16,9 +11,10 @@ function normalizeBrand(value) {
 }
 
 /**
- * Retrieves a collaboration product and its related collaboration and source-product details.
- * @param {Object} params - Route parameters containing the product identifier.
- * @return {Promise<NextResponse>} A response containing the product, or an error status for unauthorized, forbidden, missing, or failed requests.
+ * Retrieves a specific collaboration product by ID with related products and variants.
+ * @param {Request} request - The Next.js request object.
+ * @param {Object} params - Route parameters containing the productId.
+ * @returns {Promise<NextResponse>} JSON response with collaboration product details.
  */
 export async function GET(request, { params }) {
   try {
@@ -62,10 +58,10 @@ export async function GET(request, { params }) {
 }
 
 /**
- * Updates an authorized collaboration product's details and images.
- * @param {Request} request - The request containing the product fields to update.
- * @param {{ params: Promise<{ productId: string }> }} context - Route parameters identifying the product.
- * @returns {Response} A response containing the updated product or an error.
+ * Updates a collaboration product including name, description, price, and status.
+ * @param {Request} request - The Next.js request object containing updated product data in JSON body.
+ * @param {Object} params - Route parameters containing the productId.
+ * @returns {Promise<NextResponse>} JSON response with updated collaboration product.
  */
 export async function PUT(request, { params }) {
   try {
@@ -167,9 +163,10 @@ export async function PUT(request, { params }) {
 }
 
 /**
- * Deletes an authorized collaboration product while preserving its source products.
- * @param {Object} params - Route parameters containing the collaboration product identifier.
- * @return {Response} A response indicating whether the deletion succeeded.
+ * Deletes a collaboration product if no orders exist, otherwise archives it.
+ * @param {Request} request - The Next.js request object.
+ * @param {Object} params - Route parameters containing the productId.
+ * @returns {Promise<NextResponse>} JSON response with success status and deletion or archival details.
  */
 export async function DELETE(request, { params }) {
   try {

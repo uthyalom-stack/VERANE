@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin-auth";
 
 /**
- * Check the current administrator's authentication status.
- * @returns {Response} A JSON response containing authentication status and, when authenticated, the administrator's role, brand, and name.
+ * Retrieves the current admin session information from cookies.
+ * @returns {Promise<NextResponse>} JSON response with authentication status and admin data if authenticated.
  */
 export async function GET() {
   try {

@@ -10,7 +10,8 @@ const { db, resetDb } = await import(mockPrismaPath);
 const { GET: getDelivery } = await import(deliveryRoutePath);
 
 /**
- * Run the delivery API security suite and exit with a failure status when assertions fail.
+ * Runs delivery API fail-closed security test suite verifying proper error handling for database failures and missing configurations.
+ * @returns {Promise<Object>} Test results with passed and failed counts.
  */
 export async function runDeliveryApiSecurityTests() {
   console.log("=== RUNNING VÉRANE DELIVERY API FAIL-CLOSED SECURITY SUITE ===\n");

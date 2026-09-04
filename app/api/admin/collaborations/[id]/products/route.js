@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-/**
- * Normalizes a brand value and resolves supported brand aliases.
- * @param {*} value - The brand value to normalize.
- * @return {string|null} The normalized brand name, or `null` for an empty value.
- */
 function normalizeBrand(value) {
   if (!value) return null;
 
@@ -33,10 +28,10 @@ function normalizeBrand(value) {
 import { getAdminSession } from "@/lib/admin-auth";
 
 /**
- * Retrieves a collaboration and its products for an authorized admin.
- * @param {Request} request - The incoming request.
- * @param {{params: {id: string}}} context - Route parameters containing the collaboration ID.
- * @return {Promise<Response>} The collaboration, its linked products, and products from both brands.
+ * Retrieves collaboration products for a specific collaboration by ID.
+ * @param {Request} request - The Next.js request object.
+ * @param {Object} params - Route parameters containing the collaboration ID.
+ * @returns {Promise<NextResponse>} JSON response with collaboration and its products.
  */
 export async function GET(request, { params }) {
   try {
@@ -148,12 +143,6 @@ export async function GET(request, { params }) {
   }
 }
 
-/**
- * Creates a collaboration product from one product contributed by each participating brand.
- * @param {Request} request - Request containing the collaboration product details.
- * @param {Promise<{id: string}>} params - Route parameters containing the collaboration ID.
- * @returns {Promise<NextResponse>} A response containing the created collaboration product or an error.
- */
 export async function POST(request, { params }) {
   try {
     const session = await getAdminSession();

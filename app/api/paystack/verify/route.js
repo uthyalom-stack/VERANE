@@ -3,9 +3,9 @@ import prisma from "@/lib/prisma";
 import { verifyPaystackTransaction, finalizePaystackOrder } from "@/lib/paystack";
 
 /**
- * Processes a Paystack payment callback and redirects the customer to the appropriate checkout or order page.
- * @param {Request} request - The incoming request containing the payment reference in its query parameters.
- * @return {Promise<Response>} A redirect response for the checkout or order page.
+ * Handles Paystack payment verification callback and finalizes the order.
+ * @param {Request} request - The Next.js request object with payment reference query parameter.
+ * @returns {Promise<NextResponse>} Redirect to order confirmation page or checkout with error.
  */
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);

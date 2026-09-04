@@ -3,9 +3,9 @@ import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
 /**
- * Assigns a product to a collection managed by the authenticated brand admin.
- * @param {Request} request - The request containing the collection and product IDs.
- * @return {Promise<NextResponse>} A response containing the updated product or an error.
+ * Assigns a product to a collection for the authenticated brand admin.
+ * @param {Request} request - The Next.js request object containing collectionId and productId in JSON body.
+ * @returns {Promise<NextResponse>} JSON response with updated product data.
  */
 export async function POST(request) {
   try {
@@ -101,8 +101,9 @@ export async function POST(request) {
 }
 
 /**
- * Removes a product from its assigned collection.
- * @returns {Promise<Response>} A success response or an error response with the appropriate status.
+ * Removes a product from a collection for the authenticated brand admin.
+ * @param {Request} request - The Next.js request object containing productId in JSON body.
+ * @returns {Promise<NextResponse>} JSON response with success status.
  */
 export async function DELETE(request) {
   try {

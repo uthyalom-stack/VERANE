@@ -19,11 +19,6 @@ const EXTENSION_TYPES = {
   avif: "image/avif",
 };
 
-/**
- * Determines the allowed image MIME type for a file.
- * @param {File} file - The file whose MIME type or filename extension is checked.
- * @return {string} The recognized MIME type, or an empty string for unsupported files.
- */
 function getFileType(file) {
   if (ALLOWED_TYPES.has(file.type)) return file.type;
 
@@ -32,9 +27,9 @@ function getFileType(file) {
 }
 
 /**
- * Authenticates an admin and uploads a supported image to R2 storage.
- * @param {Request} request - The request containing the image in multipart form data.
- * @return {Promise<Response>} A response containing the uploaded image URL and key, or an error status.
+ * Handles image file uploads to Cloudflare R2 storage with admin authentication.
+ * @param {Request} request - The Next.js request object containing multipart/form-data with file.
+ * @returns {Promise<NextResponse>} JSON response with uploaded file URL and key.
  */
 export async function POST(request) {
   const admin = await getAdminSession();
