@@ -69,8 +69,22 @@ const DEFAULT_SECTIONS = [
     secondaryButtonLink: "",
   },
   {
-    key: "outfit-builder",
+    key: "collaborations",
     sortOrder: 4,
+    title: "UTHY × ALOMZIEE.",
+    subtitle: "EXCLUSIVE EDITIONS",
+    description:
+      "Garments from UTHY LUXURY and footwear from ALOMZIEE FOOTIES crafted in unison. Co-created capsule collections designed to be worn together.",
+    image: "",
+    mobileImage: "",
+    buttonText: "Explore Collaborations",
+    buttonLink: "/collaborations",
+    secondaryButtonText: "",
+    secondaryButtonLink: "",
+  },
+  {
+    key: "outfit-builder",
+    sortOrder: 5,
     title: "BUILD YOUR LOOK.",
     subtitle: "Your wardrobe. Your rules.",
     description:
@@ -84,7 +98,7 @@ const DEFAULT_SECTIONS = [
   },
   {
     key: "new-arrivals",
-    sortOrder: 5,
+    sortOrder: 6,
     title: "New Arrivals",
     subtitle: "Just dropped",
     description: "",
@@ -97,7 +111,7 @@ const DEFAULT_SECTIONS = [
   },
   {
     key: "story",
-    sortOrder: 6,
+    sortOrder: 7,
     title: "CRAFTED WITH INTENTION.",
     subtitle: "The philosophy",
     description:
@@ -111,7 +125,7 @@ const DEFAULT_SECTIONS = [
   },
   {
     key: "newsletter",
-    sortOrder: 7,
+    sortOrder: 8,
     title: "JOIN THE LIST.",
     subtitle: "Stay close",
     description:
@@ -143,6 +157,22 @@ export async function GET() {
           sortOrder: "asc",
         },
       });
+    } else {
+      // Ensure any missing default section (e.g. collaborations) is present
+      const dbKeys = new Set(sections.map((s) => s.key));
+      const missingDefaults = DEFAULT_SECTIONS.filter((s) => !dbKeys.has(s.key));
+
+      if (missingDefaults.length > 0) {
+        await prisma.homepageSection.createMany({
+          data: missingDefaults,
+        });
+
+        sections = await prisma.homepageSection.findMany({
+          orderBy: {
+            sortOrder: "asc",
+          },
+        });
+      }
     }
 
     return NextResponse.json({
