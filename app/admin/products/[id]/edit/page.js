@@ -183,6 +183,7 @@ export default function EditProductPage() {
               );
 
             return {
+              id: variant.id || null,
               colorIndex:
                 colorIndex >= 0
                   ? colorIndex
@@ -484,6 +485,7 @@ export default function EditProductPage() {
         variants: [
           ...prev.variants,
           {
+            id: null,
             colorIndex:
               newColorIndex,
             size: "",
@@ -565,6 +567,7 @@ export default function EditProductPage() {
       variants: [
         ...prev.variants,
         {
+          id: null,
           colorIndex,
           size: "",
           stock: 0,
@@ -702,6 +705,7 @@ export default function EditProductPage() {
       const cleanColors =
         form.colors.map(
           (color) => ({
+            id: color.id || null,
             name: color.name.trim(),
             hex: color.hex.trim(),
           })
@@ -710,6 +714,7 @@ export default function EditProductPage() {
       const cleanVariants =
         form.variants.map(
           (variant) => ({
+            id: variant.id || null,
             colorIndex:
               Number(variant.colorIndex),
 
