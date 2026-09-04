@@ -4,6 +4,13 @@ import prisma from "@/lib/prisma";
 import { generateOrderReceiptPDF } from "@/lib/receipt-pdf";
 import { getCustomerCookieName, verifyCustomerSession } from "@/lib/auth/customer";
 
+/**
+ * GET handler for downloading an order receipt PDF.
+ * Enforces customer session authentication and strict order ownership.
+ * @param {Request} request - The incoming HTTP request.
+ * @param {Object} context - Route context containing params promise.
+ * @returns {NextResponse} PDF file response or error JSON response.
+ */
 export async function GET(request, { params }) {
   try {
     const cookieStore = await cookies();
