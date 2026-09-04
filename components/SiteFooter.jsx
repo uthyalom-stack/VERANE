@@ -149,7 +149,7 @@ export default function SiteFooter() {
           </div>
 
           {/* Explore */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <p className="mb-5 text-[9px] font-bold uppercase tracking-[0.3em] text-amber-400/70">
               Explore
             </p>
@@ -170,7 +170,7 @@ export default function SiteFooter() {
           </div>
 
           {/* Contact */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-4">
             <p className="mb-5 text-[9px] font-bold uppercase tracking-[0.3em] text-amber-400/70">
               Contact
             </p>
@@ -215,34 +215,6 @@ export default function SiteFooter() {
                     Contact information can be configured from Site Settings.
                   </p>
                 )}
-            </div>
-          </div>
-
-          {/* Brand statement */}
-          <div className="lg:col-span-3">
-            <div className="rounded-[24px] border border-white/[0.07] bg-white/[0.025] p-6">
-              <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-white/25">
-                The House
-              </p>
-
-              <h3 className="mt-4 text-xl font-semibold tracking-tight">
-                One expression.
-              </h3>
-
-              <p className="mt-3 text-sm leading-6 text-white/30">
-                Clothing, footwear and accessories brought together
-                through one premium experience.
-              </p>
-
-              <Link
-                href="/catalog"
-                className="mt-6 inline-flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400 transition hover:text-amber-300"
-              >
-                Discover the collection
-                <span className="transition-transform duration-300 hover:translate-x-1">
-                  →
-                </span>
-              </Link>
             </div>
           </div>
         </div>
