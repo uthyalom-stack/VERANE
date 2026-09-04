@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAdminSession } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -20,22 +21,6 @@ function slugify(text) {
     .replace(/[^\w\s-]/g, "")
     .replace(/[\s_-]+/g, "-")
     .replace(/^-+|-+$/g, "");
-}
-
-async function getAdminSession(request) {
-  try {
-    const res = await fetch(`${request.nextUrl.origin}/api/admin/session`, {
-      headers: { cookie: request.headers.get("cookie") || "" },
-      cache: "no-store",
-    });
-    const json = await res.json().catch(() => null);
-    if (res.ok && json?.authenticated && json?.admin) {
-      return json.admin;
-    }
-  } catch (err) {
-    console.error("Admin session error in /api/admin/marketing:", err);
-  }
-  return null;
 }
 
 function getDateRange(range, customStartDate, customEndDate) {
@@ -85,7 +70,7 @@ function getDateRange(range, customStartDate, customEndDate) {
 
 export async function GET(request) {
   try {
-    const admin = await getAdminSession(request);
+    const admin = await getAdminSession();
     if (!admin) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
@@ -176,7 +161,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const admin = await getAdminSession(request);
+    const admin = await getAdminSession();
     if (!admin) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
@@ -227,7 +212,7 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const admin = await getAdminSession(request);
+    const admin = await getAdminSession();
     if (!admin) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }

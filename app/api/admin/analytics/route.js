@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAdminSession } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const VALID_BRANDS = ["UTHY", "ALOMZIEE"];
-
-/* ============================================================
-   BRAND NORMALIZATION
-============================================================ */
 
 function normalizeBrand(value) {
   if (!value) return "";
@@ -33,17 +30,6 @@ function normalizeBrand(value) {
 
   return brand;
 }
-
-/* ============================================================
-   MONEY NORMALIZATION
-
-   Analytics must NEVER arbitrarily multiply monetary values.
-
-   Product prices are read directly as stored.
-
-   We also protect against the common situation where a
-   monetary value arrives as a Decimal/string/object.
-============================================================ */
 
 function money(value) {
   if (value === null || value === undefined) {
@@ -75,23 +61,10 @@ function money(value) {
     : 0;
 }
 
-/*
- * Product price is the authoritative price for product
- * analytics and inventory valuation.
- */
 function getProductPrice(product) {
   return money(product?.price);
 }
 
-/*
- * Order item price:
- *
- * Prefer the stored order-item price because an order may
- * have been placed at a historical/sale price.
- *
- * If that value is missing or invalid, fall back to the
- * product price.
- */
 function getItemPrice(item) {
   const itemPrice = money(item?.price);
 
@@ -101,10 +74,6 @@ function getItemPrice(item) {
 
   return getProductPrice(item?.product);
 }
-
-/* ============================================================
-   DATE HELPERS
-============================================================ */
 
 function getDateRange(range, customStartDate, customEndDate) {
   const now = new Date();
@@ -195,36 +164,11 @@ function formatDay(date) {
   );
 }
 
-/* ============================================================
-   GET ANALYTICS
-============================================================ */
-
 export async function GET(request) {
   try {
-    /* ========================================================
-       1. SESSION
-    ======================================================== */
+    const admin = await getAdminSession();
 
-    const sessionResponse = await fetch(
-      `${request.nextUrl.origin}/api/admin/session`,
-      {
-        headers: {
-          cookie:
-            request.headers.get("cookie") || "",
-        },
-        cache: "no-store",
-      }
-    );
-
-    const sessionData =
-      await sessionResponse
-        .json()
-        .catch(() => null);
-
-    if (
-      !sessionResponse.ok ||
-      !sessionData?.admin
-    ) {
+    if (!admin) {
       return NextResponse.json(
         {
           success: false,
@@ -239,12 +183,6 @@ export async function GET(request) {
         }
       );
     }
-
-    const admin = sessionData.admin;
-
-    /* ========================================================
-       2. ADMIN BRAND
-    ======================================================== */
 
     const adminBrand = normalizeBrand(
       admin.brand || admin.role
@@ -266,10 +204,6 @@ export async function GET(request) {
         }
       );
     }
-
-    /* ========================================================
-       3. REQUESTED BRAND
-    ======================================================== */
 
     const { searchParams } =
       new URL(request.url);
@@ -302,19 +236,11 @@ export async function GET(request) {
       );
     }
 
-    /* ========================================================
-       4. DATE RANGE
-    ======================================================== */
-
     const range = searchParams.get("range") || "30d";
     const startDateParam = searchParams.get("startDate");
     const endDateParam = searchParams.get("endDate");
 
     const { start, end } = getDateRange(range, startDateParam, endDateParam);
-
-    /* ========================================================
-       5. LOAD PRODUCTS
-    ======================================================== */
 
     const allProducts =
       await prisma.product.findMany({
@@ -328,10 +254,6 @@ export async function GET(request) {
         },
       });
 
-    /* ========================================================
-       6. NORMALIZE/FILTER PRODUCTS
-    ======================================================== */
-
     const products =
       allProducts.filter((product) => {
         return (
@@ -340,13 +262,8 @@ export async function GET(request) {
         );
       });
 
-    /* ========================================================
-       7. PRODUCT COUNTS & INVENTORY THRESHOLDS
-    ======================================================== */
-
     const totalProducts = products.length;
 
-    // Percentage-based Thresholds: 0% = Sold Out, 1%–25% = Few Left, 26%–50% = Almost Sold Out, >50% = Available
     const getPct = (p) => {
       const inv = money(p.inventory);
       const initInv = money(p.initialInventory) || inv;
@@ -378,10 +295,6 @@ export async function GET(request) {
       return inventory > 0 && inventory <= 10;
     });
 
-    /* ========================================================
-       8. INVENTORY
-    ======================================================== */
-
     const totalInventoryUnits =
       products.reduce(
         (total, product) =>
@@ -390,12 +303,6 @@ export async function GET(request) {
         0
       );
 
-    /*
-     * IMPORTANT:
-     * Product price is used directly.
-     *
-     * There is NO ×10 multiplication here.
-     */
     const inventoryValue =
       products.reduce(
         (total, product) => {
@@ -413,10 +320,6 @@ export async function GET(request) {
         0
       );
 
-    /* ========================================================
-       9. STOCK HEALTH
-    ======================================================== */
-
     const stockHealth =
       totalProducts > 0
         ? Math.round(
@@ -425,10 +328,6 @@ export async function GET(request) {
               100
           )
         : 0;
-
-    /* ========================================================
-       10. PRODUCT PERFORMANCE MAP
-    ======================================================== */
 
     const productStats =
       new Map();
@@ -447,9 +346,6 @@ export async function GET(request) {
         databaseBrand:
           product.brand,
 
-        /*
-         * ALWAYS expose the actual product price.
-         */
         price:
           getProductPrice(product),
 
@@ -482,10 +378,6 @@ export async function GET(request) {
           product.images || "",
       });
     }
-
-    /* ========================================================
-       11. ORDERS
-    ======================================================== */
 
     const productIds =
       products.map(
@@ -533,10 +425,6 @@ export async function GET(request) {
         });
     }
 
-    /* ========================================================
-       12. BRAND ORDER ITEMS
-    ======================================================== */
-
     const brandOrders = [];
     const brandOrderItems = [];
 
@@ -576,10 +464,6 @@ export async function GET(request) {
       }
     }
 
-    /* ========================================================
-       13. VALID ORDERS
-    ======================================================== */
-
     const validOrders =
       brandOrders.filter(
         (order) =>
@@ -595,10 +479,6 @@ export async function GET(request) {
             item.orderStatus
           )
       );
-
-    /* ========================================================
-       14. REVENUE
-    ======================================================== */
 
     let revenue = 0;
     let unitsSold = 0;
@@ -641,10 +521,6 @@ export async function GET(request) {
         ? revenue / orderCount
         : 0;
 
-    /* ========================================================
-       15. CUSTOMERS
-    ======================================================== */
-
     const customerIds = new Set(
       validOrders
         .map((order) => order.userId)
@@ -653,13 +529,11 @@ export async function GET(request) {
 
     const customerCount = customerIds.size;
 
-    // Additional customer performance breakdown
     let newCustomers = 0;
     let firstTimeBuyers = 0;
     let returningBuyers = 0;
 
     if (customerIds.size > 0) {
-      // Find user registration dates in range
       newCustomers = await prisma.user.count({
         where: {
           id: { in: Array.from(customerIds) },
@@ -667,7 +541,6 @@ export async function GET(request) {
         },
       });
 
-      // Find total historical valid orders for these customers to determine first-time vs returning
       const historicalOrders = await prisma.order.findMany({
         where: {
           userId: { in: Array.from(customerIds) },
@@ -692,11 +565,6 @@ export async function GET(request) {
       }
     }
 
-    /* ========================================================
-       15A. DETAILED CUSTOMER DATASETS
-    ======================================================== */
-
-    // 1. Daily New User Registrations
     const newUsersInRange = await prisma.user.findMany({
       where: {
         createdAt: { gte: start, lte: end },
@@ -710,7 +578,6 @@ export async function GET(request) {
       userSignupDailyMap.set(key, (userSignupDailyMap.get(key) || 0) + 1);
     }
 
-    // 2. Customer Performance Table Records
     const customerPerformanceMap = new Map();
 
     for (const order of validOrders) {
@@ -753,7 +620,6 @@ export async function GET(request) {
       (a, b) => b.revenue - a.revenue
     );
 
-    // Single-order vs Multi-order repeat customer breakdown
     let singleOrderCustomers = 0;
     let repeatOrderCustomers = 0;
 
@@ -761,10 +627,6 @@ export async function GET(request) {
       if (cp.orders === 1) singleOrderCustomers += 1;
       else if (cp.orders > 1) repeatOrderCustomers += 1;
     }
-
-    /* ========================================================
-       15B. DEMAND & WAITING LIST ANALYTICS
-    ======================================================== */
 
     let waitingListEntries = [];
     if (productIds.length > 0) {
@@ -783,7 +645,6 @@ export async function GET(request) {
 
     const waitingListCount = waitingListEntries.length;
 
-    // Aggregate demand per product
     const waitingListByProductMap = new Map();
     const waitingListByCategoryMap = new Map();
 
@@ -807,11 +668,6 @@ export async function GET(request) {
     const demandByProduct = Array.from(waitingListByProductMap.values()).sort((a, b) => b.count - a.count);
     const demandByCategory = Array.from(waitingListByCategoryMap.values()).sort((a, b) => b.count - a.count);
 
-    /* ========================================================
-       15C. RESTOCK PRIORITY RANKING
-    ======================================================== */
-
-    // Priority Score formula: (Waiting List Count * 5) + (Units Sold in Period * 2) - Current Inventory
     const restockPriorityList = products.map((prod) => {
       const pId = prod.id;
       const pName = prod.name;
@@ -835,7 +691,6 @@ export async function GET(request) {
       };
     }).sort((a, b) => b.priorityScore - a.priorityScore);
 
-    // Top Inventory Holdings
     const topInventoryHoldings = products
       .map((prod) => ({
         id: prod.id,
@@ -846,7 +701,6 @@ export async function GET(request) {
       .sort((a, b) => b.inventory - a.inventory)
       .slice(0, 10);
 
-    // Units Sold vs Current Stock Velocity
     const velocityComparison = products
       .map((prod) => {
         const stats = productStats.get(prod.id) || { unitsSold: 0 };
@@ -860,10 +714,6 @@ export async function GET(request) {
       .filter((p) => p.unitsSold > 0 || p.currentStock > 0)
       .sort((a, b) => b.unitsSold - a.unitsSold)
       .slice(0, 10);
-
-    /* ========================================================
-       16. PRODUCT PERFORMANCE
-    ======================================================== */
 
     const productPerformance =
       Array.from(
@@ -885,10 +735,6 @@ export async function GET(request) {
         );
       });
 
-    /* ========================================================
-       17. BEST SELLERS
-    ======================================================== */
-
     const bestSellers =
       productPerformance
         .filter(
@@ -896,10 +742,6 @@ export async function GET(request) {
             product.unitsSold > 0
         )
         .slice(0, 10);
-
-    /* ========================================================
-       17B. PREVIOUS PERIOD COMPARISON
-    ======================================================== */
 
     const durationMs = end.getTime() - start.getTime();
     const prevEnd = new Date(start.getTime() - 1);
@@ -963,10 +805,6 @@ export async function GET(request) {
       unitsChange: prevUnitsSold > 0 ? ((unitsSold - prevUnitsSold) / prevUnitsSold) * 100 : null,
       aovChange: prevAOV > 0 ? ((averageOrderValue - prevAOV) / prevAOV) * 100 : null,
     };
-
-    /* ========================================================
-       18. DAILY ANALYTICS
-    ======================================================== */
 
     const dailyMap =
       new Map();
@@ -1041,10 +879,6 @@ export async function GET(request) {
         dailyMap.values()
       );
 
-    /* ========================================================
-       19. CATEGORIES
-    ======================================================== */
-
     const categoryMap =
       new Map();
 
@@ -1093,10 +927,6 @@ export async function GET(request) {
         )
         .slice(0, 10);
 
-    /* ========================================================
-       20. COLLECTIONS
-    ======================================================== */
-
     const collectionMap =
       new Map();
 
@@ -1144,10 +974,6 @@ export async function GET(request) {
         )
         .slice(0, 10);
 
-    /* ========================================================
-       21. ORDER STATUSES
-    ======================================================== */
-
     const statusMap =
       new Map();
 
@@ -1174,10 +1000,6 @@ export async function GET(request) {
           count,
         })
       );
-
-    /* ========================================================
-       22. RECENT ORDERS
-    ======================================================== */
 
     const recentOrders =
       brandOrders
@@ -1228,10 +1050,6 @@ export async function GET(request) {
           };
         });
 
-    /* ========================================================
-       23. RESPONSE
-    ======================================================== */
-
     return NextResponse.json(
       {
         success: true,
@@ -1245,9 +1063,6 @@ export async function GET(request) {
           end,
         },
 
-        /*
-         * THIS IS THE STRUCTURE USED BY THE DASHBOARD.
-         */
         overview: {
           revenue,
 
@@ -1439,12 +1254,6 @@ export async function GET(request) {
 
         recentOrders,
 
-        /*
-         * ======================================================
-         * DEBUG
-         * ======================================================
-         */
-
         debug: {
           databaseProductCount:
             allProducts.length,
@@ -1489,10 +1298,6 @@ export async function GET(request) {
                     product.brand
                   ),
 
-                /*
-                 * THIS SHOULD NOW MATCH THE
-                 * ACTUAL PRODUCT PRICE.
-                 */
                 price:
                   getProductPrice(
                     product

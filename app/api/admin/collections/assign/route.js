@@ -1,8 +1,25 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getAdminSession } from "@/lib/admin-auth";
 
 export async function POST(request) {
   try {
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (admin.isSuperAdmin) {
+      return NextResponse.json(
+        { error: "Super Admin does not manage store collection assignments." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     const collectionId = body.collectionId;
@@ -26,6 +43,13 @@ export async function POST(request) {
       );
     }
 
+    if (collection.brand !== admin.brand) {
+      return NextResponse.json(
+        { error: "Collection belongs to another brand." },
+        { status: 403 }
+      );
+    }
+
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });
@@ -34,6 +58,13 @@ export async function POST(request) {
       return NextResponse.json(
         { error: "Product not found." },
         { status: 404 }
+      );
+    }
+
+    if (product.brand !== admin.brand) {
+      return NextResponse.json(
+        { error: "Product belongs to another brand." },
+        { status: 403 }
       );
     }
 
@@ -66,6 +97,22 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
+    const admin = await getAdminSession();
+
+    if (!admin) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    if (admin.isSuperAdmin) {
+      return NextResponse.json(
+        { error: "Super Admin does not manage store collection assignments." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
     const productId = body.productId;
@@ -85,6 +132,13 @@ export async function DELETE(request) {
       return NextResponse.json(
         { error: "Product not found." },
         { status: 404 }
+      );
+    }
+
+    if (product.brand !== admin.brand) {
+      return NextResponse.json(
+        { error: "Product belongs to another brand." },
+        { status: 403 }
       );
     }
 
