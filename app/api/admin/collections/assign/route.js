@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
+/**
+ * Assigns a product to a collection managed by the authenticated brand admin.
+ * @param {Request} request - The request containing the collection and product IDs.
+ * @return {Promise<NextResponse>} A response containing the updated product or an error.
+ */
 export async function POST(request) {
   try {
     const admin = await getAdminSession();
@@ -95,6 +100,10 @@ export async function POST(request) {
   }
 }
 
+/**
+ * Removes a product from its assigned collection.
+ * @returns {Promise<Response>} A success response or an error response with the appropriate status.
+ */
 export async function DELETE(request) {
   try {
     const admin = await getAdminSession();

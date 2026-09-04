@@ -9,6 +9,9 @@ const deliveryRoutePath = pathToFileURL(path.join(repoRoot, "app/api/delivery/ro
 const { db, resetDb } = await import(mockPrismaPath);
 const { GET: getDelivery } = await import(deliveryRoutePath);
 
+/**
+ * Run the delivery API security suite and exit with a failure status when assertions fail.
+ */
 export async function runDeliveryApiSecurityTests() {
   console.log("=== RUNNING VÉRANE DELIVERY API FAIL-CLOSED SECURITY SUITE ===\n");
   let passed = 0;

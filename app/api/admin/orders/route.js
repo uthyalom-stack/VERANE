@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
+/**
+ * Retrieves orders available to the authenticated administrator.
+ *
+ * Super administrators can access all orders; other administrators receive orders
+ * associated with their brand, including applicable collaboration products.
+ *
+ * @return {Promise<NextResponse>} A response containing the orders, or an error response when authentication or retrieval fails.
+ */
 export async function GET() {
   try {
     const admin = await getAdminSession();

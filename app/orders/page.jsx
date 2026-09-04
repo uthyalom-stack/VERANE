@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+/**
+ * Display the authenticated user's order history.
+ */
 export default function OrdersPage() {
   const router = useRouter();
 

@@ -33,6 +33,11 @@ function getFirstImage(images) {
   return "";
 }
 
+/**
+ * Converts a database product into its public storefront representation.
+ * @param {Object} product - The product record to convert.
+ * @return {Object} The product data exposed to storefront clients.
+ */
 function toPublicProduct(product) {
   return {
     id: product.id,
@@ -51,6 +56,11 @@ function toPublicProduct(product) {
   };
 }
 
+/**
+ * Retrieves storefront data for a supported brand.
+ * @param {{ brand: string }} params - Route parameters containing the requested brand.
+ * @return {Promise<NextResponse>} A JSON response containing the brand, metadata, products, and storefront sections.
+ */
 export async function GET(request, { params }) {
   try {
     const { brand } = await params;

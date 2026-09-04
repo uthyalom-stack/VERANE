@@ -16,6 +16,9 @@ const BRANDS = {
   },
 };
 
+/**
+ * Manage brand-specific sections and their associated products in the admin interface.
+ */
 export default function BrandSectionsPage() {
   const router = useRouter();
 

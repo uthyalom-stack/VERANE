@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DonutChart, VerticalColumnChart, HorizontalBarChart, AreaTrendChart } from "@/components/admin/AnalyticsCharts";
 
+/**
+ * Display inventory, sales, stock health, and restock demand analytics for a brand.
+ */
 export default function InventoryAnalyticsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

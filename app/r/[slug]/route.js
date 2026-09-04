@@ -4,6 +4,11 @@ import { cookies } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Validates a destination as a local path suitable for redirection.
+ * @param {string} urlStr - The destination path to validate.
+ * @returns {boolean} `true` if the value is a nonempty path beginning with a single slash, `false` otherwise.
+ */
 function isValidDestination(urlStr) {
   if (!urlStr || typeof urlStr !== "string") return false;
   const path = urlStr.trim();
@@ -16,6 +21,12 @@ function isValidDestination(urlStr) {
   return true;
 }
 
+/**
+ * Resolves a campaign slug, records the visit, and redirects to the campaign destination.
+ * @param {Request} request - The incoming request used to build redirects and capture visitor metadata.
+ * @param {Object} params - Route parameters containing the campaign slug.
+ * @return {NextResponse} A redirect response with visitor and campaign attribution cookies.
+ */
 export async function GET(request, { params }) {
   try {
     const { slug } = await params;

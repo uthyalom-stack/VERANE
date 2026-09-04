@@ -560,6 +560,12 @@ export async function PUT(request, { params }) {
   }
 }
 
+/**
+ * Deletes a store product or archives it when it has historical orders.
+ * @param {Request} request - The incoming request.
+ * @param {{ id: string }} params - Route parameters containing the product ID.
+ * @returns {Promise<NextResponse>} A response indicating whether the product was archived or deleted.
+ */
 export async function DELETE(
   request,
   { params }

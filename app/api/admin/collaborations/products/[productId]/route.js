@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
+/**
+ * Normalizes a brand identifier to its canonical uppercase form.
+ * @param {*} value - The brand value to normalize.
+ * @return {string} The canonical brand identifier, or an empty string when no value is provided.
+ */
 function normalizeBrand(value) {
   if (!value) return "";
   const brand = String(value).trim().toUpperCase();
@@ -10,6 +15,11 @@ function normalizeBrand(value) {
   return brand;
 }
 
+/**
+ * Retrieves a collaboration product and its related collaboration and source-product details.
+ * @param {Object} params - Route parameters containing the product identifier.
+ * @return {Promise<NextResponse>} A response containing the product, or an error status for unauthorized, forbidden, missing, or failed requests.
+ */
 export async function GET(request, { params }) {
   try {
     const session = await getAdminSession();
@@ -51,6 +61,12 @@ export async function GET(request, { params }) {
   }
 }
 
+/**
+ * Updates an authorized collaboration product's details and images.
+ * @param {Request} request - The request containing the product fields to update.
+ * @param {{ params: Promise<{ productId: string }> }} context - Route parameters identifying the product.
+ * @returns {Response} A response containing the updated product or an error.
+ */
 export async function PUT(request, { params }) {
   try {
     const session = await getAdminSession();
@@ -150,6 +166,11 @@ export async function PUT(request, { params }) {
   }
 }
 
+/**
+ * Deletes an authorized collaboration product while preserving its source products.
+ * @param {Object} params - Route parameters containing the collaboration product identifier.
+ * @return {Response} A response indicating whether the deletion succeeded.
+ */
 export async function DELETE(request, { params }) {
   try {
     const session = await getAdminSession();

@@ -22,6 +22,10 @@ function HeartIcon({ filled }) {
   );
 }
 
+/**
+ * Displays a shopping cart icon.
+ * @return {JSX.Element} The shopping cart SVG element.
+ */
 function CartIcon() {
   return (
     <svg
@@ -49,6 +53,11 @@ function CartIcon() {
 
 import { productRequiresOptions } from "@/lib/product-options";
 
+/**
+ * Renders wishlist and cart actions for a storefront product.
+ * @param {Object} product - The product associated with the actions.
+ * @return {JSX.Element} The wishlist and cart action controls.
+ */
 export default function StorefrontProductActions({ product }) {
   const router = useRouter();
   const [wishlisted, setWishlisted] = useState(false);

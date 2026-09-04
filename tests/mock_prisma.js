@@ -9,6 +9,9 @@ export const db = {
   shouldThrow: false,
 };
 
+/**
+ * Reset the in-memory database to its initial empty state.
+ */
 export function resetDb() {
   db.users = [];
   db.orders = [];

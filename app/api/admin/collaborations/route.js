@@ -61,6 +61,12 @@ function brandName(brand) {
 
 import { getAdminSession } from "@/lib/admin-auth";
 
+/**
+ * Retrieves collaboration requests and active collaborations scoped to the authenticated administrator's brand.
+ *
+ * @param {Request} request - The request containing an optional brand filter for superadmins.
+ * @returns {Response} A JSON response containing collaboration requests and collaborations, or an error response.
+ */
 export async function GET(request) {
   try {
     const session = await getAdminSession();
@@ -206,6 +212,10 @@ export async function GET(request) {
   }
 }
 
+/**
+ * Creates a pending collaboration request between the authenticated brand and the opposing brand.
+ * @returns {Promise<NextResponse>} A response containing the created request and notification, or an error status.
+ */
 export async function POST(request) {
   try {
     const session = await getAdminSession();

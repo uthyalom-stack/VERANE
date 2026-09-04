@@ -21,6 +21,11 @@ function makeSectionKey(brand, title) {
   return `brand-${brand.toLowerCase()}-${cleanTitle}-${Date.now()}`;
 }
 
+/**
+ * Load sections and products for an authorized brand.
+ * @param {Request} request - The request containing the brand query parameter.
+ * @return {Promise<NextResponse>} A response containing the brand's sections and products, or an error status.
+ */
 export async function GET(request) {
   try {
     const admin = await getAdminSession();
@@ -119,6 +124,10 @@ export async function GET(request) {
   }
 }
 
+/**
+ * Creates a brand-specific product grid section.
+ * @return {Promise<NextResponse>} A response containing the created section or an error status.
+ */
 export async function POST(request) {
   try {
     const admin = await getAdminSession();

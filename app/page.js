@@ -240,14 +240,22 @@ function formatPrice(price) {
   );
 }
 
-/* =========================================================
-   SECTION IMAGE
-========================================================= */
+/**
+ * Determines whether a section has a desktop or mobile image configured.
+ * @param {Object} section - The section to inspect.
+ * @return {boolean} `true` if a trimmed desktop or mobile image exists, `false` otherwise.
+ */
 
 function hasSectionImage(section) {
   return Boolean(section?.image?.trim() || section?.mobileImage?.trim());
 }
 
+/**
+ * Render responsive imagery for a homepage section.
+ * @param {Object} section - The section containing desktop and optional mobile image URLs.
+ * @param {string} [className=""] - CSS classes applied to the image.
+ * @returns {JSX.Element|null} The responsive image element, or `null` when no image is configured.
+ */
 function SectionImage({ section, className = "" }) {
   const desktopImg = section?.image?.trim();
   const mobileImg = section?.mobileImage?.trim();
@@ -274,9 +282,11 @@ function SectionImage({ section, className = "" }) {
   );
 }
 
-/* =========================================================
-   PRODUCT CARD
-========================================================= */
+/**
+ * Render a product card with imagery, stock status, product details, and storefront actions.
+ * @param {Object} product - The product to display.
+ * @returns {JSX.Element} The rendered product card.
+ */
 
 function ProductCard({ product }) {
   const image = getProductImage(product.images);
@@ -396,9 +406,9 @@ function ProductRail({
   );
 }
 
-/* =========================================================
-   HOME PAGE
-========================================================= */
+/**
+ * Render the storefront homepage with configurable content sections and product collections.
+ */
 
 export default async function HomePage() {
   const [sections, products] = await Promise.all([

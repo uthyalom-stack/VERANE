@@ -4,6 +4,11 @@ import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { AreaTrendChart, VerticalColumnChart, DonutChart } from "@/components/admin/AnalyticsCharts";
 
+/**
+ * Display campaign analytics and metadata for an admin marketing campaign.
+ * @param {Object} params - Route parameters containing the campaign ID.
+ * @returns {JSX.Element} The campaign detail page.
+ */
 export default function CampaignDetailPage({ params }) {
   const resolvedParams = use(params);
   const campaignId = resolvedParams.id;

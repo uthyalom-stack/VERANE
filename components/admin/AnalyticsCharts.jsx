@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 
-/* ====================================================================
-   1. AREA TREND CHART (Line / Smooth Area Trend over Time)
-==================================================================== */
+/**
+ * Display revenue, order, or unit trends across daily data.
+ * @param {Array<Object>} dailyData - Daily trend entries with metric values and display labels.
+ * @param {string} title - Chart heading.
+ * @param {string} subtitle - Supporting text displayed below the heading.
+ */
 export function AreaTrendChart({ dailyData = [], title = "Sales Trend", subtitle = "Revenue over time" }) {
   const [metric, setMetric] = useState("revenue"); // "revenue" | "orders" | "unitsSold"
   const [hoveredPoint, setHoveredPoint] = useState(null);
@@ -17,6 +20,11 @@ export function AreaTrendChart({ dailyData = [], title = "Sales Trend", subtitle
     );
   }
 
+  /**
+   * Formats a value using Nigerian locale conventions and adds a naira symbol for revenue.
+   * @param {*} val - The value to format.
+   * @return {string} The locale-formatted value.
+   */
   function formatValue(val) {
     if (metric === "revenue") {
       return "₦" + Number(val || 0).toLocaleString("en-NG");
@@ -156,9 +164,14 @@ export function AreaTrendChart({ dailyData = [], title = "Sales Trend", subtitle
 export default AreaTrendChart;
 
 
-/* ====================================================================
-   2. VERTICAL COLUMN CHART (Discrete Column Comparison over Time or Categories)
-==================================================================== */
+/**
+ * Compare discrete values across time periods or categories with an interactive column chart.
+ * @param {Array<Object>} data - Data points containing labels or names and numeric values.
+ * @param {string} title - Chart title.
+ * @param {string} subtitle - Optional chart subtitle.
+ * @param {boolean} isCurrency - Whether to format values as Nigerian naira.
+ * @param {string} valueKey - Primary property used to read each data point's value.
+ */
 export function VerticalColumnChart({ data = [], title = "Volume Breakdown", subtitle = "Column comparison", isCurrency = false, valueKey = "val" }) {
   const [hoveredColumn, setHoveredColumn] = useState(null);
 
@@ -184,6 +197,11 @@ export function VerticalColumnChart({ data = [], title = "Volume Breakdown", sub
   const barGap = 6;
   const barWidth = Math.max((chartWidth - barGap * (data.length - 1)) / data.length, 6);
 
+  /**
+   * Formats a value for display, optionally using Nigerian naira currency notation.
+   * @param {*} v - The value to format.
+   * @return {string} The localized formatted value.
+   */
   function formatVal(v) {
     if (isCurrency) {
       return "₦" + Number(v || 0).toLocaleString("en-NG");
@@ -270,9 +288,16 @@ export function VerticalColumnChart({ data = [], title = "Volume Breakdown", sub
 }
 
 
-/* ====================================================================
-   3. HORIZONTAL BAR CHART (Best Sellers / Catalog Item Rankings)
-==================================================================== */
+/**
+ * Display ranked items as proportional horizontal bars.
+ * @param {Array<Object>} items - Items containing a name and metric values.
+ * @param {string} [title] - Chart heading.
+ * @param {string} [subtitle] - Supporting text beneath the heading.
+ * @param {boolean} [isCurrency=true] - Whether revenue values use Nigerian naira formatting.
+ * @param {string|null} [valueKey=null] - Fixed item property to rank by instead of the selected metric.
+ * @param {boolean} [hideMetricSelector=false] - Whether to hide the metric selection controls.
+ * @return {JSX.Element} The rendered ranking chart or an empty-state message.
+ */
 export function HorizontalBarChart({ items = [], title, subtitle, isCurrency = true, valueKey = null, hideMetricSelector = false }) {
   const [metric, setMetric] = useState("revenue"); // "revenue" | "unitsSold" | "orders"
 
@@ -288,6 +313,11 @@ export function HorizontalBarChart({ items = [], title, subtitle, isCurrency = t
   const sortedItems = [...items].sort((a, b) => Number(b[activeKey] || 0) - Number(a[activeKey] || 0));
   const maxVal = Math.max(...sortedItems.map((i) => Number(i[activeKey] || 0)), 1);
 
+  /**
+   * Formats a value for display using Nigerian number formatting.
+   * @param {*} val - The value to format.
+   * @return {string} The formatted value, prefixed with ₦ for currency metrics.
+   */
   function formatVal(val) {
     if ((activeKey === "revenue" || activeKey === "valuation") && isCurrency) {
       return "₦" + Number(val || 0).toLocaleString("en-NG");
@@ -356,9 +386,14 @@ export function HorizontalBarChart({ items = [], title, subtitle, isCurrency = t
 }
 
 
-/* ====================================================================
-   4. DONUT / PIE CHART (Part-to-Whole Share Analysis)
-==================================================================== */
+/**
+ * Display part-to-whole data as an interactive donut chart with a legend.
+ * @param {Array<Object>} items - Data items containing a name and revenue, value, or units sold amount.
+ * @param {string} title - Chart title.
+ * @param {string} subtitle - Supporting text displayed below the title.
+ * @param {boolean} isCurrency - Whether values should use Nigerian naira formatting.
+ * @returns {JSX.Element} The rendered donut chart or an empty-state message.
+ */
 export function DonutChart({ items = [], title = "Revenue Share", subtitle = "Distribution share", isCurrency = true }) {
   const [hoveredSlice, setHoveredPoint] = useState(null);
 
@@ -399,7 +434,12 @@ export function DonutChart({ items = [], title = "Revenue Share", subtitle = "Di
     };
   });
 
-  // Utility to convert polar to cartesian coordinates
+  /**
+   * Converts a polar coordinate angle and radius into Cartesian coordinates centered at (100, 100).
+   * @param {number} angleInDegrees - The angle in degrees.
+   * @param {number} radius - The distance from the center.
+   * @returns {{x: number, y: number}} The calculated Cartesian coordinates.
+   */
   function getCoordinatesForAngle(angleInDegrees, radius) {
     const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
     return {
@@ -408,6 +448,14 @@ export function DonutChart({ items = [], title = "Revenue Share", subtitle = "Di
     };
   }
 
+  /**
+   * Builds an SVG path for a donut chart segment.
+   * @param {number} startAngle - The segment's starting angle in degrees.
+   * @param {number} endAngle - The segment's ending angle in degrees.
+   * @param {number} [outerRadius=80] - The segment's outer radius.
+   * @param {number} [innerRadius=50] - The segment's inner radius.
+   * @return {string} The SVG path data for the donut segment.
+   */
   function getSvgPath(startAngle, endAngle, outerRadius = 80, innerRadius = 50) {
     // Large arc flag is 1 if angle > 180
     const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
@@ -426,6 +474,11 @@ export function DonutChart({ items = [], title = "Revenue Share", subtitle = "Di
     ].join(" ");
   }
 
+  /**
+   * Formats a value for display, optionally using Nigerian naira currency notation.
+   * @param {*} v - The value to format.
+   * @return {string} The localized formatted value.
+   */
   function formatVal(v) {
     if (isCurrency) {
       return "₦" + Number(v || 0).toLocaleString("en-NG");

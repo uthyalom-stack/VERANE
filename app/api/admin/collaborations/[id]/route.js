@@ -57,6 +57,12 @@ function brandName(brand) {
 
 import { getAdminSession } from "@/lib/admin-auth";
 
+/**
+ * Updates a collaboration request by accepting, declining, or cancelling it.
+ * @param {Request} request - The request containing the action in `action`, `status`, or `decision`.
+ * @param {{ params: Promise<{ id: string }> }} context - The route context containing the collaboration request ID.
+ * @returns {Promise<NextResponse>} A JSON response containing the updated request and, when accepted, its collaboration.
+ */
 export async function PUT(request, { params }) {
   try {
     const session = await getAdminSession();
@@ -347,6 +353,13 @@ export async function PUT(request, { params }) {
   }
 }
 
+/**
+ * Retrieves a collaboration request and its associated collaboration data.
+ * @param {Object} context - Route context containing the collaboration request identifier.
+ * @param {Object} context.params - Route parameters.
+ * @param {string} context.params.id - Collaboration request identifier.
+ * @return {Promise<NextResponse>} A JSON response containing the request and collaboration data, or an error response.
+ */
 export async function GET(request, { params }) {
   try {
     const session = await getAdminSession();

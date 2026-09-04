@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import SiteFooter from "@/components/SiteFooter";
 
+/**
+ * Renders the VÉRANE private-access welcome page with animated content and navigation links.
+ * @returns {JSX.Element} The welcome page layout.
+ */
 export default function WelcomePage() {
   const [animated, setAnimated] = useState(false);
 

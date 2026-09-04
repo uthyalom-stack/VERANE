@@ -7,6 +7,13 @@ const mockHeadersPath = path.join(repoRoot, "tests/mock_next_headers.js");
 const mockPrismaPath = path.join(repoRoot, "tests/mock_prisma.js");
 const mockJsPDFPath = path.join(repoRoot, "tests/mock_jspdf.js");
 
+/**
+ * Resolves test imports to mock modules and repository-root path aliases.
+ * @param {string} specifier - The module specifier to resolve.
+ * @param {object} context - The module resolution context.
+ * @param {Function} nextResolve - The resolver used for final module resolution.
+ * @return {Promise<object>} The resolved module information.
+ */
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "jspdf") {
     return nextResolve(pathToFileURL(mockJsPDFPath).href, context);

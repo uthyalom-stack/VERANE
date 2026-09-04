@@ -139,6 +139,10 @@ const DEFAULT_SECTIONS = [
   },
 ];
 
+/**
+ * Loads homepage sections in display order and adds any missing default sections.
+ * @return {Promise<NextResponse>} A response containing the homepage sections or an error message.
+ */
 export async function GET() {
   try {
     let sections = await prisma.homepageSection.findMany({
@@ -193,6 +197,11 @@ export async function GET() {
   }
 }
 
+/**
+ * Saves homepage sections for Super Admin users.
+ * @param {Request} request - The request containing a `sections` array in its JSON body.
+ * @returns {Response} A response containing the saved sections, or an error status for unauthorized, forbidden, invalid, or failed requests.
+ */
 export async function PUT(request) {
   try {
     const admin = await getAdminSession();

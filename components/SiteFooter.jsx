@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+/**
+ * Render the configurable site footer with navigation, social links, contact details, and branding.
+ */
 export default function SiteFooter() {
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);

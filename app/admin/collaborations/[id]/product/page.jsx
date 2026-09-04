@@ -61,6 +61,10 @@ function getProductImage(product) {
   return null;
 }
 
+/**
+ * Manage the selection and creation of a collaboration product.
+ * @returns {JSX.Element|null} The collaboration product page, or `null` when required data is unavailable.
+ */
 export default function CollaborationProductPage() {
   const router = useRouter();
   const params = useParams();

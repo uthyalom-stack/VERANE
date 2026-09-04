@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AreaTrendChart, VerticalColumnChart, DonutChart } from "@/components/admin/AnalyticsCharts";
 
+/**
+ * Display customer analytics for a selected brand and date range, including buyer metrics, trends, and customer details.
+ * @returns {JSX.Element} The customer analytics page.
+ */
 export default function CustomerAnalyticsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -43,6 +43,10 @@ const DEFAULT_SETTINGS = {
   alomzieeWebsite: "",
 };
 
+/**
+ * Loads platform settings for an authenticated super administrator.
+ * @returns {Promise<NextResponse>} A response containing the merged platform settings, or an authorization error.
+ */
 export async function GET() {
   try {
     const admin = await getAdminSession();
@@ -78,6 +82,11 @@ export async function GET() {
   }
 }
 
+/**
+ * Saves platform settings provided by an authenticated super administrator.
+ * @param {Request} request - The request containing settings to save.
+ * @return {Promise<NextResponse>} A response indicating success, authorization failure, or a server error.
+ */
 export async function PUT(request) {
   try {
     const admin = await getAdminSession();

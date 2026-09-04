@@ -24,6 +24,9 @@ const BRAND_INFO = {
   },
 };
 
+/**
+ * Manage collaboration requests and products for the authenticated brand.
+ */
 export default function CollaborationsPage() {
   const router = useRouter();
 
@@ -812,9 +815,13 @@ export default function CollaborationsPage() {
   );
 }
 
-/* ============================================================
-   ACTIVE COLLABORATION CARD
-============================================================ */
+/**
+ * Displays an active collaboration and its associated products.
+ * @param {Object} collaboration - The collaboration and its products to display.
+ * @param {Function} onOpen - Opens the collaborative product creation flow.
+ * @param {Function} onOpenEdit - Opens the editor for a selected product.
+ * @param {Function} onDeleteProduct - Handles deletion of a selected product.
+ */
 
 function ActiveCollaborationCard({
   collaboration,
@@ -940,9 +947,12 @@ function ActiveCollaborationCard({
   );
 }
 
-/* ============================================================
-   COLLABORATION PRODUCT MODAL
-============================================================ */
+/**
+ * Create a collaborative product by combining products from both participating brands.
+ * @param {Object} collaboration - The active collaboration associated with the product.
+ * @param {Function} onClose - Closes the modal.
+ * @param {Function} onCreated - Handles successful product creation.
+ */
 
 function CollaborationProductModal({
   collaboration,
@@ -1048,6 +1058,9 @@ function CollaborationProductModal({
         product.id === productBId
     );
 
+  /**
+   * Creates a published collaborative product from one product selected from each brand.
+   */
   async function createProduct() {
     setError("");
 
@@ -1378,9 +1391,14 @@ function CollaborationProductModal({
   );
 }
 
-/* ============================================================
-   EDIT COLLABORATION PRODUCT MODAL
-============================================================ */
+/**
+ * Provides a form for editing a collaboration product.
+ * @param {Object} props - Component properties.
+ * @param {Object} props.product - Collaboration product to edit.
+ * @param {Function} props.onClose - Callback invoked when the modal closes.
+ * @param {Function} props.onUpdated - Callback invoked after the product is updated.
+ * @returns {JSX.Element} The collaboration product editing modal.
+ */
 
 function EditCollaborationProductModal({
   product,
@@ -1407,6 +1425,9 @@ function EditCollaborationProductModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  /**
+   * Updates the collaboration product with the current form values.
+   */
   async function updateProduct() {
     setError("");
 

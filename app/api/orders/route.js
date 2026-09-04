@@ -3,6 +3,10 @@ import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { verifyCustomerSession, getCustomerCookieName } from "@/lib/auth/customer";
 
+/**
+ * Retrieves the authenticated customer from the session cookie.
+ * @returns {{authenticated: boolean, user: object|null}} The authentication status and customer data when the session is valid.
+ */
 async function getSession() {
   try {
     const cookieStore = await cookies();
@@ -17,6 +21,10 @@ async function getSession() {
   return { authenticated: false, user: null };
 }
 
+/**
+ * Generates an order identifier containing the current UTC date and a six-digit random number.
+ * @returns {string} The generated order identifier.
+ */
 function generateOrderNumber() {
   const date = new Date()
     .toISOString()
@@ -30,6 +38,10 @@ function generateOrderNumber() {
   return `VR-${date}-${random}`;
 }
 
+/**
+ * Retrieve the authenticated customer's orders with their item details.
+ * @returns {Promise<Response>} A response containing the orders, or an authentication or server error.
+ */
 export async function GET(request) {
   try {
     const session = await getSession();
@@ -81,6 +93,11 @@ export async function GET(request) {
   }
 }
 
+/**
+ * Creates an order for the authenticated customer.
+ * @param {Request} request - The request containing order and customer details.
+ * @return {NextResponse} A response containing the created order or an error message.
+ */
 export async function POST(request) {
   try {
     const session = await getSession();

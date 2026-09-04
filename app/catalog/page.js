@@ -125,6 +125,12 @@ function Spinner() {
   );
 }
 
+/**
+ * Render the product catalog with filtering, sorting, wishlist controls, and cart actions.
+ * @param {Object} props - Component properties.
+ * @param {string} [props.defaultBrand="all"] - The initial brand filter.
+ * @returns {JSX.Element} The catalog interface.
+ */
 function CatalogContent({
   defaultBrand = "all",
 }) {

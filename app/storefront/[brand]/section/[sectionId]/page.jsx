@@ -24,6 +24,11 @@ function getProductImage(images) {
   }
 }
 
+/**
+ * Render a product card with its image, stock status, details, and actions.
+ * @param {Object} product - The product data displayed in the card.
+ * @return {JSX.Element} The rendered product card.
+ */
 function ProductCard({ product }) {
   const image = getProductImage(product.images);
   const stockStatus = getProductStockStatus(product);

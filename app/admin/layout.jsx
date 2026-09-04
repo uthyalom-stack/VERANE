@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 
+/**
+ * Render the authenticated administration layout with role-based navigation and page content.
+ * @param {React.ReactNode} children - The administrative page content.
+ * @returns {React.ReactElement} The administration layout or loading screen.
+ */
 export default function AdminLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();

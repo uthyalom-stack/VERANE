@@ -4,6 +4,9 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+/**
+ * Displays product details, manages product options and wishlist state, and adds selected items to the cart.
+ */
 export default function ProductDetail() {
   const { id } = useParams();
   const router = useRouter();

@@ -6,6 +6,11 @@ export const dynamic = "force-dynamic";
 
 const VALID_BRANDS = ["UTHY", "ALOMZIEE"];
 
+/**
+ * Converts a brand value to its canonical uppercase identifier.
+ * @param {*} value - The brand value to normalize.
+ * @return {string} The canonical brand identifier, or an empty string for a missing value.
+ */
 function normalizeBrand(value) {
   if (!value) return "";
   const brand = String(value).trim().toUpperCase();
@@ -14,6 +19,11 @@ function normalizeBrand(value) {
   return brand;
 }
 
+/**
+ * Converts text into a lowercase, URL-safe slug.
+ * @param {*} text - The text to convert.
+ * @return {string} The normalized slug.
+ */
 function slugify(text) {
   return String(text || "")
     .toLowerCase()
@@ -23,6 +33,13 @@ function slugify(text) {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * Determines the date boundaries for a supported reporting range.
+ * @param {string} range - The range identifier, such as `today`, `7d`, `30d`, `90d`, `1y`, or `custom`.
+ * @param {string|Date} [customStartDate] - The start date for a custom range.
+ * @param {string|Date} [customEndDate] - The end date for a custom range.
+ * @return {{start: Date, end: Date}} The start and end dates for the selected range.
+ */
 function getDateRange(range, customStartDate, customEndDate) {
   const now = new Date();
   const end = new Date(now);
@@ -68,6 +85,10 @@ function getDateRange(range, customStartDate, customEndDate) {
   return { start, end };
 }
 
+/**
+ * Retrieves campaign performance metrics for the authenticated administrator's brand.
+ * @return {Response} A JSON response containing campaign metrics, or an authorization or server error.
+ */
 export async function GET(request) {
   try {
     const admin = await getAdminSession();
@@ -159,6 +180,11 @@ export async function GET(request) {
   }
 }
 
+/**
+ * Creates an active marketing campaign for an authorized brand administrator.
+ * @param {Request} request - The incoming request containing campaign details.
+ * @return {Promise<NextResponse>} A response containing the created campaign or an error.
+ */
 export async function POST(request) {
   try {
     const admin = await getAdminSession();
@@ -210,6 +236,10 @@ export async function POST(request) {
   }
 }
 
+/**
+ * Updates the active status of a campaign for an authorized brand administrator.
+ * @returns {Promise<NextResponse>} A response containing the updated campaign or an error message.
+ */
 export async function PUT(request) {
   try {
     const admin = await getAdminSession();

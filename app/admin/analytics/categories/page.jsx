@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { VerticalColumnChart, DonutChart, HorizontalBarChart } from "@/components/admin/AnalyticsCharts";
 
+/**
+ * Displays category and collection analytics with selectable date ranges.
+ * @return {JSX.Element} The category and collection analytics page.
+ */
 export default function CategoryAnalyticsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

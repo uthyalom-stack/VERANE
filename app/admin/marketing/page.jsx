@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { HorizontalBarChart } from "@/components/admin/AnalyticsCharts";
 
+/**
+ * Manage marketing campaign tracking links, including creation, activation, and performance monitoring.
+ */
 export default function MarketingAdminPage() {
   const [data, setData] = useState(null);
   const [destinationsData, setDestinationsData] = useState(null);

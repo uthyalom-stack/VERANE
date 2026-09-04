@@ -3,6 +3,10 @@ import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { verifyCustomerSession, getCustomerCookieName } from "@/lib/auth/customer";
 
+/**
+ * Retrieves the authenticated customer from the session cookie.
+ * @return {Object|null} The authenticated customer, or `null` when the session is invalid or has no user ID.
+ */
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get(getCustomerCookieName())?.value;
@@ -13,6 +17,10 @@ async function getAuthenticatedUser() {
   return user;
 }
 
+/**
+ * Retrieve the authenticated user's saved addresses.
+ * @returns {Promise<import("next/server").NextResponse>} A response containing the saved addresses, or an authentication or server error.
+ */
 export async function GET() {
   try {
     const user = await getAuthenticatedUser();
@@ -38,6 +46,11 @@ export async function GET() {
   }
 }
 
+/**
+ * Creates a saved address for the authenticated customer.
+ * @param {Request} request - The request containing the address details.
+ * @return {Promise<NextResponse>} A response containing the created address, or an error status.
+ */
 export async function POST(request) {
   try {
     const user = await getAuthenticatedUser();
@@ -104,6 +117,11 @@ export async function POST(request) {
   }
 }
 
+/**
+ * Updates an authenticated user's saved address or marks it as the default address.
+ * @param {Request} request - The request containing the address ID and update data.
+ * @return {Promise<Response>} A JSON response with the updated address or the operation result.
+ */
 export async function PUT(request) {
   try {
     const user = await getAuthenticatedUser();
@@ -192,6 +210,10 @@ export async function PUT(request) {
   }
 }
 
+/**
+ * Deletes an authenticated user's saved address and promotes the newest remaining address when the deleted address was the default.
+ * @return {Response} A JSON response indicating success or the relevant authentication, validation, not-found, or server error.
+ */
 export async function DELETE(request) {
   try {
     const user = await getAuthenticatedUser();

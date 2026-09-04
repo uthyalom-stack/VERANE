@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AreaTrendChart, VerticalColumnChart } from "@/components/admin/AnalyticsCharts";
 
+/**
+ * Display detailed sales analytics with selectable date ranges, KPI metrics, charts, order statuses, and recent orders.
+ */
 export default function SalesAnalyticsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

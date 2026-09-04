@@ -21,6 +21,11 @@ const ADMIN_CONFIG = {
   },
 };
 
+/**
+ * Determines whether a value identifies a configured administrator role.
+ * @param {*} role - The value to validate as an administrator role.
+ * @return {boolean} `true` if the value is a configured administrator role, `false` otherwise.
+ */
 function isValidRole(role) {
   if (typeof role !== "string") {
     return false;
@@ -28,6 +33,11 @@ function isValidRole(role) {
   return Object.prototype.hasOwnProperty.call(ADMIN_CONFIG, role);
 }
 
+/**
+ * Authenticates an administrator and establishes an authenticated session.
+ * @param {Request} request - The request containing the administrator role and password.
+ * @return {Response} A response indicating the authentication result and, on success, setting the administrator authentication cookie.
+ */
 export async function POST(request) {
   try {
     const body = await request.json();

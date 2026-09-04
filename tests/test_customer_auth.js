@@ -41,6 +41,12 @@ const {
 const { GET: getWishlist } = await import(wishlistRoutePath);
 const { GET: getSession } = await import(sessionRoutePath);
 
+/**
+ * Creates a request with mocked cookie access for testing.
+ * @param {string} url - The request URL.
+ * @param {RequestInit} [options] - Request initialization options.
+ * @return {Request} The configured request.
+ */
 function makeRequest(url, options = {}) {
   const req = new Request(url, options);
   req.cookies = {
@@ -54,6 +60,11 @@ export async function runCustomerAuthTests() {
   let passed = 0;
   let failed = 0;
 
+  /**
+   * Records and reports the outcome of a test assertion.
+   * @param {boolean} condition - The condition that determines whether the assertion passes.
+   * @param {string} message - The description displayed with the assertion result.
+   */
   function assert(condition, message) {
     if (condition) {
       console.log(`✓ [PASS] ${message}`);
@@ -106,7 +117,11 @@ export async function runCustomerAuthTests() {
     const THREE_DAYS_MS = 1000 * 60 * 60 * 24 * 3;
     assert(verifiedValid.exp - verifiedValid.createdAt === THREE_DAYS_MS, "Session expiration (exp - createdAt) is exactly 3 days in milliseconds");
 
-    // Helper function to build custom signed session tokens
+    /**
+     * Creates a signed customer session token from the provided payload.
+     * @param {Object} payloadObj - The session data to encode and sign.
+     * @return {string} The encoded session token containing the payload and signature.
+     */
     function makeSession(payloadObj) {
       const payloadBase64 = Buffer.from(JSON.stringify(payloadObj)).toString("base64url");
       const sig = crypto.createHmac("sha256", process.env.CUSTOMER_AUTH_SECRET).update(payloadBase64).digest("hex");

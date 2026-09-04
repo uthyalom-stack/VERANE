@@ -5,11 +5,10 @@ import { generateOrderReceiptPDF } from "@/lib/receipt-pdf";
 import { getCustomerCookieName, verifyCustomerSession } from "@/lib/auth/customer";
 
 /**
- * GET handler for downloading an order receipt PDF.
- * Enforces customer session authentication and strict order ownership.
+ * Serves an authenticated customer's order receipt as a PDF attachment.
  * @param {Request} request - The incoming HTTP request.
- * @param {Object} context - Route context containing params promise.
- * @returns {NextResponse} PDF file response or error JSON response.
+ * @param {{ params: Promise<{ id?: string }> }} context - Route context containing the order identifier.
+ * @returns {NextResponse} The receipt PDF or an error response.
  */
 export async function GET(request, { params }) {
   try {

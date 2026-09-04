@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { HorizontalBarChart, DonutChart, VerticalColumnChart } from "@/components/admin/AnalyticsCharts";
 
+/**
+ * Display product performance analytics for a selected date range.
+ */
 export default function ProductAnalyticsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

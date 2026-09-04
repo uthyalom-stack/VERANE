@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
 
+/**
+ * Renders the authenticated user's account page with profile details, rewards information, saved addresses, navigation links, and sign-out controls.
+ * @return {JSX.Element|null} The account page, a loading view while authentication is checked, or `null` when no authenticated user is available.
+ */
 export default function AccountPage() {
   const router = useRouter();
 

@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 
 import BrandSectionsContent from "@/app/admin/brand-sections/page";
 
+/**
+ * Manage homepage sections for authenticated administrators.
+ */
 export default function HomepageSettings() {
   const router = useRouter();
 

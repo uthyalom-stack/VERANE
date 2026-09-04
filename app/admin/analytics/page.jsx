@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AnalyticsCharts from "@/components/admin/AnalyticsCharts";
 
+/**
+ * Render the admin analytics dashboard for brand performance, sales, customers, inventory, and marketing.
+ * @return {JSX.Element} The analytics dashboard page.
+ */
 export default function AdminAnalyticsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

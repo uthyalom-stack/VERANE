@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
 
+/**
+ * Renders the checkout page with cart details, delivery options, address selection, and Paystack payment initiation.
+ * @returns {JSX.Element} The checkout page.
+ */
 export default function CheckoutPage() {
   const router = useRouter();
   const [processing, setProcessing] = useState(false);

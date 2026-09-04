@@ -7,6 +7,11 @@ export const revalidate = 0;
 
 const VALID_BRANDS = ["UTHY", "ALOMZIEE"];
 
+/**
+ * Normalizes supported brand names and aliases to their canonical values.
+ * @param {*} value - The brand value to normalize.
+ * @return {string} The canonical brand name, the trimmed uppercase value, or an empty string for missing input.
+ */
 function normalizeBrand(value) {
   if (!value) return "";
 
@@ -31,6 +36,11 @@ function normalizeBrand(value) {
   return brand;
 }
 
+/**
+ * Converts a numeric, string, or decimal-like value to a finite number.
+ * @param {*} value - The value to convert.
+ * @return {number} The converted number, or `0` when the value is null, undefined, or not finite.
+ */
 function money(value) {
   if (value === null || value === undefined) {
     return 0;
@@ -61,10 +71,20 @@ function money(value) {
     : 0;
 }
 
+/**
+ * Converts a product's price to a finite numeric value.
+ * @param {object} product - The product whose price should be converted.
+ * @return {number} The converted product price.
+ */
 function getProductPrice(product) {
   return money(product?.price);
 }
 
+/**
+ * Resolves an order item's price, falling back to its product price when needed.
+ * @param {Object} item - The order item containing an optional price and product.
+ * @return {number} The item's positive price or the associated product price.
+ */
 function getItemPrice(item) {
   const itemPrice = money(item?.price);
 
@@ -75,6 +95,13 @@ function getItemPrice(item) {
   return getProductPrice(item?.product);
 }
 
+/**
+ * Calculates the start and end dates for a predefined or custom analytics period.
+ * @param {string} range - The period identifier, such as `today`, `7d`, `30d`, `90d`, `1y`, or `custom`.
+ * @param {string|Date} [customStartDate] - The beginning of a custom period.
+ * @param {string|Date} [customEndDate] - The end of a custom period; defaults to the current date.
+ * @return {{start: Date, end: Date}} The date range with the start set to the beginning of its day and the end set to the end of its day.
+ */
 function getDateRange(range, customStartDate, customEndDate) {
   const now = new Date();
 
@@ -154,6 +181,11 @@ function formatDate(date) {
     .slice(0, 10);
 }
 
+/**
+ * Formats a date as a short month and day using the Nigerian English locale.
+ * @param {Date|string|number} date - The date to format.
+ * @return {string} The localized month-and-day representation.
+ */
 function formatDay(date) {
   return new Date(date).toLocaleDateString(
     "en-NG",
@@ -164,6 +196,11 @@ function formatDay(date) {
   );
 }
 
+/**
+ * Generates brand-scoped administrator analytics for a selected reporting period.
+ * @param {Request} request - The request containing optional `brand`, `range`, `startDate`, and `endDate` query parameters.
+ * @return {Promise<NextResponse>} A JSON response containing analytics data, or an authorization or server-error response.
+ */
 export async function GET(request) {
   try {
     const admin = await getAdminSession();

@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SiteFooter from "@/components/SiteFooter";
 
+/**
+ * Display active collaboration products with galleries, options, and cart actions.
+ * @returns {JSX.Element} The collaboration collection page.
+ */
 export default function CollaborationPage() {
   const router = useRouter();
   const [collaborations, setCollaborations] = useState([]);

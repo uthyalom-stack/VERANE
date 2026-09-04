@@ -20,6 +20,10 @@ function parseImages(images) {
   return [];
 }
 
+/**
+ * Render the administrative product management page.
+ * @returns {JSX.Element} The product management interface.
+ */
 export default function ProductsPage() {
   const router = useRouter();
 

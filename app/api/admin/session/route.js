@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin-auth";
 
+/**
+ * Check the current administrator's authentication status.
+ * @returns {Response} A JSON response containing authentication status and, when authenticated, the administrator's role, brand, and name.
+ */
 export async function GET() {
   try {
     const admin = await getAdminSession();

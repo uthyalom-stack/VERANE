@@ -6,6 +6,9 @@ import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
 
 import { useRouter } from "next/navigation";
 
+/**
+ * Manage Nigerian state and international delivery pricing for SUPERADMIN users.
+ */
 export default function AdminDeliveryPage() {
   const router = useRouter();
   const [mainTab, setMainTab] = useState("nigeria"); // "nigeria" | "international"

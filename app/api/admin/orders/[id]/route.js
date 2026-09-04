@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
+/**
+ * Retrieves an order and its related product details for an authenticated admin.
+ * @returns {Promise<Response>} The order details, or an error response if access is denied or the order cannot be found.
+ */
 export async function GET(request, { params }) {
   try {
     const admin = await getAdminSession();

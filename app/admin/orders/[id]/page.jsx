@@ -3,6 +3,10 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 
+/**
+ * Display and manage the details of an administrator-selected order.
+ * @param {Object} params - Route parameters containing the order identifier.
+ */
 export default function AdminOrderDetailsPage({ params }) {
   const resolvedParams = use(params);
   const id = resolvedParams.id;

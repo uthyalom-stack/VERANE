@@ -4,10 +4,20 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getProductStockStatus } from "@/lib/product-options";
 
+/**
+ * Formats a price as Nigerian naira using the `en-NG` locale.
+ * @param {*} price - The value to format; missing or falsy values are treated as zero.
+ * @return {string} The formatted naira price.
+ */
 function formatPrice(price) {
   return `₦${Number(price || 0).toLocaleString("en-NG")}`;
 }
 
+/**
+ * Display a brand storefront with its featured sections and products.
+ * @param {string} brand - Brand identifier used to load the storefront.
+ * @returns {JSX.Element} Rendered storefront content.
+ */
 export default function BrandStorefront({ brand }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

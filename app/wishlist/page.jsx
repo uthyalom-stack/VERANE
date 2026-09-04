@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getProductStockStatus } from "@/lib/product-options";
 
+/**
+ * Display and manage the authenticated user's wishlist.
+ */
 export default function WishlistPage() {
 const router = useRouter();
 

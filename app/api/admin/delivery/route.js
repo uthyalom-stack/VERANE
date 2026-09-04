@@ -3,11 +3,11 @@ import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
 
-/*
-|--------------------------------------------------------------------------
-| SUPERADMIN Delivery & Logistics Management API
-|--------------------------------------------------------------------------
-*/
+/**
+ * Retrieves Nigerian state and city delivery settings together with international delivery locations.
+ *
+ * @returns {Promise<NextResponse>} A response containing the delivery configuration, or an authorization or server error response.
+ */
 
 export async function GET() {
   try {
@@ -94,6 +94,10 @@ export async function GET() {
   }
 }
 
+/**
+ * Saves Nigerian state or international delivery settings for superadmins.
+ * @return {Promise<Response>} A response containing the saved configuration or an error message.
+ */
 export async function POST(request) {
   try {
     const admin = await getAdminSession();
@@ -215,6 +219,10 @@ export async function POST(request) {
   }
 }
 
+/**
+ * Deletes a Nigerian delivery state or international delivery location.
+ * @returns {Response} A success response, or an error response when authorization, input, or deletion fails.
+ */
 export async function DELETE(request) {
   try {
     const admin = await getAdminSession();
