@@ -4,37 +4,28 @@ import { createSignedAdminToken } from "@/lib/admin-auth";
 const ADMIN_CONFIG = {
   UTHY: {
     getEnvPassword: () => process.env.ADMIN_UTHY_PASSWORD,
-    defaultDevPassword: "uthy2026",
     brand: "UTHY_LUXURY",
     name: "UTHY LUXURY",
   },
 
   ALOMZIEE: {
     getEnvPassword: () => process.env.ADMIN_ALOMZIEE_PASSWORD,
-    defaultDevPassword: "alomziee2026",
     brand: "ALOMZIEE_FOOTIES",
     name: "ALOMZIEE FOOTIES",
   },
 
   SUPERADMIN: {
     getEnvPassword: () => process.env.ADMIN_SUPERADMIN_PASSWORD,
-    defaultDevPassword: "verane2026",
     brand: "ALL",
     name: "VÉRANE ADMIN",
   },
 };
 
-function getRequiredPassword(roleConfig) {
-  const envPassword = roleConfig.getEnvPassword();
-  if (envPassword) {
-    return envPassword;
+function isValidRole(role) {
+  if (typeof role !== "string") {
+    return false;
   }
-
-  if (process.env.NODE_ENV === "production") {
-    return null;
-  }
-
-  return roleConfig.defaultDevPassword;
+  return Object.prototype.hasOwnProperty.call(ADMIN_CONFIG, role);
 }
 
 export async function POST(request) {
@@ -66,9 +57,7 @@ export async function POST(request) {
       );
     }
 
-    const account = ADMIN_CONFIG[role];
-
-    if (!account) {
+    if (!isValidRole(role)) {
       return NextResponse.json(
         {
           error: "Invalid administration.",
@@ -79,11 +68,12 @@ export async function POST(request) {
       );
     }
 
-    const expectedPassword = getRequiredPassword(account);
+    const account = ADMIN_CONFIG[role];
+    const expectedPassword = account.getEnvPassword();
 
     if (!expectedPassword) {
       console.error(
-        `Admin login failed: Missing required password configuration for role '${role}' in production.`
+        `Admin login failed: Missing required password environment variable for role '${role}'.`
       );
       return NextResponse.json(
         {
