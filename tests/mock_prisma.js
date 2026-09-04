@@ -4,6 +4,9 @@ export const db = {
   savedAddresses: [],
   wishlists: [],
   siteSettings: [],
+  deliveryStates: [],
+  deliveryLocations: [],
+  shouldThrow: false,
 };
 
 export function resetDb() {
@@ -12,6 +15,9 @@ export function resetDb() {
   db.savedAddresses = [];
   db.wishlists = [];
   db.siteSettings = [];
+  db.deliveryStates = [];
+  db.deliveryLocations = [];
+  db.shouldThrow = false;
 }
 
 const mockPrisma = {
@@ -119,6 +125,40 @@ const mockPrisma = {
     },
     findFirst: async () => {
       return db.siteSettings[0] || null;
+    },
+  },
+  deliveryState: {
+    findUnique: async ({ where }) => {
+      if (db.shouldThrow) {
+        throw new Error("Simulated Database Error: Connection lost during DeliveryState lookup.");
+      }
+      if (where?.state) {
+        return db.deliveryStates.find((ds) => ds.state.toLowerCase() === where.state.toLowerCase()) || null;
+      }
+      return null;
+    },
+    findMany: async () => {
+      if (db.shouldThrow) {
+        throw new Error("Simulated Database Error");
+      }
+      return db.deliveryStates;
+    },
+  },
+  deliveryLocation: {
+    findMany: async () => {
+      if (db.shouldThrow) {
+        throw new Error("Simulated Database Error");
+      }
+      return db.deliveryLocations;
+    },
+    findFirst: async ({ where }) => {
+      if (db.shouldThrow) {
+        throw new Error("Simulated Database Error");
+      }
+      if (where?.country?.equals) {
+        return db.deliveryLocations.find((dl) => dl.country.toLowerCase() === where.country.equals.toLowerCase()) || null;
+      }
+      return null;
     },
   },
   wishlist: {
