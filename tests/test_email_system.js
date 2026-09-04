@@ -1,6 +1,11 @@
 import assert from "assert";
 import { sendWelcomeEmail, sendOrderReceiptEmail } from "../lib/email.js";
 
+/**
+ * Runs comprehensive email system tests covering welcome and receipt email functionality.
+ * Tests include missing API key scenarios, missing customer email validation, and proper error handling.
+ * @returns {Promise<void>}
+ */
 async function runTests() {
   console.log("=== RUNNING EMAIL SYSTEM TESTS ===");
 

@@ -14,6 +14,12 @@ const { POST: registerCustomer } = await import(registerRoutePath);
 const { setTestCookie, clearTestCookies, getTestCookie } = await import(mockHeadersPath);
 const { db, resetDb } = await import(mockPrismaPath);
 
+/**
+ * Creates a mock JSON POST request for testing API endpoints.
+ * @param {string} url - The request URL
+ * @param {Object} body - The JSON request body
+ * @returns {Request} A mock Request object with JSON content type and cookies support
+ */
 function makeJsonRequest(url, body) {
   const req = new Request(url, {
     method: "POST",
@@ -26,6 +32,11 @@ function makeJsonRequest(url, body) {
   return req;
 }
 
+/**
+ * Runs integration tests for customer registration and welcome email flow.
+ * Tests include successful registration with welcome email dispatch and duplicate email rejection.
+ * @returns {Promise<void>}
+ */
 async function runRegistrationEmailTests() {
   console.log("=== RUNNING REGISTRATION WELCOME EMAIL FLOW TEST ===");
   resetDb();
