@@ -4,10 +4,6 @@ import prisma from "@/lib/prisma";
 import { initializePaystackTransaction, calculateOrderTotalsServer } from "@/lib/paystack";
 import { verifyCustomerSession, getCustomerCookieName } from "@/lib/auth/customer";
 
-/**
- * Retrieves the authenticated customer from the session cookie.
- * @return {{authenticated: boolean, user: object|null}} The authenticated customer data, or an unauthenticated result.
- */
 async function getSession() {
   try {
     const cookieStore = await cookies();
@@ -22,10 +18,6 @@ async function getSession() {
   return { authenticated: false, user: null };
 }
 
-/**
- * Creates a payment reference containing the current date and a random six-digit number.
- * @return {string} The generated payment reference.
- */
 function generateReference() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const random = Math.floor(100000 + Math.random() * 900000);
@@ -33,9 +25,9 @@ function generateReference() {
 }
 
 /**
- * Initializes a checkout and Paystack payment transaction.
- * @param {Request} request - The checkout request containing customer, delivery, and cart details.
- * @return {Promise<NextResponse>} A response containing the payment authorization URL and reference, or an error.
+ * Initializes a Paystack payment transaction with server-side price calculation and order creation.
+ * @param {Request} request - The Next.js request object containing cart items and delivery information.
+ * @returns {Promise<NextResponse>} JSON response with Paystack authorization URL and payment reference.
  */
 export async function POST(request) {
   try {

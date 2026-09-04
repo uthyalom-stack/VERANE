@@ -6,11 +6,6 @@ export const dynamic = "force-dynamic";
 
 const VALID_BRANDS = ["UTHY", "ALOMZIEE"];
 
-/**
- * Normalizes a brand value to its supported canonical name.
- * @param {*} value - The brand value to normalize.
- * @return {string} The trimmed, uppercase brand name, or an empty string for a falsy value.
- */
 function normalizeBrand(value) {
   if (!value) return "";
   const brand = String(value).trim().toUpperCase();
@@ -20,8 +15,8 @@ function normalizeBrand(value) {
 }
 
 /**
- * Retrieve marketing destinations for the authenticated administrator's brand.
- * @return {Promise<NextResponse>} A response containing the brand's static, category, collection, and product destinations, or an authorization or failure error.
+ * Retrieves available marketing campaign destination URLs for the authenticated brand admin.
+ * @returns {Promise<NextResponse>} JSON response with static destinations, categories, collections, and products for URL generation.
  */
 export async function GET() {
   try {

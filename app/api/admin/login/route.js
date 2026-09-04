@@ -21,11 +21,6 @@ const ADMIN_CONFIG = {
   },
 };
 
-/**
- * Determines whether a value identifies a configured administrator role.
- * @param {*} role - The value to validate as an administrator role.
- * @return {boolean} `true` if the value is a configured administrator role, `false` otherwise.
- */
 function isValidRole(role) {
   if (typeof role !== "string") {
     return false;
@@ -34,9 +29,9 @@ function isValidRole(role) {
 }
 
 /**
- * Authenticates an administrator and establishes an authenticated session.
- * @param {Request} request - The request containing the administrator role and password.
- * @return {Response} A response indicating the authentication result and, on success, setting the administrator authentication cookie.
+ * Handles admin login authentication with role-based password validation and signed token generation.
+ * @param {Request} request - The Next.js request object containing role and password in JSON body.
+ * @returns {Promise<NextResponse>} JSON response with success status and admin session data, or error details.
  */
 export async function POST(request) {
   try {

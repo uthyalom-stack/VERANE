@@ -140,8 +140,8 @@ const DEFAULT_SECTIONS = [
 ];
 
 /**
- * Loads homepage sections in display order and adds any missing default sections.
- * @return {Promise<NextResponse>} A response containing the homepage sections or an error message.
+ * Retrieves homepage sections, seeding default sections if database is empty.
+ * @returns {Promise<NextResponse>} JSON response with homepage sections array.
  */
 export async function GET() {
   try {
@@ -198,9 +198,9 @@ export async function GET() {
 }
 
 /**
- * Saves homepage sections for Super Admin users.
- * @param {Request} request - The request containing a `sections` array in its JSON body.
- * @returns {Response} A response containing the saved sections, or an error status for unauthorized, forbidden, invalid, or failed requests.
+ * Updates homepage sections with new content and ordering (Super Admin only).
+ * @param {Request} request - The Next.js request object containing sections array in JSON body.
+ * @returns {Promise<NextResponse>} JSON response with success status.
  */
 export async function PUT(request) {
   try {

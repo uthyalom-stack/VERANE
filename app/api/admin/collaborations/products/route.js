@@ -47,13 +47,9 @@ function normalizeBrand(value) {
 import { getAdminSession } from "@/lib/admin-auth";
 
 /**
- * Creates a collaboration product for an authorized brand administrator.
- *
- * Validates the collaboration, source product, pricing, and status, and uses
- * provided images or images inherited from the associated products.
- *
- * @param {Request} request - The request containing collaboration product data.
- * @return {Promise<Response>} The created collaboration product or an error response.
+ * Creates a new collaboration product linking products from two brands in an active collaboration.
+ * @param {Request} request - The Next.js request object containing collaboration and product details.
+ * @returns {Promise<NextResponse>} JSON response with created collaboration product and variants.
  */
 export async function POST(request) {
   try {
@@ -269,11 +265,6 @@ export async function POST(request) {
   }
 }
 
-/**
- * Lists collaboration products available to the authenticated administrator.
- * @param {Request} request - Request containing an optional `collaborationId` query parameter.
- * @returns {Promise<Response>} A response containing the matching collaboration products, or an error response.
- */
 export async function GET(request) {
   try {
     const session = await getAdminSession();

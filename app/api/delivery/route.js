@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
 
-/**
- * Calculates the delivery fee and checkout location options for the requested country, state, and city.
- * @return {Response} A JSON response containing the delivery fee, pricing details, location options, or an error.
- */
+/*
+|--------------------------------------------------------------------------
+| Public Delivery Lookup API for Customer Checkout
+|--------------------------------------------------------------------------
+*/
 
+/**
+ * Calculates delivery fees based on country, state, and city, returning available location options.
+ * @param {Request} request - The Next.js request object with country, state, and city query parameters.
+ * @returns {Promise<NextResponse>} JSON response with delivery fee, pricing mode, and available location options.
+ */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);

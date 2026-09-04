@@ -44,8 +44,8 @@ const DEFAULT_SETTINGS = {
 };
 
 /**
- * Loads platform settings for an authenticated super administrator.
- * @returns {Promise<NextResponse>} A response containing the merged platform settings, or an authorization error.
+ * Retrieves all site settings for Super Admin users.
+ * @returns {Promise<NextResponse>} JSON response with site settings object.
  */
 export async function GET() {
   try {
@@ -83,9 +83,9 @@ export async function GET() {
 }
 
 /**
- * Saves platform settings provided by an authenticated super administrator.
- * @param {Request} request - The request containing settings to save.
- * @return {Promise<NextResponse>} A response indicating success, authorization failure, or a server error.
+ * Updates site settings with provided key-value pairs (Super Admin only).
+ * @param {Request} request - The Next.js request object containing settings updates in JSON body.
+ * @returns {Promise<NextResponse>} JSON response with success status.
  */
 export async function PUT(request) {
   try {

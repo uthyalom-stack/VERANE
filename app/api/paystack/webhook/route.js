@@ -3,9 +3,9 @@ import prisma from "@/lib/prisma";
 import { verifyPaystackWebhookSignature, finalizePaystackOrder } from "@/lib/paystack";
 
 /**
- * Processes Paystack webhook events and finalizes successful payments.
- * @param {Request} request - The incoming Paystack webhook request.
- * @return {Promise<NextResponse>} An HTTP response acknowledging the event, rejecting invalid signatures, or reporting processing errors.
+ * Handles Paystack webhook events for charge.success notifications and finalizes orders.
+ * @param {Request} request - The Next.js request object with webhook payload and signature header.
+ * @returns {Promise<NextResponse>} JSON response confirming receipt or error details.
  */
 export async function POST(request) {
   try {
