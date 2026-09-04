@@ -1,24 +1,41 @@
 import { NextResponse } from "next/server";
+import { createSignedAdminToken } from "@/lib/admin-auth";
 
-const ADMINS = {
+const ADMIN_CONFIG = {
   UTHY: {
-    password: "uthy2026",
+    getEnvPassword: () => process.env.ADMIN_UTHY_PASSWORD,
+    defaultDevPassword: "uthy2026",
     brand: "UTHY_LUXURY",
     name: "UTHY LUXURY",
   },
 
   ALOMZIEE: {
-    password: "alomziee2026",
+    getEnvPassword: () => process.env.ADMIN_ALOMZIEE_PASSWORD,
+    defaultDevPassword: "alomziee2026",
     brand: "ALOMZIEE_FOOTIES",
     name: "ALOMZIEE FOOTIES",
   },
 
   SUPERADMIN: {
-    password: "verane2026",
+    getEnvPassword: () => process.env.ADMIN_SUPERADMIN_PASSWORD,
+    defaultDevPassword: "verane2026",
     brand: "ALL",
     name: "VÉRANE ADMIN",
   },
 };
+
+function getRequiredPassword(roleConfig) {
+  const envPassword = roleConfig.getEnvPassword();
+  if (envPassword) {
+    return envPassword;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return null;
+  }
+
+  return roleConfig.defaultDevPassword;
+}
 
 export async function POST(request) {
   try {
@@ -49,7 +66,7 @@ export async function POST(request) {
       );
     }
 
-    const account = ADMINS[role];
+    const account = ADMIN_CONFIG[role];
 
     if (!account) {
       return NextResponse.json(
@@ -62,7 +79,23 @@ export async function POST(request) {
       );
     }
 
-    if (account.password !== password) {
+    const expectedPassword = getRequiredPassword(account);
+
+    if (!expectedPassword) {
+      console.error(
+        `Admin login failed: Missing required password configuration for role '${role}' in production.`
+      );
+      return NextResponse.json(
+        {
+          error: "Authentication service unavailable.",
+        },
+        {
+          status: 503,
+        }
+      );
+    }
+
+    if (expectedPassword !== password) {
       return NextResponse.json(
         {
           error: "Incorrect password.",
@@ -73,18 +106,34 @@ export async function POST(request) {
       );
     }
 
-    const session = {
+    const sessionPayload = {
       role,
       name: account.name,
       brand: account.brand,
     };
 
+    const token = createSignedAdminToken(sessionPayload);
+
+    if (!token) {
+      console.error(
+        "Admin login failed: Unable to sign session token (missing ADMIN_AUTH_SECRET)."
+      );
+      return NextResponse.json(
+        {
+          error: "Authentication service unavailable.",
+        },
+        {
+          status: 503,
+        }
+      );
+    }
+
     const response = NextResponse.json({
       success: true,
-      admin: session,
+      admin: sessionPayload,
     });
 
-    response.cookies.set("adminAuth", JSON.stringify(session), {
+    response.cookies.set("adminAuth", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
