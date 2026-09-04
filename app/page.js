@@ -244,21 +244,30 @@ function formatPrice(price) {
    SECTION IMAGE
 ========================================================= */
 
+function hasSectionImage(section) {
+  return Boolean(section?.image?.trim() || section?.mobileImage?.trim());
+}
+
 function SectionImage({ section, className = "" }) {
-  if (!section?.image) return null;
+  const desktopImg = section?.image?.trim();
+  const mobileImg = section?.mobileImage?.trim();
+
+  if (!desktopImg && !mobileImg) return null;
+
+  const primarySrc = desktopImg || mobileImg;
 
   return (
-    <picture>
-      {section.mobileImage && (
+    <picture className="contents">
+      {mobileImg && (
         <source
           media="(max-width: 768px)"
-          srcSet={section.mobileImage}
+          srcSet={mobileImg}
         />
       )}
 
       <img
-        src={section.image}
-        alt={section.title || "VERANE"}
+        src={primarySrc}
+        alt={section?.title || "VERANE"}
         className={className}
       />
     </picture>
@@ -535,7 +544,7 @@ export default async function HomePage() {
               className="absolute inset-0 w-full h-full object-cover"
             />
 
-            {!uthy?.image && (
+            {!hasSectionImage(uthy) && (
               <div className="absolute inset-0 bg-neutral-900" />
             )}
 
@@ -612,7 +621,7 @@ export default async function HomePage() {
               className="absolute inset-0 w-full h-full object-cover"
             />
 
-            {!alomziee?.image && (
+            {!hasSectionImage(alomziee) && (
               <div className="absolute inset-0 bg-neutral-900" />
             )}
 
@@ -691,7 +700,7 @@ export default async function HomePage() {
             className="absolute inset-0 w-full h-full object-cover"
           />
 
-          {!collaborationsSection?.image && (
+          {!hasSectionImage(collaborationsSection) && (
             <div className="absolute inset-0 bg-neutral-900" />
           )}
 
@@ -855,7 +864,7 @@ export default async function HomePage() {
             className="absolute inset-0 w-full h-full object-cover"
           />
 
-          {!story?.image && (
+          {!hasSectionImage(story) && (
             <div className="absolute inset-0 bg-neutral-900" />
           )}
 
