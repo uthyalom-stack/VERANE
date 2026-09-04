@@ -1,11 +1,13 @@
 export const db = {
   users: [],
+  products: [],
   orders: [],
   savedAddresses: [],
   wishlists: [],
   siteSettings: [],
   deliveryStates: [],
   deliveryLocations: [],
+  orderBrandTrackings: [],
   shouldThrow: false,
 };
 
@@ -20,6 +22,7 @@ export function resetDb() {
   db.siteSettings = [];
   db.deliveryStates = [];
   db.deliveryLocations = [];
+  db.orderBrandTrackings = [];
   db.shouldThrow = false;
 }
 
@@ -36,34 +39,92 @@ const mockPrisma = {
       return newUser;
     },
   },
+  product: {
+    create: async ({ data }) => {
+      const newProduct = { id: data.id || `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, ...data };
+      db.products.push(newProduct);
+      return newProduct;
+    },
+    findUnique: async ({ where }) => {
+      return db.products.find((p) => p.id === where.id) || null;
+    },
+  },
   order: {
     findUnique: async ({ where }) => {
-      if (where?.id) return db.orders.find((o) => o.id === where.id) || null;
-      if (where?.orderNumber) return db.orders.find((o) => o.orderNumber === where.orderNumber) || null;
+      let ord = null;
+      if (where?.id) ord = db.orders.find((o) => o.id === where.id) || null;
+      else if (where?.orderNumber) ord = db.orders.find((o) => o.orderNumber === where.orderNumber) || null;
+
+      if (ord) {
+        return {
+          ...ord,
+          brandTrackings: db.orderBrandTrackings.filter((bt) => bt.orderId === ord.id),
+        };
+      }
       return null;
     },
     findMany: async ({ where }) => {
+      let list = db.orders;
       if (where?.userId) {
-        return db.orders.filter((o) => o.userId === where.userId);
+        list = db.orders.filter((o) => o.userId === where.userId);
       }
-      return db.orders;
+      return list.map((ord) => ({
+        ...ord,
+        brandTrackings: db.orderBrandTrackings.filter((bt) => bt.orderId === ord.id),
+      }));
     },
     findFirst: async ({ where }) => {
+      let ord = null;
       if (where?.OR) {
-        return db.orders.find((o) => where.OR.some((cond) => (cond.id && o.id === cond.id) || (cond.orderNumber && o.orderNumber === cond.orderNumber))) || null;
+        ord = db.orders.find((o) => where.OR.some((cond) => (cond.id && o.id === cond.id) || (cond.orderNumber && o.orderNumber === cond.orderNumber))) || null;
+      } else if (where?.id && where?.userId) {
+        ord = db.orders.find((o) => o.id === where.id && o.userId === where.userId) || null;
+      } else if (where?.id) {
+        ord = db.orders.find((o) => o.id === where.id) || null;
       }
-      if (where?.id && where?.userId) {
-        return db.orders.find((o) => o.id === where.id && o.userId === where.userId) || null;
-      }
-      if (where?.id) {
-        return db.orders.find((o) => o.id === where.id) || null;
+      if (ord) {
+        return {
+          ...ord,
+          brandTrackings: db.orderBrandTrackings.filter((bt) => bt.orderId === ord.id),
+        };
       }
       return null;
     },
     create: async ({ data }) => {
-      const newOrder = { id: data.id || `ord_${Date.now()}`, ...data };
+      let itemsArray = [];
+      if (data.items?.create) {
+        itemsArray = data.items.create.map((it, idx) => ({
+          id: `item_${Date.now()}_${idx}`,
+          ...it,
+          product: db.products.find((p) => p.id === it.productId) || null,
+        }));
+      }
+      const newOrder = {
+        id: data.id || `ord_${Date.now()}`,
+        ...data,
+        items: itemsArray,
+      };
       db.orders.push(newOrder);
       return newOrder;
+    },
+  },
+  orderBrandTracking: {
+    upsert: async ({ where, update, create }) => {
+      const { orderId, brand } = where.orderId_brand;
+      let existing = db.orderBrandTrackings.find(
+        (bt) => bt.orderId === orderId && bt.brand === brand
+      );
+      if (existing) {
+        Object.assign(existing, update);
+        return existing;
+      } else {
+        const newRecord = {
+          id: `obt_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          ...create,
+        };
+        db.orderBrandTrackings.push(newRecord);
+        return newRecord;
+      }
     },
   },
   savedAddress: {
