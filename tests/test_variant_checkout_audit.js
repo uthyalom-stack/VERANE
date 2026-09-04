@@ -1,197 +1,243 @@
+import fs from "fs";
+import path from "path";
 import assert from "assert";
 
-console.log("=== RUNNING REAL CUSTOMER MULTI-VARIANT PRODUCT & CART FLOW VERIFICATION ===");
+console.log("=== EXECUTING DIRECT SOURCE VERIFICATION OF app/product/[id]/page.js ===");
+
+const sourceCode = fs.readFileSync(path.join(process.cwd(), "app/product/[id]/page.js"), "utf8");
+
+// Confirm required handlers and state exists directly in production source code
+assert(sourceCode.includes("const [selectedVariants, setSelectedVariants] = useState([])"), "State selectedVariants must exist in page.js");
+assert(sourceCode.includes("const addOrUpdateSelectedVariant = (colorId, sizeLabel) => {"), "addOrUpdateSelectedVariant handler must exist in page.js");
+assert(sourceCode.includes("const updateVariantQty = (key, delta) => {"), "updateVariantQty handler must exist in page.js");
+assert(sourceCode.includes("const removeSelectedVariant = (key) => {"), "removeSelectedVariant handler must exist in page.js");
+assert(sourceCode.includes("const addToCart = () => {"), "addToCart handler must exist in page.js");
+console.log("✓ Production source code structure verified: page.js contains all multi-variant state handlers");
 
 /*
- * SECTION 1: PRODUCT WITHOUT SIZES
- * Simulated selection logic matching app/product/[id]/page.js
+ * Dynamic Extraction & Execution of EXACT Production Handlers from app/product/[id]/page.js
  */
-const productWithoutSizes = {
-  id: "prod_no_sizes",
-  inventory: 10,
-  productColors: [
-    { id: "c_black", name: "Black", hex: "#000000" },
-    { id: "c_red", name: "Red", hex: "#ff0000" },
-    { id: "c_green", name: "Green", hex: "#00ff00" },
-  ],
-  variants: [
-    { id: "v_black", colorId: "c_black", stock: 5 },
-    { id: "v_red", colorId: "c_red", stock: 5 },
-    { id: "v_green", colorId: "c_green", stock: 5 },
-  ],
-};
 
-function simulateProductDetailState(product) {
+// Helper to create a component state closure running production handlers
+function createComponentEnvironment(product) {
   let selectedVariants = [];
+  let selectedColor = null;
+  let selectedSize = null;
+  let customSizing = "";
+  let qty = 1;
+  let mockLocalStorage = { cart: '{"items":[],"total":0,"event":"Verane"}' };
+  let redirectedUrl = null;
 
-  const addOrUpdateSelectedVariant = (colorId, sizeLabel, qtyToAdd = 1) => {
-    const productColors = product.productColors || [];
-    const variants = product.variants || [];
-    const hasSizes = variants.some((v) => Boolean(v.size));
-
-    const chosenColorObj = colorId
-      ? productColors.find((c) => String(c.id) === String(colorId))
-      : null;
-    const chosenColorName = chosenColorObj?.name || null;
-
-    const exactVar = variants.find((v) => {
-      const vSize = v.size || null;
-      const sizeMatches = sizeLabel
-        ? Boolean(vSize) && String(vSize) === String(sizeLabel)
-        : (!hasSizes ? true : !vSize);
-      const colorMatches = colorId
-        ? Boolean(v.colorId) && String(v.colorId) === String(colorId)
-        : (!chosenColorObj ? true : !v.colorId);
-      return sizeMatches && colorMatches;
-    }) || null;
-
-    const maxStock = exactVar ? exactVar.stock : product.inventory;
-    const varKey = exactVar?.id ? String(exactVar.id) : "";
-    const key = [product.id, varKey, chosenColorObj?.id || chosenColorName || "", sizeLabel || ""].join("|");
-
-    const existingIndex = selectedVariants.findIndex((item) => item.key === key);
-    if (existingIndex >= 0) {
-      const existingItem = selectedVariants[existingIndex];
-      const nextQty = existingItem.qty + qtyToAdd;
-      if (maxStock > 0 && nextQty > maxStock) return false;
-      selectedVariants[existingIndex] = { ...existingItem, qty: nextQty };
+  const setSelectedVariants = (action) => {
+    if (typeof action === "function") {
+      selectedVariants = action(selectedVariants);
     } else {
-      selectedVariants.push({
-        key,
-        exactVariant: exactVar,
-        variantId: exactVar?.id || null,
-        colorId: chosenColorObj?.id || null,
-        colorName: chosenColorName,
-        size: sizeLabel || null,
-        qty: qtyToAdd,
-        maxStock,
-      });
+      selectedVariants = action;
     }
-    return true;
   };
 
-  const updateVariantQty = (key, delta) => {
-    selectedVariants = selectedVariants
-      .map((item) => {
-        if (item.key !== key) return item;
-        const newQty = item.qty + delta;
-        if (newQty <= 0) return null;
-        if (item.maxStock > 0 && newQty > item.maxStock) return item;
-        return { ...item, qty: newQty };
-      })
-      .filter(Boolean);
+  const setSelectedColor = (val) => { selectedColor = val; };
+  const setSelectedSize = (val) => { selectedSize = val; };
+  const alert = (msg) => { console.log(`[ALERT] ${msg}`); };
+
+  const router = {
+    push: (url) => { redirectedUrl = url; },
   };
 
-  const removeSelectedVariant = (key) => {
-    selectedVariants = selectedVariants.filter((item) => item.key !== key);
+  const localStorage = {
+    getItem: (k) => mockLocalStorage[k] || null,
+    setItem: (k, v) => { mockLocalStorage[k] = v; },
   };
+
+  // Context variables referenced inside page.js
+  const productColors = Array.isArray(product?.productColors) ? product.productColors : [];
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  const inventory = Math.max(0, Number(product?.inventory ?? 0));
+  const hasSizes = variants.some((v) => Boolean(v.size || v.name || v.value || v.label));
+  const isPreOrder = Boolean(product?.preOrderEnabled || product?.isPreOrder);
+  const customSizingEnabled = Boolean(product?.customSizingEnabled);
+  const fulfillmentTime = product?.fulfillmentTime || product?.preOrderFulfillmentTime || "";
+  const isFootwear = product?.brand === "ALOMZIEE_FOOTIES";
+  const needsSizeSelection = hasSizes && !isPreOrder;
+  const isOutOfStock = inventory <= 0 && variants.every((v) => (v.stock ?? v.inventory ?? 0) <= 0);
+
+  const getColorValue = (color) => {
+    if (!color) return "#ffffff";
+    return color.hex || color.value || color.color || color.code || "#ffffff";
+  };
+
+  // Extract function bodies directly from sourceCode to ensure 100% code identity
+  function extractFunctionBody(fnName) {
+    const startIdx = sourceCode.indexOf(`const ${fnName} = `);
+    if (startIdx === -1) throw new Error(`Could not find function ${fnName} in page.js`);
+    const bodyStart = sourceCode.indexOf("{", startIdx);
+    let openBrackets = 1;
+    let endIdx = bodyStart + 1;
+    while (openBrackets > 0 && endIdx < sourceCode.length) {
+      if (sourceCode[endIdx] === "{") openBrackets++;
+      if (sourceCode[endIdx] === "}") openBrackets--;
+      endIdx++;
+    }
+    return sourceCode.substring(bodyStart, endIdx);
+  }
+
+  const addOrUpdateBody = extractFunctionBody("addOrUpdateSelectedVariant");
+  const updateVariantQtyBody = extractFunctionBody("updateVariantQty");
+  const removeSelectedVariantBody = extractFunctionBody("removeSelectedVariant");
+  const addToCartBody = extractFunctionBody("addToCart");
+
+  const addOrUpdateSelectedVariant = new Function(
+    "colorId", "sizeLabel", "product", "productColors", "variants", "inventory", "hasSizes",
+    "selectedVariants", "setSelectedVariants", "alert", "getColorValue",
+    addOrUpdateBody
+  );
+
+  const updateVariantQty = new Function(
+    "key", "delta", "selectedVariants", "setSelectedVariants", "alert",
+    updateVariantQtyBody
+  );
+
+  const removeSelectedVariant = new Function(
+    "key", "selectedVariants", "setSelectedVariants",
+    removeSelectedVariantBody
+  );
+
+  const addToCart = new Function(
+    "product", "isOutOfStock", "isPreOrder", "customSizingEnabled", "customSizing", "alert",
+    "selectedVariants", "needsSizeSelection", "selectedSize", "isFootwear", "productColors",
+    "selectedColor", "variants", "hasSizes", "qty", "inventory", "fulfillmentTime",
+    "localStorage", "router", "getColorValue",
+    addToCartBody
+  );
 
   return {
-    getSelectedVariants: () => selectedVariants,
-    addOrUpdateSelectedVariant,
-    updateVariantQty,
-    removeSelectedVariant,
+    state: () => ({
+      selectedVariants,
+      selectedColor,
+      selectedSize,
+      cart: JSON.parse(mockLocalStorage.cart),
+      redirectedUrl,
+    }),
+    addOrUpdateSelectedVariant: (c, s) => addOrUpdateSelectedVariant(
+      c, s, product, productColors, variants, inventory, hasSizes,
+      selectedVariants, setSelectedVariants, alert, getColorValue
+    ),
+    updateVariantQty: (k, d) => updateVariantQty(
+      k, d, selectedVariants, setSelectedVariants, alert
+    ),
+    removeSelectedVariant: (k) => removeSelectedVariant(
+      k, selectedVariants, setSelectedVariants
+    ),
+    addToCart: () => addToCart(
+      product, isOutOfStock, isPreOrder, customSizingEnabled, customSizing, alert,
+      selectedVariants, needsSizeSelection, selectedSize, isFootwear, productColors,
+      selectedColor, variants, hasSizes, qty, inventory, fulfillmentTime,
+      localStorage, router, getColorValue
+    ),
   };
 }
 
-// Test Product WITHOUT sizes
-const pdNoSizes = simulateProductDetailState(productWithoutSizes);
-
-// 1. Select Black x1
-pdNoSizes.addOrUpdateSelectedVariant("c_black", null, 1);
-assert.strictEqual(pdNoSizes.getSelectedVariants().length, 1);
-assert.strictEqual(pdNoSizes.getSelectedVariants()[0].colorName, "Black");
-assert.strictEqual(pdNoSizes.getSelectedVariants()[0].qty, 1);
-
-// 2. Select Red x3 (adding Red must NOT clear Black)
-pdNoSizes.addOrUpdateSelectedVariant("c_red", null, 3);
-assert.strictEqual(pdNoSizes.getSelectedVariants().length, 2);
-
-// 3. Select Green x1 (adding Green must NOT clear Black or Red)
-pdNoSizes.addOrUpdateSelectedVariant("c_green", null, 1);
-assert.strictEqual(pdNoSizes.getSelectedVariants().length, 3);
-
-const listNoSizes = pdNoSizes.getSelectedVariants();
-assert.strictEqual(listNoSizes.find((v) => v.colorName === "Black").qty, 1);
-assert.strictEqual(listNoSizes.find((v) => v.colorName === "Red").qty, 3);
-assert.strictEqual(listNoSizes.find((v) => v.colorName === "Green").qty, 1);
-console.log("✓ Scenario 1 (Product WITHOUT sizes x3 colors): PASSED");
-
 
 /*
- * SECTION 2: PRODUCT WITH SIZES
+ * TEST SCENARIO 1: NO-SIZE PRODUCT
+ * Select Black x1, Red x3, Green x1 on the same product page.
  */
-const productWithSizes = {
-  id: "prod_with_sizes",
-  inventory: 20,
+const noSizeProduct = {
+  id: "prod_no_sizes_1001",
+  inventory: 15,
   productColors: [
-    { id: "c_red", name: "Red", hex: "#ff0000" },
-    { id: "c_black", name: "Black", hex: "#000000" },
-    { id: "c_green", name: "Green", hex: "#00ff00" },
+    { id: "col_black", name: "Black", hex: "#000000" },
+    { id: "col_red", name: "Red", hex: "#ff0000" },
+    { id: "col_green", name: "Green", hex: "#00ff00" },
   ],
   variants: [
-    { id: "v_red_s", colorId: "c_red", size: "S", stock: 10 },
-    { id: "v_red_m", colorId: "c_red", size: "M", stock: 10 },
-    { id: "v_black_l", colorId: "c_black", size: "L", stock: 10 },
-    { id: "v_green_s", colorId: "c_green", size: "S", stock: 10 },
-    { id: "v_red_l", colorId: "c_red", size: "L", stock: 10 },
+    { id: "var_black", colorId: "col_black", stock: 5 },
+    { id: "var_red", colorId: "col_red", stock: 5 },
+    { id: "var_green", colorId: "col_green", stock: 5 },
   ],
 };
 
-const pdSizes = simulateProductDetailState(productWithSizes);
+console.log("\n--- TEST SCENARIO 1: NO-SIZE PRODUCT ---");
+const env1 = createComponentEnvironment(noSizeProduct);
 
-// Select Red/S x1, Red/M x1, Black/L x1, Green/S x2, Red/L x1
-pdSizes.addOrUpdateSelectedVariant("c_red", "S", 1);
-pdSizes.addOrUpdateSelectedVariant("c_red", "M", 1);
-pdSizes.addOrUpdateSelectedVariant("c_black", "L", 1);
-pdSizes.addOrUpdateSelectedVariant("c_green", "S", 2);
-pdSizes.addOrUpdateSelectedVariant("c_red", "L", 1);
+// 1. Select Black x1
+env1.addOrUpdateSelectedVariant("col_black", null);
+assert.strictEqual(env1.state().selectedVariants.length, 1);
+assert.strictEqual(env1.state().selectedVariants[0].colorName, "Black");
+assert.strictEqual(env1.state().selectedVariants[0].qty, 1);
 
-assert.strictEqual(pdSizes.getSelectedVariants().length, 5);
-const listSizes = pdSizes.getSelectedVariants();
-assert.strictEqual(listSizes.find((v) => v.colorName === "Red" && v.size === "S").qty, 1);
-assert.strictEqual(listSizes.find((v) => v.colorName === "Red" && v.size === "M").qty, 1);
-assert.strictEqual(listSizes.find((v) => v.colorName === "Black" && v.size === "L").qty, 1);
-assert.strictEqual(listSizes.find((v) => v.colorName === "Green" && v.size === "S").qty, 2);
-assert.strictEqual(listSizes.find((v) => v.colorName === "Red" && v.size === "L").qty, 1);
-console.log("✓ Scenario 2 (Product WITH sizes 5 exact combinations): PASSED");
+// 2. Select Red x3 (adding Red must NOT clear Black)
+env1.addOrUpdateSelectedVariant("col_red", null);
+env1.addOrUpdateSelectedVariant("col_red", null);
+env1.addOrUpdateSelectedVariant("col_red", null);
+assert.strictEqual(env1.state().selectedVariants.length, 2);
+assert.strictEqual(env1.state().selectedVariants.find(v => v.colorName === "Red").qty, 3);
 
+// 3. Select Green x1 (adding Green must NOT clear Black or Red)
+env1.addOrUpdateSelectedVariant("col_green", null);
+assert.strictEqual(env1.state().selectedVariants.length, 3);
+assert.strictEqual(env1.state().selectedVariants.find(v => v.colorName === "Green").qty, 1);
+assert.strictEqual(env1.state().selectedVariants.find(v => v.colorName === "Black").qty, 1);
 
-/*
- * SECTION 3: REPEAT SELECTION & INVENTORY STOCK ENFORCEMENT
- */
-// Selecting exact same variant (Red/S) again increases quantity
-pdSizes.addOrUpdateSelectedVariant("c_red", "S", 1);
-assert.strictEqual(pdSizes.getSelectedVariants().length, 5); // Length remains 5
-assert.strictEqual(pdSizes.getSelectedVariants().find((v) => v.colorName === "Red" && v.size === "S").qty, 2);
-console.log("✓ Scenario 3 (Repeat selection increments quantity): PASSED");
+console.log("✓ Scenario 1 (No-size product multi-color selections preserved): PASSED");
 
 
 /*
- * SECTION 4: CART INTEGRATION & INDEPENDENCE
+ * TEST SCENARIO 2: SIZED PRODUCT
+ * Select Red/S x1, Red/M x1, Black/L x1, Green/S x2, Red/L x1
  */
-const mockCartItems = [];
-for (const item of pdSizes.getSelectedVariants()) {
-  const cartItemKey = [productWithSizes.id, item.variantId || "", item.colorId || "", item.size || "", ""].join("|");
-  mockCartItems.push({
-    ...productWithSizes,
-    variantId: item.variantId,
-    cartItemKey,
-    qty: item.qty,
-    selectedColor: item.colorName,
-    selectedSize: item.size,
-  });
-}
+const sizedProduct = {
+  id: "prod_sized_1002",
+  inventory: 30,
+  productColors: [
+    { id: "col_red", name: "Red", hex: "#ff0000" },
+    { id: "col_black", name: "Black", hex: "#000000" },
+    { id: "col_green", name: "Green", hex: "#00ff00" },
+  ],
+  variants: [
+    { id: "var_red_s", colorId: "col_red", size: "S", stock: 5 },
+    { id: "var_red_m", colorId: "col_red", size: "M", stock: 5 },
+    { id: "var_black_l", colorId: "col_black", size: "L", stock: 5 },
+    { id: "var_green_s", colorId: "col_green", size: "S", stock: 5 },
+    { id: "var_red_l", colorId: "col_red", size: "L", stock: 5 },
+  ],
+};
 
-assert.strictEqual(mockCartItems.length, 5);
+console.log("\n--- TEST SCENARIO 2: SIZED PRODUCT ---");
+const env2 = createComponentEnvironment(sizedProduct);
 
-// Removing one cart line (Green/S) leaves other 4 lines untouched
-const targetKeyToDel = mockCartItems.find((i) => i.selectedColor === "Green" && i.selectedSize === "S").cartItemKey;
-const filteredCart = mockCartItems.filter((i) => i.cartItemKey !== targetKeyToDel);
+env2.addOrUpdateSelectedVariant("col_red", "S");
+env2.addOrUpdateSelectedVariant("col_red", "M");
+env2.addOrUpdateSelectedVariant("col_black", "L");
+env2.addOrUpdateSelectedVariant("col_green", "S");
+env2.addOrUpdateSelectedVariant("col_green", "S"); // Repeat Green/S -> x2
+env2.addOrUpdateSelectedVariant("col_red", "L");
 
-assert.strictEqual(filteredCart.length, 4);
-assert.strictEqual(filteredCart.some((i) => i.selectedColor === "Green"), false);
-assert.strictEqual(filteredCart.find((i) => i.selectedColor === "Red" && i.selectedSize === "S").qty, 2);
-console.log("✓ Scenario 4 (Cart line separation & independent removal): PASSED");
+assert.strictEqual(env2.state().selectedVariants.length, 5);
+assert.strictEqual(env2.state().selectedVariants.find(v => v.colorName === "Red" && v.size === "S").qty, 1);
+assert.strictEqual(env2.state().selectedVariants.find(v => v.colorName === "Red" && v.size === "M").qty, 1);
+assert.strictEqual(env2.state().selectedVariants.find(v => v.colorName === "Black" && v.size === "L").qty, 1);
+assert.strictEqual(env2.state().selectedVariants.find(v => v.colorName === "Green" && v.size === "S").qty, 2);
+assert.strictEqual(env2.state().selectedVariants.find(v => v.colorName === "Red" && v.size === "L").qty, 1);
 
-console.log("\n=== REAL CUSTOMER MULTI-VARIANT FLOW VERIFICATION COMPLETE ===");
+console.log("✓ Scenario 2 (Sized product 5 exact combinations preserved simultaneously): PASSED");
+
+
+/*
+ * TEST SCENARIO 3: REPEAT SELECTION & CART VERIFICATION
+ */
+console.log("\n--- TEST SCENARIO 3: ADD TO CART & CART LINE INDEPENDENCE ---");
+env2.addToCart();
+
+const cartData = env2.state().cart;
+assert.strictEqual(cartData.items.length, 5);
+assert.strictEqual(env2.state().redirectedUrl, "/cart");
+
+// Verify every distinct variant became its own cart line with correct cartItemKey
+const cartGreenS = cartData.items.find(i => i.selectedColor === "Green" && i.selectedSize === "S");
+assert.strictEqual(cartGreenS.variantId, "var_green_s");
+assert.strictEqual(cartGreenS.qty, 2);
+
+console.log("✓ Scenario 3 (Add to Cart produces separate cartItemKey lines): PASSED");
+
+console.log("\n=== ALL DIRECT SOURCE VERIFICATIONS PASSED SUCCESSFULLY ===");
