@@ -212,6 +212,8 @@ export async function PUT(request, { params }) {
             : stock;
 
         return {
+          id: typeof variant.id === "string" && variant.id.trim() ? variant.id.trim() : null,
+
           colorIndex: Number.isInteger(colorIndex)
             ? colorIndex
             : null,
@@ -262,6 +264,8 @@ export async function PUT(request, { params }) {
             );
 
           return {
+            id: variant.id,
+
             colorIndex:
               existingColorIndex >= 0
                 ? existingColorIndex
@@ -418,89 +422,155 @@ export async function PUT(request, { params }) {
           });
 
         /*
-         * Remove old variants first.
+         * In-Place Color Synchronization
          */
 
-        await tx.productVariant.deleteMany({
-          where: {
-            productId: id,
-          },
-        });
+        const resolvedColors = [];
+        const processedColorIds = new Set();
 
-        /*
-         * Remove old colors.
-         */
+        for (let i = 0; i < colors.length; i++) {
+          const inputColor = colors[i];
+          let matchedColor = null;
 
-        await tx.productColor.deleteMany({
-          where: {
-            productId: id,
-          },
-        });
-
-        /*
-         * Create new colors.
-         */
-
-        await tx.productColor.createMany({
-          data: colors.map((color) => ({
-            productId: id,
-            name: color.name,
-            hex: color.hex,
-          })),
-        });
-
-        /*
-         * Get newly-created colors
-         * in the same order.
-         */
-
-        const createdColors =
-          await tx.productColor.findMany({
-            where: {
-              productId: id,
-            },
-
-            orderBy: {
-              createdAt: "asc",
-            },
-          });
-
-        /*
-         * Convert colorIndex into colorId.
-         */
-
-        const variantData = variants.map(
-          (variant) => {
-            const color =
-              createdColors[
-                variant.colorIndex
-              ];
-
-            if (!color) {
-              throw new Error(
-                "Invalid product color reference."
-              );
-            }
-
-            return {
-              productId: id,
-
-              colorId: color.id,
-
-              size: variant.size,
-
-              stock: variant.stock,
-
-              initialStock:
-                variant.initialStock,
-            };
+          if (inputColor.id) {
+            matchedColor = existingProduct.productColors.find(
+              (c) => c.id === inputColor.id
+            );
           }
-        );
 
-        if (variantData.length) {
-          await tx.productVariant.createMany({
-            data: variantData,
-          });
+          if (!matchedColor) {
+            matchedColor = existingProduct.productColors.find(
+              (c) => c.name.toLowerCase() === inputColor.name.toLowerCase()
+            );
+          }
+
+          if (matchedColor) {
+            const updatedColor = await tx.productColor.update({
+              where: { id: matchedColor.id },
+              data: {
+                name: inputColor.name,
+                hex: inputColor.hex,
+              },
+            });
+            resolvedColors.push(updatedColor);
+            processedColorIds.add(updatedColor.id);
+          } else {
+            const createdColor = await tx.productColor.create({
+              data: {
+                productId: id,
+                name: inputColor.name,
+                hex: inputColor.hex,
+              },
+            });
+            resolvedColors.push(createdColor);
+            processedColorIds.add(createdColor.id);
+          }
+        }
+
+        /*
+         * In-Place Variant Synchronization & Identity Preservation
+         */
+
+        const processedVariantIds = new Set();
+
+        for (const variantItem of variants) {
+          const targetColor = resolvedColors[variantItem.colorIndex];
+
+          if (!targetColor) {
+            throw new Error("Invalid product color reference for variant.");
+          }
+
+          let matchedVariant = null;
+
+          if (variantItem.id) {
+            matchedVariant = existingProduct.variants.find(
+              (v) => v.id === variantItem.id
+            );
+          }
+
+          if (!matchedVariant) {
+            matchedVariant = existingProduct.variants.find(
+              (v) =>
+                v.colorId === targetColor.id &&
+                (v.size || null) === (variantItem.size || null)
+            );
+          }
+
+          if (matchedVariant) {
+            await tx.productVariant.update({
+              where: { id: matchedVariant.id },
+              data: {
+                colorId: targetColor.id,
+                size: variantItem.size,
+                stock: variantItem.stock,
+                initialStock: variantItem.initialStock,
+              },
+            });
+            processedVariantIds.add(matchedVariant.id);
+          } else {
+            const createdVariant = await tx.productVariant.create({
+              data: {
+                productId: id,
+                colorId: targetColor.id,
+                size: variantItem.size,
+                stock: variantItem.stock,
+                initialStock: variantItem.initialStock,
+              },
+            });
+            processedVariantIds.add(createdVariant.id);
+          }
+        }
+
+        /*
+         * Process Omitted Variants: Archive if referenced, Delete if unreferenced
+         */
+
+        for (const existingVariant of existingProduct.variants) {
+          if (!processedVariantIds.has(existingVariant.id)) {
+            const orderItemCount = await tx.orderItem.count({
+              where: { variantId: existingVariant.id },
+            });
+            const waitingListCount = await tx.waitingList.count({
+              where: { variantId: existingVariant.id },
+            });
+            const collabACount = await tx.collaborationVariant.count({
+              where: { productAVariantId: existingVariant.id },
+            });
+            const collabBCount = await tx.collaborationVariant.count({
+              where: { productBVariantId: existingVariant.id },
+            });
+
+            if (orderItemCount > 0 || waitingListCount > 0 || collabACount > 0 || collabBCount > 0) {
+              // Preserve reference for historical orders/waiting lists/collaborations, zero out available stock
+              await tx.productVariant.update({
+                where: { id: existingVariant.id },
+                data: { stock: 0 },
+              });
+            } else {
+              // Unreferenced variant - safe to delete
+              await tx.productVariant.delete({
+                where: { id: existingVariant.id },
+              });
+            }
+          }
+        }
+
+        /*
+         * Process Omitted Colors: Delete if unreferenced by any remaining variants
+         */
+
+        for (const existingColor of existingProduct.productColors) {
+          if (!processedColorIds.has(existingColor.id)) {
+            const variantCount = await tx.productVariant.count({
+              where: { colorId: existingColor.id },
+            });
+
+            if (variantCount === 0) {
+              await tx.productColor.delete({
+                where: { id: existingColor.id },
+              });
+            }
+          }
         }
 
         return product;
