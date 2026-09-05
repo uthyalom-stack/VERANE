@@ -5,6 +5,7 @@ import {
   createCustomerSession,
   customerCookieOptions,
 } from "@/lib/auth/customer";
+import { checkRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,21 @@ export async function POST(request) {
       );
     }
 
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+    const rateKey = `customer_login:${email}:${ip}`;
+
+    const limit = checkRateLimit(rateKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
+    if (!limit.allowed) {
+      const minutes = Math.ceil(limit.resetMs / 60000);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Too many failed login attempts. Please try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+        },
+        { status: 429 }
+      );
+    }
+
     const user =
       await prisma.user.findUnique({
         where: {
@@ -37,6 +53,7 @@ export async function POST(request) {
       });
 
     if (!user) {
+      recordFailedAttempt(rateKey);
       return NextResponse.json(
         {
           success: false,
@@ -54,6 +71,7 @@ export async function POST(request) {
       );
 
     if (!validPassword) {
+      recordFailedAttempt(rateKey);
       return NextResponse.json(
         {
           success: false,
@@ -63,6 +81,8 @@ export async function POST(request) {
         { status: 401 }
       );
     }
+
+    resetRateLimit(rateKey);
 
     const safeUser = {
       id: user.id,

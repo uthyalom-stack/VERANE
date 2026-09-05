@@ -21,8 +21,8 @@ export async function resolve(specifier, context, nextResolve) {
   if (specifier === "next/headers") {
     return nextResolve(pathToFileURL(mockHeadersPath).href, context);
   }
-  if (specifier === "next/server") {
-    return nextResolve("next/server.js", context);
+  if (specifier === "next/server" || specifier.startsWith("next/server")) {
+    return nextResolve(pathToFileURL(path.join(repoRoot, "node_modules/next/server.js")).href, context);
   }
   if (specifier === "@/lib/prisma" || specifier === "@/lib/prisma.js" || specifier === "./lib/prisma" || specifier === "./lib/prisma.js") {
     return nextResolve(pathToFileURL(mockPrismaPath).href, context);

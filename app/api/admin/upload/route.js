@@ -104,6 +104,47 @@ export async function POST(request) {
       );
     }
 
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Verify magic bytes signature
+    function isValidImageSignature(buf, type) {
+      if (!buf || buf.length < 4) return false;
+      if (type === "image/jpeg") {
+        return buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+      }
+      if (type === "image/png") {
+        return buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+      }
+      if (type === "image/gif") {
+        return buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46;
+      }
+      if (type === "image/webp") {
+        return (
+          buf.length >= 12 &&
+          buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+          buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+        );
+      }
+      if (type === "image/avif") {
+        return (
+          buf.length >= 12 &&
+          buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70
+        );
+      }
+      return false;
+    }
+
+    if (!isValidImageSignature(buffer, contentType)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid file content: signature does not match declared image type.",
+        },
+        { status: 400 }
+      );
+    }
+
     const extension = contentType === "image/jpeg"
       ? "jpg"
       : contentType.split("/")[1];
@@ -113,8 +154,6 @@ export async function POST(request) {
       .substring(2, 10)}.${extension}`;
 
     const key = `uploads/${filename}`;
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
 
     console.log(`[R2 UPLOAD] Prepared buffer (${buffer.length} bytes) in ${Date.now() - startTime}ms. Initializing S3Client...`);
 

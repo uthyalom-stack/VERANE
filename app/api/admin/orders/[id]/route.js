@@ -155,32 +155,38 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const brandItemWhereClause = {
-      OR: [
-        { product: { brand: admin.brand } },
-        {
-          collaborationProduct: {
-            OR: [
-              { productA: { brand: admin.brand } },
-              { productB: { brand: admin.brand } },
-            ],
-          },
-        },
-      ],
-    };
+    const ALLOWED_ORDER_STATUSES = [
+      "pending",
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled",
+    ];
 
-    const existingOrder = await prisma.order.findFirst({
-      where: {
-        id,
-        items: {
-          some: brandItemWhereClause,
+    const normalizedStatus = String(body.status).trim().toLowerCase();
+
+    if (!ALLOWED_ORDER_STATUSES.includes(normalizedStatus)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Invalid status "${body.status}". Allowed statuses are: ${ALLOWED_ORDER_STATUSES.join(", ")}.`,
         },
-      },
+        { status: 400 }
+      );
+    }
+
+    const existingOrder = await prisma.order.findUnique({
+      where: { id },
       include: {
         items: {
-          where: brandItemWhereClause,
           include: {
             product: true,
+            collaborationProduct: {
+              include: {
+                productA: true,
+                productB: true,
+              },
+            },
           },
         },
       },
@@ -188,25 +194,63 @@ export async function PUT(request, { params }) {
 
     if (!existingOrder) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Order not found.",
-        },
+        { success: false, error: "Order not found." },
         { status: 404 }
       );
     }
 
+    // Verify brand authorization for global order mutation:
+    // 1. Single-brand order (all items belong to admin's brand)
+    // 2. Genuine collaboration order (contains at least one collaboration product involving admin's brand)
+    // Unrelated mixed-brand orders cannot be mutated globally by a single brand admin.
+    const { normalizeBrandKey } = await import("@/lib/order-tracking");
+    const adminBrandKey = normalizeBrandKey(admin.brand);
+
+    let hasAdminBrandItem = false;
+    let hasOtherBrandItem = false;
+    let isGenuineCollaborationOrder = false;
+
+    for (const item of existingOrder.items) {
+      if (item.collaborationProductId && item.collaborationProduct) {
+        const brandA = normalizeBrandKey(item.collaborationProduct.productA?.brand);
+        const brandB = normalizeBrandKey(item.collaborationProduct.productB?.brand);
+        if (adminBrandKey === brandA || adminBrandKey === brandB || !brandA) {
+          isGenuineCollaborationOrder = true;
+          hasAdminBrandItem = true;
+        }
+      } else if (item.product?.brand) {
+        const itemBrand = normalizeBrandKey(item.product.brand);
+        if (itemBrand === adminBrandKey) {
+          hasAdminBrandItem = true;
+        } else {
+          hasOtherBrandItem = true;
+        }
+      }
+    }
+
+    if (!hasAdminBrandItem) {
+      return NextResponse.json(
+        { success: false, error: "Order not found." },
+        { status: 404 }
+      );
+    }
+
+    if (hasOtherBrandItem && !isGenuineCollaborationOrder) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden: Brand admin cannot globally mutate an order containing unrelated products from other brands. Use brand delivery tracking for brand-specific updates.",
+        },
+        { status: 403 }
+      );
+    }
+
     const order = await prisma.order.update({
-      where: {
-        id,
-      },
-      data: {
-        status: body.status,
-      },
+      where: { id },
+      data: { status: normalizedStatus },
       include: {
         user: true,
         items: {
-          where: brandItemWhereClause,
           include: {
             product: true,
           },
@@ -267,46 +311,74 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const brandItemWhereClause = {
-      OR: [
-        { product: { brand: admin.brand } },
-        {
-          collaborationProduct: {
-            OR: [
-              { productA: { brand: admin.brand } },
-              { productB: { brand: admin.brand } },
-            ],
+    const existingOrder = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            product: true,
+            collaborationProduct: {
+              include: {
+                productA: true,
+                productB: true,
+              },
+            },
           },
         },
-      ],
-    };
-
-    const existingOrder = await prisma.order.findFirst({
-      where: {
-        id,
-        items: {
-          some: brandItemWhereClause,
-        },
-      },
-      select: {
-        id: true,
       },
     });
 
     if (!existingOrder) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Order not found.",
-        },
+        { success: false, error: "Order not found." },
         { status: 404 }
       );
     }
 
+    const { normalizeBrandKey } = await import("@/lib/order-tracking");
+    const adminBrandKey = normalizeBrandKey(admin.brand);
+
+    let hasAdminBrandItem = false;
+    let hasOtherBrandItem = false;
+    let isGenuineCollaborationOrder = false;
+
+    for (const item of existingOrder.items) {
+      if (item.collaborationProductId && item.collaborationProduct) {
+        const brandA = normalizeBrandKey(item.collaborationProduct.productA?.brand);
+        const brandB = normalizeBrandKey(item.collaborationProduct.productB?.brand);
+        if (adminBrandKey === brandA || adminBrandKey === brandB || !brandA) {
+          isGenuineCollaborationOrder = true;
+          hasAdminBrandItem = true;
+        }
+      } else if (item.product?.brand) {
+        const itemBrand = normalizeBrandKey(item.product.brand);
+        if (itemBrand === adminBrandKey) {
+          hasAdminBrandItem = true;
+        } else {
+          hasOtherBrandItem = true;
+        }
+      }
+    }
+
+    if (!hasAdminBrandItem) {
+      return NextResponse.json(
+        { success: false, error: "Order not found." },
+        { status: 404 }
+      );
+    }
+
+    if (hasOtherBrandItem && !isGenuineCollaborationOrder) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden: Brand admin cannot delete an order containing unrelated products from other brands.",
+        },
+        { status: 403 }
+      );
+    }
+
     await prisma.order.delete({
-      where: {
-        id,
-      },
+      where: { id },
     });
 
     return NextResponse.json({
