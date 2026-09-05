@@ -109,126 +109,15 @@ export async function GET(request) {
 
 /**
  * Creates an order for the authenticated customer.
- * @param {Request} request - The request containing order and customer details.
- * @return {NextResponse} A response containing the created order or an error message.
+ * Direct order creation via POST is disabled for security; orders must be initialized through payment checkout.
+ * @returns {NextResponse} A 403 Forbidden response.
  */
-export async function POST(request) {
-  try {
-    const session = await getSession();
-
-    if (!session.authenticated || !session.user?.id) {
-      return NextResponse.json(
-        {
-          error: "Please login first",
-        },
-        { status: 401 }
-      );
-    }
-
-    const body = await request.json();
-
-    const {
-      items,
-      subtotal,
-      shippingFee,
-      total,
-      firstName,
-      lastName,
-      email,
-      phone,
-      country,
-      address,
-      city,
-      state,
-      zone,
-    } = body;
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        {
-          error: "Cart is empty",
-        },
-        { status: 400 }
-      );
-    }
-
-    const order = await prisma.order.create({
-      data: {
-        userId: session.user.id,
-        orderNumber: generateOrderNumber(),
-        total: Number(total || 0),
-        shippingFee: Number(shippingFee || 0),
-
-        firstName: firstName || null,
-        lastName: lastName || null,
-        email: email || null,
-        phone: phone || null,
-        country: country || "Nigeria",
-        address: address || null,
-        city: city || null,
-        state: state || null,
-        zone: zone || null,
-
-        items: {
-          create: items.map((item) => ({
-            productId: item.isCollaboration ? item.productAId : item.id,
-            quantity: Number(item.qty || 1),
-            price: Number(item.price || 0),
-            selectedColor: item.selectedColor || null,
-            selectedColorHex: item.selectedColorHex || null,
-            selectedSize: item.selectedSize || null,
-            variantId: item.variantId || null,
-            collaborationProductId: item.collaborationProductId || null,
-            collaborationVariantId: item.collaborationVariantId || null,
-            customMeasurements: item.customSizing || null,
-          })),
-        },
-      },
-
-      include: {
-        items: true,
-      },
-    });
-
-    // Record Campaign Attribution if attribution cookie is present
-    try {
-      const cookieStore = await cookies();
-      const attrCookie = cookieStore.get("verane_campaign_attr")?.value;
-
-      if (attrCookie) {
-        const attrData = JSON.parse(attrCookie);
-
-        if (attrData?.campaignId) {
-          await prisma.orderAttribution.create({
-            data: {
-              orderId: order.id,
-              campaignId: attrData.campaignId,
-              brand: attrData.brand || "UTHY",
-              visitorId: attrData.visitorId || null,
-              attributionModel: "last_touch",
-            },
-          });
-        }
-      }
-    } catch (attrErr) {
-      console.error("Order attribution creation error:", attrErr);
-    }
-
-    return NextResponse.json({
-      success: true,
-      order,
-    });
-  } catch (error) {
-    console.error("Create order error:", error);
-
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to create order",
-      },
-      { status: 500 }
-    );
-  }
+export async function POST() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Direct order creation is disabled. Orders must be initialized through payment checkout.",
+    },
+    { status: 403 }
+  );
 }

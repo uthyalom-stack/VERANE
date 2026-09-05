@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSignedAdminToken } from "@/lib/admin-auth";
+import { checkRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/rate-limit";
 
 const ADMIN_CONFIG = {
   UTHY: {
@@ -78,6 +79,20 @@ export async function POST(request) {
       );
     }
 
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+    const rateKey = `admin_login:${role}:${ip}`;
+
+    const limit = checkRateLimit(rateKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
+    if (!limit.allowed) {
+      const minutes = Math.ceil(limit.resetMs / 60000);
+      return NextResponse.json(
+        {
+          error: `Too many failed login attempts. Please try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+        },
+        { status: 429 }
+      );
+    }
+
     const account = ADMIN_CONFIG[role];
     const expectedPassword = account.getEnvPassword();
 
@@ -96,6 +111,7 @@ export async function POST(request) {
     }
 
     if (expectedPassword !== password) {
+      recordFailedAttempt(rateKey);
       return NextResponse.json(
         {
           error: "Incorrect password.",
@@ -105,6 +121,8 @@ export async function POST(request) {
         }
       );
     }
+
+    resetRateLimit(rateKey);
 
     const sessionPayload = {
       role,
