@@ -7,6 +7,12 @@ import {
   getOrderPresentBrands,
 } from "@/lib/order-tracking";
 
+/**
+ * Updates the authenticated admin's brand-specific tracking status for an order.
+ * @param {Request} request - The request containing the tracking status.
+ * @param {{ params: Promise<{ id: string }> }} context - The route context containing the order ID.
+ * @return {Promise<NextResponse>} A response containing the updated tracking record or an error.
+ */
 export async function PUT(request, { params }) {
   try {
     const admin = await getAdminSession();

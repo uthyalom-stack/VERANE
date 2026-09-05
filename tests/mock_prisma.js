@@ -33,6 +33,9 @@ export function resetDb() {
   db.shouldThrow = false;
 }
 
+/**
+ * Simulates a database connection error when error simulation is enabled.
+ */
 function checkThrow() {
   if (db.shouldThrow) {
     throw new Error("Simulated Database Error: Connection lost.");

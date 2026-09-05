@@ -63,6 +63,9 @@ function makeRequest(url, options = {}) {
   return req;
 }
 
+/**
+ * Runs integration tests for server-authoritative order calculations, product and variant validation, error handling, and checkout ownership.
+ */
 export async function runOrdersApiServerAuthoritativeTests() {
   console.log("=== RUNNING VÉRANE /api/orders SERVER-AUTHORITATIVE & GUEST OWNERSHIP TESTS ===\n");
   let passed = 0;

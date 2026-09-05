@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 /**
- * Display the authenticated user's order history.
+ * Display the authenticated user's order history, delivery tracking, and receipt links.
  */
 export default function OrdersPage() {
   const router = useRouter();

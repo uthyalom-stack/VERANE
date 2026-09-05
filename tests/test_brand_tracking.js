@@ -14,6 +14,11 @@ import { setTestCookie, clearTestCookies } from "./mock_next_headers.js";
 process.env.ADMIN_AUTH_SECRET = "test_admin_auth_secret_32_bytes_long!!";
 process.env.CUSTOMER_AUTH_SECRET = "test_customer_auth_secret_32_bytes_long!!";
 
+/**
+ * Sets the test authentication cookies for an administrator and customer.
+ * @param {string|null} adminToken - The administrator authentication token, or `null` to omit it.
+ * @param {string|null} customerToken - The customer authentication token, or `null` to omit it.
+ */
 function setAuthCookies(adminToken = null, customerToken = null) {
   clearTestCookies();
   if (adminToken) {
@@ -24,6 +29,13 @@ function setAuthCookies(adminToken = null, customerToken = null) {
   }
 }
 
+/**
+ * Creates a request with an optional JSON body.
+ * @param {string} url - The request URL.
+ * @param {string} [method="GET"] - The HTTP method.
+ * @param {*} [body=null] - The value to serialize as the JSON request body.
+ * @return {Request} The configured request.
+ */
 function createRequest(url, method = "GET", body = null) {
   const headers = new Headers();
   if (body) {
@@ -37,6 +49,9 @@ function createRequest(url, method = "GET", body = null) {
   });
 }
 
+/**
+ * Runs integration tests for brand-specific order tracking, including authorization, customer visibility, and independent tracking updates.
+ */
 async function runBrandTrackingTests() {
   console.log("=== RUNNING VÉRANE INDEPENDENT BRAND TRACKING TEST SUITE ===\n");
 

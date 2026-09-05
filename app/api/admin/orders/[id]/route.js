@@ -3,8 +3,8 @@ import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
 /**
- * Retrieves an order and its related product details for an authenticated admin.
- * @returns {Promise<Response>} The order details, or an error response if access is denied or the order cannot be found.
+ * Retrieves an order with tracking and product details for an authenticated admin.
+ * @return {Promise<Response>} A response containing the order, or an error response when access is denied, the order is unavailable, or retrieval fails.
  */
 export async function GET(request, { params }) {
   try {
