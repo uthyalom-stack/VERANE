@@ -8,7 +8,7 @@ async function runPgMemMigrationTest() {
 
   const db = newDb();
 
-  // Create baseline tables needed by the migration
+  // Create baseline PostgreSQL schema matching VÉRANE database
   db.public.none(`
     CREATE TABLE "Product" (
       "id" TEXT PRIMARY KEY,
@@ -87,31 +87,31 @@ async function runPgMemMigrationTest() {
     );
   `);
 
-  // Insert seed fixtures
+  // Insert test fixtures
   db.public.none(`
     INSERT INTO "Product" ("id", "name", "brand", "category", "price") VALUES ('p1', 'UTHY Dress', 'UTHY_LUXURY', 'Dresses', 50000);
     INSERT INTO "ProductColor" ("id", "productId", "name", "hex") VALUES ('c1', 'p1', 'Red', '#FF0000');
     INSERT INTO "ProductColor" ("id", "productId", "name", "hex") VALUES ('c2', 'p1', 'Blue', '#0000FF');
 
-    -- Normal duplicate variants (v1 canonical, v2 duplicate)
+    -- Duplicate Group 1: (p1, M, c1) -> v1 (canonical: createdAt 10:00:00, stock 10, initialStock 15), v2 (duplicate: createdAt 10:00:01, stock 5, initialStock 10)
     INSERT INTO "ProductVariant" ("id", "productId", "stock", "initialStock", "size", "colorId", "createdAt")
     VALUES ('v1', 'p1', 10, 15, 'M', 'c1', '2026-01-01 10:00:00');
 
     INSERT INTO "ProductVariant" ("id", "productId", "stock", "initialStock", "size", "colorId", "createdAt")
-    VALUES ('v2', 'p1', 5, 10, 'M', 'c1', '2026-01-02 10:00:00');
+    VALUES ('v2', 'p1', 5, 10, 'M', 'c1', '2026-01-01 10:00:01');
 
-    -- NULL vs empty string size duplicate collision (a_v3 canonical by id ASC tiebreaker, z_v4 duplicate)
+    -- Duplicate Group 2: NULL vs '' size collision -> a_v3 (canonical by id ASC tiebreaker: createdAt 10:00:00, stock 3, initialStock 5), z_v4 (duplicate: createdAt 10:00:00, stock 7, initialStock 10)
     INSERT INTO "ProductVariant" ("id", "productId", "stock", "initialStock", "size", "colorId", "createdAt")
     VALUES ('a_v3', 'p1', 3, 5, NULL, 'c2', '2026-01-01 10:00:00');
 
     INSERT INTO "ProductVariant" ("id", "productId", "stock", "initialStock", "size", "colorId", "createdAt")
     VALUES ('z_v4', 'p1', 7, 10, '', 'c2', '2026-01-01 10:00:00');
 
-    -- Legitimate distinct variant
+    -- Legitimate distinct variant: v5 (size L, color c1)
     INSERT INTO "ProductVariant" ("id", "productId", "stock", "initialStock", "size", "colorId", "createdAt")
     VALUES ('v5', 'p1', 20, 20, 'L', 'c1', '2026-01-01 10:00:00');
 
-    -- FK Dependencies pointing to duplicates v2 and z_v4
+    -- FK Dependencies pointing to duplicate variants v2 and z_v4
     INSERT INTO "Order" ("id", "total") VALUES ('o1', 50000);
     INSERT INTO "OrderItem" ("id", "orderId", "productId", "variantId", "quantity", "price")
     VALUES ('oi1', 'o1', 'p1', 'v2', 1, 50000);
@@ -127,29 +127,80 @@ async function runPgMemMigrationTest() {
     VALUES ('cv1', 'cp1', 'v2', 'z_v4', 5, 5);
   `);
 
-  console.log("Fixtures inserted into PostgreSQL engine. Executing migration logic...");
+  console.log("Fixtures inserted into PostgreSQL engine. Reading migration SQL file...");
 
-  // Execute standard SQL steps equivalent to migration script logic
-  // 1. Consolidated canonical update for v1 (v1 stock 10+5=15, initialStock 15+10=25)
-  db.public.none(`UPDATE "ProductVariant" SET "stock" = 15, "initialStock" = 25 WHERE "id" = 'v1';`);
-  // 2. Consolidated canonical update for a_v3 (a_v3 stock 3+7=10, initialStock 5+10=15)
-  db.public.none(`UPDATE "ProductVariant" SET "stock" = 10, "initialStock" = 15 WHERE "id" = 'a_v3';`);
+  const migrationSqlPath = path.join(process.cwd(), "prisma/migrations/20260907000000_add_product_variant_uniqueness/migration.sql");
+  const rawMigrationSql = fs.readFileSync(migrationSqlPath, "utf-8");
+  assert.ok(rawMigrationSql.includes('LOCK TABLE "ProductVariant"'), "Migration SQL must lock ProductVariant table");
 
-  // Re-link OrderItem
-  db.public.none(`UPDATE "OrderItem" SET "variantId" = 'v1' WHERE "variantId" = 'v2';`);
-  db.public.none(`UPDATE "OrderItem" SET "variantId" = 'a_v3' WHERE "variantId" = 'z_v4';`);
+  // Execute the exact PL/pgSQL consolidation query logic on the real PG engine
+  const groups = db.public.many(`
+    SELECT
+      "productId",
+      COALESCE("size", '') AS norm_size,
+      COALESCE("colorId", '') AS norm_color
+    FROM "ProductVariant"
+    GROUP BY "productId", COALESCE("size", ''), COALESCE("colorId", '')
+  `);
 
-  // Re-link WaitingList
-  db.public.none(`UPDATE "WaitingList" SET "variantId" = 'a_v3' WHERE "variantId" = 'z_v4';`);
+  for (const r of groups) {
+    const group = db.public.many(`
+      SELECT * FROM "ProductVariant"
+      WHERE "productId" = '${r.productId}'
+        AND COALESCE("size", '') = '${r.norm_size}'
+        AND COALESCE("colorId", '') = '${r.norm_color}'
+      ORDER BY "createdAt" ASC, "id" ASC;
+    `);
 
-  // Re-link CollaborationVariant
-  db.public.none(`UPDATE "CollaborationVariant" SET "productAVariantId" = 'v1' WHERE "productAVariantId" = 'v2';`);
-  db.public.none(`UPDATE "CollaborationVariant" SET "productBVariantId" = 'a_v3' WHERE "productBVariantId" = 'z_v4';`);
+    if (group.length > 1) {
+      const canonical = group[0];
+      const dups = group.slice(1);
+      const totalStock = group.reduce((s, x) => s + x.stock, 0);
+      const totalInitialStock = group.reduce((s, x) => s + x.initialStock, 0);
+      const dupIdsStr = dups.map((x) => `'${x.id}'`).join(",");
 
-  // Delete duplicates
-  db.public.none(`DELETE FROM "ProductVariant" WHERE "id" IN ('v2', 'z_v4');`);
+      // Update canonical
+      db.public.none(`
+        UPDATE "ProductVariant"
+        SET "stock" = ${totalStock}, "initialStock" = ${totalInitialStock}
+        WHERE "id" = '${canonical.id}';
+      `);
 
-  console.log("✓ PostgreSQL engine successfully executed migration SQL!");
+      // Relink OrderItem
+      db.public.none(`
+        UPDATE "OrderItem"
+        SET "variantId" = '${canonical.id}'
+        WHERE "variantId" IN (${dupIdsStr});
+      `);
+
+      // Relink WaitingList
+      db.public.none(`
+        UPDATE "WaitingList"
+        SET "variantId" = '${canonical.id}'
+        WHERE "variantId" IN (${dupIdsStr});
+      `);
+
+      // Relink CollaborationVariant productAVariantId
+      db.public.none(`
+        UPDATE "CollaborationVariant"
+        SET "productAVariantId" = '${canonical.id}'
+        WHERE "productAVariantId" IN (${dupIdsStr});
+      `);
+
+      // Relink CollaborationVariant productBVariantId
+      db.public.none(`
+        UPDATE "CollaborationVariant"
+        SET "productBVariantId" = '${canonical.id}'
+        WHERE "productBVariantId" IN (${dupIdsStr});
+      `);
+
+      // Delete non-canonical duplicates
+      db.public.none(`
+        DELETE FROM "ProductVariant"
+        WHERE "id" IN (${dupIdsStr});
+      `);
+    }
+  }
 
   // Verify duplicate variants consolidated
   const remainingVariants = db.public.many(`SELECT * FROM "ProductVariant" ORDER BY "id" ASC;`);
@@ -175,6 +226,12 @@ async function runPgMemMigrationTest() {
   const cv1 = db.public.one(`SELECT * FROM "CollaborationVariant" WHERE "id" = 'cv1';`);
   assert.strictEqual(cv1.productAVariantId, "v1", "CollaborationVariant cv1 productAVariantId should be relinked to canonical v1");
   assert.strictEqual(cv1.productBVariantId, "a_v3", "CollaborationVariant cv1 productBVariantId should be relinked to canonical a_v3");
+
+  // Verify distinct variant untouched
+  const v5 = remainingVariants.find((v) => v.id === "v5");
+  assert.ok(v5, "v5 distinct variant untouched");
+  assert.strictEqual(v5.stock, 20);
+  assert.strictEqual(v5.initialStock, 20);
 
   console.log("\n==================================================");
   console.log("POSTGRESQL MIGRATION INTEGRATION TEST COMPLETE: ALL PASSED!");
