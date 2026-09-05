@@ -37,6 +37,21 @@ function normalizeBrand(value) {
 }
 
 /**
+ * Gets database string variants for a normalized brand name.
+ * @param {string} brand
+ * @returns {string[]}
+ */
+function getBrandDbNames(brand) {
+  if (brand === "UTHY") {
+    return ["UTHY", "UTHY_LUXURY", "UTHY LUXURY"];
+  }
+  if (brand === "ALOMZIEE") {
+    return ["ALOMZIEE", "ALOMZIEE_FOOTIES", "ALOMZIEE FOOTIES"];
+  }
+  return [brand];
+}
+
+/**
  * Converts a numeric, string, or decimal-like value to a finite number.
  * @param {*} value - The value to convert.
  * @return {number} The converted number, or `0` when the value is null, undefined, or not finite.
@@ -273,62 +288,76 @@ export async function GET(request) {
       );
     }
 
+    const brandDbNames = getBrandDbNames(brand);
+
     const range = searchParams.get("range") || "30d";
     const startDateParam = searchParams.get("startDate");
     const endDateParam = searchParams.get("endDate");
 
     const { start, end } = getDateRange(range, startDateParam, endDateParam);
 
-    const allProducts =
-      await prisma.product.findMany({
-        include: {
-          categoryRef: true,
-          collection: true,
-          variants: true,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-    const products =
-      allProducts.filter((product) => {
-        return (
-          normalizeBrand(product.brand) ===
-          brand
-        );
-      });
+    const products = await prisma.product.findMany({
+      where: {
+        brand: { in: brandDbNames },
+      },
+      include: {
+        categoryRef: true,
+        collection: true,
+        variants: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
     const totalProducts = products.length;
 
+    // Helper to calculate inventory source of truth:
+    // If variants exist, inventory is sum of variant stock
+    const getProductEffectiveInventory = (p) => {
+      if (Array.isArray(p.variants) && p.variants.length > 0) {
+        return p.variants.reduce((sum, v) => sum + Math.max(0, money(v.stock)), 0);
+      }
+      return money(p.inventory);
+    };
+
+    const getProductInitialInventory = (p) => {
+      if (Array.isArray(p.variants) && p.variants.length > 0) {
+        const variantInitialSum = p.variants.reduce((sum, v) => sum + Math.max(0, money(v.initialStock ?? v.stock)), 0);
+        if (variantInitialSum > 0) return variantInitialSum;
+      }
+      const inv = getProductEffectiveInventory(p);
+      return money(p.initialInventory) || inv;
+    };
+
     const getPct = (p) => {
-      const inv = money(p.inventory);
-      const initInv = money(p.initialInventory) || inv;
+      const inv = getProductEffectiveInventory(p);
+      const initInv = getProductInitialInventory(p) || inv;
       return initInv > 0 ? (inv / initInv) * 100 : (inv > 0 ? 100 : 0);
     };
 
-    const outOfStockProducts = products.filter((p) => money(p.inventory) <= 0);
+    const outOfStockProducts = products.filter((p) => getProductEffectiveInventory(p) <= 0);
     const fewLeftProducts = products.filter((p) => {
-      const inv = money(p.inventory);
+      const inv = getProductEffectiveInventory(p);
       const pct = getPct(p);
       return inv > 0 && pct <= 25;
     });
     const almostSoldOutProducts = products.filter((p) => {
-      const inv = money(p.inventory);
+      const inv = getProductEffectiveInventory(p);
       const pct = getPct(p);
       return inv > 0 && pct > 25 && pct <= 50;
     });
     const availableProducts = products.filter((p) => {
-      const inv = money(p.inventory);
+      const inv = getProductEffectiveInventory(p);
       const pct = getPct(p);
       return inv > 0 && pct > 50;
     });
 
-    const activeProducts = products.filter((p) => money(p.inventory) > 0).length;
+    const activeProducts = products.filter((p) => getProductEffectiveInventory(p) > 0).length;
     const outOfStock = outOfStockProducts.length;
 
     const lowStockProducts = products.filter((product) => {
-      const inventory = money(product.inventory);
+      const inventory = getProductEffectiveInventory(product);
       return inventory > 0 && inventory <= 10;
     });
 
@@ -336,7 +365,7 @@ export async function GET(request) {
       products.reduce(
         (total, product) =>
           total +
-          money(product.inventory),
+          getProductEffectiveInventory(product),
         0
       );
 
@@ -344,7 +373,7 @@ export async function GET(request) {
       products.reduce(
         (total, product) => {
           const inventory =
-            money(product.inventory);
+            getProductEffectiveInventory(product);
 
           const price =
             getProductPrice(product);
@@ -370,6 +399,7 @@ export async function GET(request) {
       new Map();
 
     for (const product of products) {
+      const effectiveInv = getProductEffectiveInventory(product);
       productStats.set(product.id, {
         id: product.id,
 
@@ -387,7 +417,7 @@ export async function GET(request) {
           getProductPrice(product),
 
         inventory:
-          money(product.inventory),
+          effectiveInv,
 
         category:
           product.categoryRef?.name ||
@@ -405,9 +435,9 @@ export async function GET(request) {
         orders: 0,
 
         status:
-          money(product.inventory) <= 0
+          effectiveInv <= 0
             ? "out_of_stock"
-            : money(product.inventory) <= 5
+            : effectiveInv <= 5
               ? "low_stock"
               : "in_stock",
 
@@ -416,87 +446,65 @@ export async function GET(request) {
       });
     }
 
-    const productIds =
-      products.map(
-        (product) => product.id
-      );
-
-    let orders = [];
-
-    if (productIds.length > 0) {
-      orders =
-        await prisma.order.findMany({
-          where: {
-            createdAt: {
-              gte: start,
-              lte: end,
-            },
-
-            items: {
-              some: {
-                productId: {
-                  in: productIds,
-                },
-              },
-            },
+    const brandItemWhereClause = {
+      OR: [
+        { product: { brand: { in: brandDbNames } } },
+        {
+          collaborationProduct: {
+            OR: [
+              { productA: { brand: { in: brandDbNames } } },
+              { productB: { brand: { in: brandDbNames } } },
+            ],
           },
+        },
+      ],
+    };
 
+    const orders = await prisma.order.findMany({
+      where: {
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+        items: {
+          some: brandItemWhereClause,
+        },
+      },
+      include: {
+        user: true,
+        items: {
+          where: brandItemWhereClause,
           include: {
-            user: true,
-
-            items: {
+            product: {
               include: {
-                product: {
-                  include: {
-                    categoryRef: true,
-                    collection: true,
-                  },
-                },
+                categoryRef: true,
+                collection: true,
+              },
+            },
+            collaborationProduct: {
+              include: {
+                productA: true,
+                productB: true,
               },
             },
           },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-          orderBy: {
-            createdAt: "desc",
-          },
-        });
-    }
-
-    const brandOrders = [];
+    const brandOrders = orders;
     const brandOrderItems = [];
 
-    for (const order of orders) {
-      const itemsForBrand =
-        order.items.filter(
-          (item) =>
-            normalizeBrand(
-              item.product?.brand
-            ) === brand
-        );
-
-      if (
-        itemsForBrand.length === 0
-      ) {
-        continue;
-      }
-
-      brandOrders.push({
-        ...order,
-        items: itemsForBrand,
-      });
-
-      for (const item of itemsForBrand) {
+    for (const order of brandOrders) {
+      for (const item of order.items) {
         brandOrderItems.push({
           ...item,
-
-          orderStatus:
-            order.status,
-
-          orderCreatedAt:
-            order.createdAt,
-
-          customerId:
-            order.userId,
+          orderStatus: order.status,
+          orderCreatedAt: order.createdAt,
+          customerId: order.userId,
         });
       }
     }
@@ -534,19 +542,21 @@ export async function GET(request) {
 
       revenue += itemRevenue;
 
-      const existing =
-        productStats.get(
-          item.productId
-        );
+      if (item.productId) {
+        const existing =
+          productStats.get(
+            item.productId
+          );
 
-      if (existing) {
-        existing.unitsSold +=
-          quantity;
+        if (existing) {
+          existing.unitsSold +=
+            quantity;
 
-        existing.revenue +=
-          itemRevenue;
+          existing.revenue +=
+            itemRevenue;
 
-        existing.orders += 1;
+          existing.orders += 1;
+        }
       }
     }
 
@@ -582,6 +592,9 @@ export async function GET(request) {
         where: {
           userId: { in: Array.from(customerIds) },
           status: { notIn: ["cancelled", "canceled", "refunded", "refund", "failed", "rejected"] },
+          items: {
+            some: brandItemWhereClause,
+          },
         },
         select: { userId: true, createdAt: true },
       });
@@ -602,9 +615,18 @@ export async function GET(request) {
       }
     }
 
+    // Isolate new users in range strictly to those whose signup AND brand order both fall inside the reporting period
     const newUsersInRange = await prisma.user.findMany({
       where: {
         createdAt: { gte: start, lte: end },
+        orders: {
+          some: {
+            createdAt: { gte: start, lte: end },
+            items: {
+              some: brandItemWhereClause,
+            },
+          },
+        },
       },
       select: { id: true, name: true, email: true, createdAt: true },
     });
@@ -642,12 +664,10 @@ export async function GET(request) {
       }
 
       for (const item of order.items) {
-        if (normalizeBrand(item.product?.brand) === brand) {
-          const qty = money(item.quantity);
-          const prc = getItemPrice(item);
-          existing.units += qty;
-          existing.revenue += qty * prc;
-        }
+        const qty = money(item.quantity);
+        const prc = getItemPrice(item);
+        existing.units += qty;
+        existing.revenue += qty * prc;
       }
 
       customerPerformanceMap.set(uId, existing);
@@ -664,6 +684,8 @@ export async function GET(request) {
       if (cp.orders === 1) singleOrderCustomers += 1;
       else if (cp.orders > 1) repeatOrderCustomers += 1;
     }
+
+    const productIds = products.map((p) => p.id);
 
     let waitingListEntries = [];
     if (productIds.length > 0) {
@@ -708,7 +730,7 @@ export async function GET(request) {
     const restockPriorityList = products.map((prod) => {
       const pId = prod.id;
       const pName = prod.name;
-      const inv = money(prod.inventory);
+      const inv = getProductEffectiveInventory(prod);
       const stats = productStats.get(pId) || { unitsSold: 0, revenue: 0 };
       const demand = waitingListByProductMap.get(pId)?.count || 0;
 
@@ -729,12 +751,15 @@ export async function GET(request) {
     }).sort((a, b) => b.priorityScore - a.priorityScore);
 
     const topInventoryHoldings = products
-      .map((prod) => ({
-        id: prod.id,
-        name: prod.name,
-        inventory: money(prod.inventory),
-        valuation: money(prod.inventory) * getProductPrice(prod),
-      }))
+      .map((prod) => {
+        const inv = getProductEffectiveInventory(prod);
+        return {
+          id: prod.id,
+          name: prod.name,
+          inventory: inv,
+          valuation: inv * getProductPrice(prod),
+        };
+      })
       .sort((a, b) => b.inventory - a.inventory)
       .slice(0, 10);
 
@@ -745,7 +770,7 @@ export async function GET(request) {
           id: prod.id,
           name: prod.name,
           unitsSold: stats.unitsSold,
-          currentStock: money(prod.inventory),
+          currentStock: getProductEffectiveInventory(prod),
         };
       })
       .filter((p) => p.unitsSold > 0 || p.currentStock > 0)
@@ -788,45 +813,44 @@ export async function GET(request) {
     let prevOrderCount = 0;
     let prevUnitsSold = 0;
 
-    if (productIds.length > 0) {
-      const prevOrdersList = await prisma.order.findMany({
-        where: {
-          createdAt: {
-            gte: prevStart,
-            lte: prevEnd,
-          },
-          items: {
-            some: {
-              productId: {
-                in: productIds,
+    const prevOrdersList = await prisma.order.findMany({
+      where: {
+        createdAt: {
+          gte: prevStart,
+          lte: prevEnd,
+        },
+        items: {
+          some: brandItemWhereClause,
+        },
+      },
+      include: {
+        items: {
+          where: brandItemWhereClause,
+          include: {
+            product: true,
+            collaborationProduct: {
+              include: {
+                productA: true,
+                productB: true,
               },
             },
           },
         },
-        include: {
-          items: {
-            include: {
-              product: true,
-            },
-          },
-        },
-      });
+      },
+    });
 
-      const validPrevOrders = prevOrdersList.filter(
-        (o) => !isCancelledStatus(o.status)
-      );
+    const validPrevOrders = prevOrdersList.filter(
+      (o) => !isCancelledStatus(o.status)
+    );
 
-      prevOrderCount = validPrevOrders.length;
+    prevOrderCount = validPrevOrders.length;
 
-      for (const po of validPrevOrders) {
-        for (const pi of po.items) {
-          if (normalizeBrand(pi.product?.brand) === brand) {
-            const qty = money(pi.quantity);
-            const prc = getItemPrice(pi);
-            prevUnitsSold += qty;
-            prevRevenue += qty * prc;
-          }
-        }
+    for (const po of validPrevOrders) {
+      for (const pi of po.items) {
+        const qty = money(pi.quantity);
+        const prc = getItemPrice(pi);
+        prevUnitsSold += qty;
+        prevRevenue += qty * prc;
       }
     }
 
@@ -1182,9 +1206,24 @@ export async function GET(request) {
             include: {
               visits: { where: { createdAt: { gte: start, lte: end } } },
               orders: {
-                where: { createdAt: { gte: start, lte: end } },
+                where: {
+                  createdAt: { gte: start, lte: end },
+                  order: {
+                    createdAt: { gte: start, lte: end },
+                    items: {
+                      some: brandItemWhereClause,
+                    },
+                  },
+                },
                 include: {
-                  order: { include: { items: { include: { product: true } } } },
+                  order: {
+                    include: {
+                      items: {
+                        where: brandItemWhereClause,
+                        include: { product: true },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -1207,11 +1246,9 @@ export async function GET(request) {
 
             for (const attr of validAttrs) {
               for (const item of attr.order.items) {
-                if (normalizeBrand(item.product?.brand) === brand) {
-                  const qty = money(item.quantity);
-                  const prc = getItemPrice(item);
-                  attributedRevenue += qty * prc;
-                }
+                const qty = money(item.quantity);
+                const prc = getItemPrice(item);
+                attributedRevenue += qty * prc;
               }
             }
           }
@@ -1246,9 +1283,7 @@ export async function GET(request) {
                   product.name,
 
                 inventory:
-                  money(
-                    product.inventory
-                  ),
+                  getProductEffectiveInventory(product),
 
                 price:
                   getProductPrice(
@@ -1271,9 +1306,7 @@ export async function GET(request) {
                   product.name,
 
                 inventory:
-                  money(
-                    product.inventory
-                  ),
+                  getProductEffectiveInventory(product),
 
                 price:
                   getProductPrice(
@@ -1290,71 +1323,6 @@ export async function GET(request) {
           productPerformance,
 
         recentOrders,
-
-        debug: {
-          databaseProductCount:
-            allProducts.length,
-
-          matchingBrandProductCount:
-            products.length,
-
-          requestedBrand:
-            requestedBrand || null,
-
-          normalizedBrand:
-            brand,
-
-          adminBrand,
-
-          databaseBrandsFound:
-            [
-              ...new Set(
-                allProducts
-                  .map(
-                    (product) =>
-                      product.brand
-                  )
-                  .filter(Boolean)
-              ),
-            ],
-
-          matchingProducts:
-            products.map(
-              (product) => ({
-                id:
-                  product.id,
-
-                name:
-                  product.name,
-
-                brand:
-                  product.brand,
-
-                normalizedBrand:
-                  normalizeBrand(
-                    product.brand
-                  ),
-
-                price:
-                  getProductPrice(
-                    product
-                  ),
-
-                inventory:
-                  money(
-                    product.inventory
-                  ),
-
-                inventoryValue:
-                  money(
-                    product.inventory
-                  ) *
-                  getProductPrice(
-                    product
-                  ),
-              })
-            ),
-        },
 
         generatedAt:
           new Date(),

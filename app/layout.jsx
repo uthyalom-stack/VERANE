@@ -9,7 +9,7 @@ export async function generateMetadata() {
   const siteName = settings?.siteName || "VÉRANE";
   const tagline = settings?.tagline || "UTHY LUXURY × ALOMZIEE FOOTIES";
   const description = settings?.description || "Two brands. One expression. Premium handmade fashion.";
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://verane.vercel.app";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://verane.vercel.app";
 
   return {
     metadataBase: new URL(siteUrl),

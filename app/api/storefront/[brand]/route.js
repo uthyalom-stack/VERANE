@@ -35,30 +35,53 @@ function getFirstImage(images) {
 
 /**
  * Converts a database product into its public storefront representation.
+ * Excludes internal metadata (such as initialInventory, initialStock) while
+ * preserving fields necessary for customer selection, options, and rendering.
  * @param {Object} product - The product record to convert.
- * @return {Object} The product data exposed to storefront clients.
+ * @return {Object} The customer-facing product DTO exposed to storefront clients.
  */
 function toPublicProduct(product) {
+  const publicVariants = (product.variants || []).map((v) => ({
+    id: v.id,
+    productId: v.productId,
+    stock: Math.max(0, Number(v.stock || 0)),
+    size: v.size || null,
+    colorId: v.colorId || null,
+    color: v.color
+      ? {
+          id: v.color.id,
+          name: v.color.name,
+          hex: v.color.hex,
+        }
+      : null,
+  }));
+
+  const publicColors = (product.productColors || []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    hex: c.hex,
+  }));
+
   return {
     id: product.id,
     name: product.name,
     price: product.price,
     brand: product.brand,
-    inventory: product.inventory,
-    initialInventory: product.initialInventory,
+    category: product.category,
+    inventory: Math.max(0, Number(product.inventory || 0)),
     preOrderEnabled: Boolean(product.preOrderEnabled || product.isPreOrder),
     images: getFirstImage(product.images) ? [getFirstImage(product.images)] : [],
-    variants: product.variants || [],
-    productColors: product.productColors || [],
+    variants: publicVariants,
+    productColors: publicColors,
     customSizingEnabled: product.customSizingEnabled || false,
     sizeType: product.sizeType || "none",
-    sizes: product.sizes || [],
   };
 }
 
 /**
  * Retrieves storefront data for a supported brand.
- * @param {{ brand: string }} params - Route parameters containing the requested brand.
+ * @param {Request} request - Request object.
+ * @param {{ params: Promise<{ brand: string }> }} context - Route parameters containing the requested brand.
  * @return {Promise<NextResponse>} A JSON response containing the brand, metadata, products, and storefront sections.
  */
 export async function GET(request, { params }) {

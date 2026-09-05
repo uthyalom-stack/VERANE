@@ -63,60 +63,96 @@ export default function CollaborationPage() {
     return images;
   }
 
-  function getAvailableColors(sourceProduct) {
-    if (!sourceProduct) return [];
-    if (Array.isArray(sourceProduct.productColors) && sourceProduct.productColors.length > 0) {
-      return sourceProduct.productColors;
-    }
+  function getAvailableColors(collabProduct) {
+    if (!collabProduct) return [];
     const colorMap = new Map();
-    if (Array.isArray(sourceProduct.variants)) {
-      for (const v of sourceProduct.variants) {
-        if (v.color?.name && !colorMap.has(v.color.name)) {
-          colorMap.set(v.color.name, v.color);
+
+    // Prefer explicit CollaborationVariant options if defined
+    if (Array.isArray(collabProduct.variants) && collabProduct.variants.length > 0) {
+      for (const cv of collabProduct.variants) {
+        const colorName = cv.productAColor || cv.productAVariant?.color?.name;
+        const colorHex = cv.productAColorHex || cv.productAVariant?.color?.hex;
+        if (colorName && !colorMap.has(colorName)) {
+          colorMap.set(colorName, { id: colorName, name: colorName, hex: colorHex });
         }
       }
     }
+
+    // Fallback to sourceProductA colors
+    if (colorMap.size === 0 && collabProduct.productA) {
+      if (Array.isArray(collabProduct.productA.productColors) && collabProduct.productA.productColors.length > 0) {
+        for (const c of collabProduct.productA.productColors) {
+          if (c.name && !colorMap.has(c.name)) colorMap.set(c.name, c);
+        }
+      }
+      if (Array.isArray(collabProduct.productA.variants)) {
+        for (const v of collabProduct.productA.variants) {
+          if (v.color?.name && !colorMap.has(v.color.name)) {
+            colorMap.set(v.color.name, v.color);
+          }
+        }
+      }
+    }
+
     return Array.from(colorMap.values());
   }
 
-  function getAvailableSizes(sourceProduct) {
-    if (!sourceProduct || !Array.isArray(sourceProduct.variants)) return [];
+  function getAvailableSizes(collabProduct) {
+    if (!collabProduct) return [];
     const sizes = new Set();
-    for (const v of sourceProduct.variants) {
-      if (v.size) sizes.add(v.size);
+
+    if (Array.isArray(collabProduct.variants) && collabProduct.variants.length > 0) {
+      for (const cv of collabProduct.variants) {
+        const sizeName = cv.productASize || cv.productAVariant?.size;
+        if (sizeName) sizes.add(sizeName);
+      }
     }
+
+    if (sizes.size === 0 && collabProduct.productA && Array.isArray(collabProduct.productA.variants)) {
+      for (const v of collabProduct.productA.variants) {
+        if (v.size) sizes.add(v.size);
+      }
+    }
+
     return Array.from(sizes);
   }
 
   function addToCart(collabProduct) {
-    const sourceProduct = collabProduct.productA;
     const images = getProductImages(collabProduct);
     const primaryImage = images[0] || "";
 
-    const selectedColor = selectedColors[collabProduct.id] || getAvailableColors(sourceProduct)[0]?.name || null;
-    const selectedSize = selectedSizes[collabProduct.id] || getAvailableSizes(sourceProduct)[0] || null;
+    const availableColors = getAvailableColors(collabProduct);
+    const availableSizes = getAvailableSizes(collabProduct);
 
-    let matchedVariant = null;
-    if (sourceProduct && Array.isArray(sourceProduct.variants)) {
-      matchedVariant = sourceProduct.variants.find((v) => {
-        const matchesColor = !selectedColor || v.color?.name === selectedColor;
-        const matchesSize = !selectedSize || v.size === selectedSize;
+    const selectedColor = selectedColors[collabProduct.id] || availableColors[0]?.name || null;
+    const selectedSize = selectedSizes[collabProduct.id] || availableSizes[0] || null;
+
+    let matchedCollabVariant = null;
+    if (Array.isArray(collabProduct.variants) && collabProduct.variants.length > 0) {
+      matchedCollabVariant = collabProduct.variants.find((cv) => {
+        const cvColor = cv.productAColor || cv.productAVariant?.color?.name;
+        const cvSize = cv.productASize || cv.productAVariant?.size;
+        const matchesColor = !selectedColor || cvColor === selectedColor;
+        const matchesSize = !selectedSize || cvSize === selectedSize;
         return matchesColor && matchesSize;
-      }) || sourceProduct.variants[0];
+      }) || collabProduct.variants[0];
     }
 
-    const cartItemKey = `collab_${collabProduct.id}_${matchedVariant?.id || "default"}_${selectedColor || "nocolor"}_${selectedSize || "nosize"}`;
+    const collaborationVariantId = matchedCollabVariant?.id || null;
+    const sourceProductVariantId = matchedCollabVariant?.productAVariantId || null;
+
+    const cartItemKey = `collab_${collabProduct.id}_${collaborationVariantId || "default"}_${selectedColor || "nocolor"}_${selectedSize || "nosize"}`;
 
     const cartLine = {
       id: `collab_${collabProduct.id}`,
       cartItemKey,
       isCollaboration: true,
       collaborationProductId: collabProduct.id,
-      collaborationVariantId: matchedVariant?.id || null,
-      productId: sourceProduct?.id || collabProduct.productAId,
+      collaborationVariantId: collaborationVariantId,
+      productId: collabProduct.productAId,
       productAId: collabProduct.productAId,
       productBId: collabProduct.productBId,
-      variantId: matchedVariant?.id || null,
+      variantId: sourceProductVariantId,
       name: collabProduct.name,
       brand: "VÉRANE COLLABORATION",
       price: collabProduct.price,
@@ -241,8 +277,8 @@ export default function CollaborationPage() {
                     const isAdded = addedIds[collabProduct.id];
 
                     const sourceProduct = collabProduct.productA;
-                    const colors = getAvailableColors(sourceProduct);
-                    const sizes = getAvailableSizes(sourceProduct);
+                    const colors = getAvailableColors(collabProduct);
+                    const sizes = getAvailableSizes(collabProduct);
 
                     const activeColor = selectedColors[collabProduct.id] || colors[0]?.name || null;
                     const activeSize = selectedSizes[collabProduct.id] || sizes[0] || null;

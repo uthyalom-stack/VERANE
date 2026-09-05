@@ -100,7 +100,21 @@ export async function POST(request) {
 
     if (!productAId) {
       return NextResponse.json(
-        { success: false, error: "A source store product is required." },
+        { success: false, error: "Product A source store product is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!productBId) {
+      return NextResponse.json(
+        { success: false, error: "Product B source store product is required." },
+        { status: 400 }
+      );
+    }
+
+    if (productAId === productBId) {
+      return NextResponse.json(
+        { success: false, error: "Product A and Product B cannot be the same product." },
         { status: 400 }
       );
     }
@@ -148,25 +162,39 @@ export async function POST(request) {
       );
     }
 
-    const sourceProduct = await prisma.product.findUnique({ where: { id: productAId } });
-    if (!sourceProduct) {
+    const sourceProductA = await prisma.product.findUnique({ where: { id: productAId } });
+    if (!sourceProductA) {
       return NextResponse.json(
-        { success: false, error: "Selected source product could not be found." },
+        { success: false, error: "Selected Product A could not be found." },
         { status: 404 }
       );
     }
 
-    let partnerProduct = null;
-    if (productBId) {
-      partnerProduct = await prisma.product.findUnique({ where: { id: productBId } });
-    } else {
-      productBId = productAId;
-      partnerProduct = sourceProduct;
+    const sourceProductB = await prisma.product.findUnique({ where: { id: productBId } });
+    if (!sourceProductB) {
+      return NextResponse.json(
+        { success: false, error: "Selected Product B could not be found." },
+        { status: 404 }
+      );
+    }
+
+    // Verify product brands match collaboration brandA and brandB
+    const prodABrandNormalized = normalizeBrand(sourceProductA.brand);
+    const prodBBrandNormalized = normalizeBrand(sourceProductB.brand);
+
+    if (prodABrandNormalized !== collabBrandA || prodBBrandNormalized !== collabBrandB) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid brand pairing. Product A must belong to Collaboration Brand A and Product B must belong to Collaboration Brand B.",
+        },
+        { status: 400 }
+      );
     }
 
     // Photo handling:
     // If body.images or body.customImages is provided as a non-empty array/string, use custom photos.
-    // Otherwise, automatically fall back to all images from sourceProduct (and partnerProduct if distinct).
+    // Otherwise, automatically fall back to all images from sourceProductA and sourceProductB.
     let imagesList = [];
     const customImagesRaw = body?.customImages ?? body?.images;
 
@@ -186,27 +214,27 @@ export async function POST(request) {
     }
 
     if (imagesList.length === 0) {
-      // Fallback: inherit all images from sourceProduct
-      if (sourceProduct.images) {
+      // Fallback: inherit all images from sourceProductA
+      if (sourceProductA.images) {
         try {
-          const parsed = JSON.parse(sourceProduct.images);
+          const parsed = JSON.parse(sourceProductA.images);
           if (Array.isArray(parsed)) imagesList.push(...parsed);
           else if (typeof parsed === "string") imagesList.push(parsed);
         } catch {
-          if (typeof sourceProduct.images === "string") {
-            imagesList.push(...sourceProduct.images.split(",").map((x) => x.trim()).filter(Boolean));
+          if (typeof sourceProductA.images === "string") {
+            imagesList.push(...sourceProductA.images.split(",").map((x) => x.trim()).filter(Boolean));
           }
         }
       }
 
-      if (partnerProduct && partnerProduct.id !== sourceProduct.id && partnerProduct.images) {
+      if (sourceProductB && sourceProductB.id !== sourceProductA.id && sourceProductB.images) {
         try {
-          const parsed = JSON.parse(partnerProduct.images);
+          const parsed = JSON.parse(sourceProductB.images);
           if (Array.isArray(parsed)) imagesList.push(...parsed);
           else if (typeof parsed === "string") imagesList.push(parsed);
         } catch {
-          if (typeof partnerProduct.images === "string") {
-            imagesList.push(...partnerProduct.images.split(",").map((x) => x.trim()).filter(Boolean));
+          if (typeof sourceProductB.images === "string") {
+            imagesList.push(...sourceProductB.images.split(",").map((x) => x.trim()).filter(Boolean));
           }
         }
       }
@@ -218,7 +246,7 @@ export async function POST(request) {
         productAId,
         productBId,
         name,
-        description: description || sourceProduct.description || null,
+        description: description || sourceProductA.description || null,
         price,
         images: JSON.stringify(imagesList),
         status,

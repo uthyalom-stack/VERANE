@@ -19,12 +19,50 @@ export async function GET(request, { params }) {
 
     const { id } = await params;
 
-    const order = await prisma.order.findUnique({
-      where: { id },
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Order ID is required." },
+        { status: 400 }
+      );
+    }
+
+    // Define brand authorization filter for order items
+    const brandItemWhereClause = admin.isSuperAdmin
+      ? undefined
+      : {
+          OR: [
+            {
+              product: {
+                brand: admin.brand,
+              },
+            },
+            {
+              collaborationProduct: {
+                OR: [
+                  { productA: { brand: admin.brand } },
+                  { productB: { brand: admin.brand } },
+                ],
+              },
+            },
+          ],
+        };
+
+    const orderWhereClause = admin.isSuperAdmin
+      ? { id }
+      : {
+          id,
+          items: {
+            some: brandItemWhereClause,
+          },
+        };
+
+    const order = await prisma.order.findFirst({
+      where: orderWhereClause,
       include: {
         user: true,
         brandTrackings: true,
         items: {
+          where: brandItemWhereClause,
           include: {
             product: true,
             variant: {
@@ -53,19 +91,6 @@ export async function GET(request, { params }) {
 
     const { getOrderBrandTrackingInfo } = await import("@/lib/order-tracking");
     const brandTrackingsInfo = getOrderBrandTrackingInfo(order);
-
-    // Filter items by brand unless superadmin
-    if (!admin.isSuperAdmin) {
-      order.items = order.items.filter((item) => {
-        if (item.product?.brand === admin.brand) return true;
-        if (item.collaborationProduct) {
-          const brandA = item.collaborationProduct.productA?.brand;
-          const brandB = item.collaborationProduct.productB?.brand;
-          return brandA === admin.brand || brandB === admin.brand;
-        }
-        return false;
-      });
-    }
 
     return NextResponse.json({
       success: true,
@@ -101,8 +126,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Super Admin does not manage store orders.",
+          error: "Super Admin does not manage store orders.",
         },
         { status: 403 }
       );
@@ -131,19 +155,30 @@ export async function PUT(request, { params }) {
       );
     }
 
+    const brandItemWhereClause = {
+      OR: [
+        { product: { brand: admin.brand } },
+        {
+          collaborationProduct: {
+            OR: [
+              { productA: { brand: admin.brand } },
+              { productB: { brand: admin.brand } },
+            ],
+          },
+        },
+      ],
+    };
+
     const existingOrder = await prisma.order.findFirst({
       where: {
         id,
         items: {
-          some: {
-            product: {
-              brand: admin.brand,
-            },
-          },
+          some: brandItemWhereClause,
         },
       },
       include: {
         items: {
+          where: brandItemWhereClause,
           include: {
             product: true,
           },
@@ -171,6 +206,7 @@ export async function PUT(request, { params }) {
       include: {
         user: true,
         items: {
+          where: brandItemWhereClause,
           include: {
             product: true,
           },
@@ -213,8 +249,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Super Admin does not manage store orders.",
+          error: "Super Admin does not manage store orders.",
         },
         { status: 403 }
       );
@@ -232,15 +267,25 @@ export async function DELETE(request, { params }) {
       );
     }
 
+    const brandItemWhereClause = {
+      OR: [
+        { product: { brand: admin.brand } },
+        {
+          collaborationProduct: {
+            OR: [
+              { productA: { brand: admin.brand } },
+              { productB: { brand: admin.brand } },
+            ],
+          },
+        },
+      ],
+    };
+
     const existingOrder = await prisma.order.findFirst({
       where: {
         id,
         items: {
-          some: {
-            product: {
-              brand: admin.brand,
-            },
-          },
+          some: brandItemWhereClause,
         },
       },
       select: {

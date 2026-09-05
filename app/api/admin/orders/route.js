@@ -6,7 +6,8 @@ import { getAdminSession } from "@/lib/admin-auth";
  * Retrieves orders available to the authenticated administrator.
  *
  * Super administrators can access all orders; other administrators receive orders
- * associated with their brand, including applicable collaboration products.
+ * associated with their brand, including applicable collaboration products, with
+ * item lists scoped strictly to their brand.
  *
  * @return {Promise<NextResponse>} A response containing the orders, or an error response when authentication or retrieval fails.
  */
@@ -24,32 +25,32 @@ export async function GET() {
       );
     }
 
-    const whereClause = admin.isSuperAdmin
-      ? {}
+    const brandItemWhereClause = admin.isSuperAdmin
+      ? undefined
       : {
           OR: [
             {
-              items: {
-                some: {
-                  product: {
-                    brand: admin.brand,
-                  },
-                },
+              product: {
+                brand: admin.brand,
               },
             },
             {
-              items: {
-                some: {
-                  collaborationProduct: {
-                    OR: [
-                      { productA: { brand: admin.brand } },
-                      { productB: { brand: admin.brand } },
-                    ],
-                  },
-                },
+              collaborationProduct: {
+                OR: [
+                  { productA: { brand: admin.brand } },
+                  { productB: { brand: admin.brand } },
+                ],
               },
             },
           ],
+        };
+
+    const whereClause = admin.isSuperAdmin
+      ? {}
+      : {
+          items: {
+            some: brandItemWhereClause,
+          },
         };
 
     try {
@@ -59,6 +60,7 @@ export async function GET() {
           user: true,
           brandTrackings: true,
           items: {
+            where: brandItemWhereClause,
             include: {
               product: true,
               variant: true,
@@ -86,8 +88,14 @@ export async function GET() {
 
       return NextResponse.json(ordersWithTracking);
     } catch (dbError) {
-      console.warn("GET /api/admin/orders DB query warning:", dbError.message);
-      return NextResponse.json([]);
+      console.error("GET /api/admin/orders DB error:", dbError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to load orders from database.",
+        },
+        { status: 500 }
+      );
     }
   } catch (error) {
     console.error(
