@@ -145,15 +145,94 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
+                {/* BRAND TRACKING STATUSES */}
+                {Array.isArray(order.brandTrackingsInfo) &&
+                  order.brandTrackingsInfo.length > 0 && (
+                    <div className="mt-7 border-t border-white/10 pt-6 space-y-6">
+                      <p className="text-[10px] uppercase tracking-[0.25em] text-amber-400 font-bold">
+                        Delivery Tracking
+                      </p>
+
+                      <div className="space-y-4">
+                        {order.brandTrackingsInfo.map((bt) => {
+                          const steps = ["Processing", "In Transit", "Delivered"];
+                          const currentIdx = steps.indexOf(bt.status) !== -1 ? steps.indexOf(bt.status) : 0;
+
+                          return (
+                            <div
+                              key={bt.brand}
+                              className="rounded-2xl border border-white/10 bg-black/40 p-5"
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                                <span className="text-xs font-bold uppercase tracking-[0.2em] text-white">
+                                  {bt.displayName}
+                                </span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-400 self-start sm:self-auto">
+                                  {bt.status}
+                                </span>
+                              </div>
+
+                              {/* TRACKING STEPPER */}
+                              <div className="flex items-center justify-between relative mt-2 pt-2 px-2">
+                                {/* Connecting line */}
+                                <div className="absolute top-1/2 left-6 right-6 h-[2px] bg-white/10 -translate-y-1/2 z-0" />
+
+                                {steps.map((step, idx) => {
+                                  const isCompleted = idx <= currentIdx;
+                                  const isCurrent = idx === currentIdx;
+
+                                  return (
+                                    <div
+                                      key={step}
+                                      className="relative z-10 flex flex-col items-center"
+                                    >
+                                      <div
+                                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
+                                          isCurrent
+                                            ? "bg-amber-400 text-black shadow-[0_0_12px_rgba(251,191,36,0.5)] scale-110"
+                                            : isCompleted
+                                            ? "bg-white text-black"
+                                            : "bg-neutral-900 border border-white/20 text-neutral-600"
+                                        }`}
+                                      >
+                                        {isCompleted ? "✓" : "○"}
+                                      </div>
+                                      <span
+                                        className={`text-[9px] uppercase tracking-wider font-semibold mt-2 ${
+                                          isCurrent
+                                            ? "text-amber-400"
+                                            : isCompleted
+                                            ? "text-white"
+                                            : "text-neutral-600"
+                                        }`}
+                                      >
+                                        {step}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                 {order.items?.length > 0 && (
                   <div className="mt-7 border-t border-white/5 pt-6 space-y-3">
+                    <p className="text-[10px] uppercase tracking-[0.25em] text-neutral-500 font-bold mb-2">
+                      Order Items
+                    </p>
                     {order.items.map((item) => (
                       <div
                         key={item.id}
                         className="flex items-center justify-between gap-4 text-sm"
                       >
                         <span className="text-neutral-300">
-                          {item.product?.name || "Product"}
+                          {item.collaborationProduct?.name ||
+                            item.product?.name ||
+                            "Product"}
                           <span className="text-neutral-600 ml-2">
                             × {item.quantity}
                           </span>

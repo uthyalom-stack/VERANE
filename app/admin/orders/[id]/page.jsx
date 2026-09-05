@@ -12,24 +12,35 @@ export default function AdminOrderDetailsPage({ params }) {
   const id = resolvedParams.id;
 
   const [order, setOrder] = useState(null);
+  const [adminSession, setAdminSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setSaving] = useState(false);
+  const [trackingUpdating, setTrackingUpdating] = useState(false);
   const [status, setStatus] = useState("pending");
 
   useEffect(() => {
-    fetchOrder();
+    fetchSessionAndOrder();
   }, [id]);
 
-  async function fetchOrder() {
+  async function fetchSessionAndOrder() {
     try {
-      const res = await fetch(`/api/admin/orders/${id}`);
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setOrder(data.order);
-        setStatus(data.order.status || "pending");
+      const [sessionRes, orderRes] = await Promise.all([
+        fetch("/api/admin/session", { cache: "no-store" }),
+        fetch(`/api/admin/orders/${id}`, { cache: "no-store" }),
+      ]);
+
+      const sessionData = await sessionRes.json();
+      if (sessionRes.ok && sessionData.authenticated) {
+        setAdminSession(sessionData.admin);
+      }
+
+      const orderData = await orderRes.json();
+      if (orderRes.ok && orderData.success) {
+        setOrder(orderData.order);
+        setStatus(orderData.order.status || "pending");
       }
     } catch (err) {
-      console.error("Order detail error:", err);
+      console.error("Order detail load error:", err);
     } finally {
       setLoading(false);
     }
@@ -45,12 +56,30 @@ export default function AdminOrderDetailsPage({ params }) {
       });
       if (res.ok) {
         setStatus(newStatus);
-        fetchOrder();
+        fetchSessionAndOrder();
       }
     } catch (err) {
       console.error("Update status error:", err);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleTrackingUpdate(newTrackingStatus) {
+    setTrackingUpdating(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${id}/tracking`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newTrackingStatus }),
+      });
+      if (res.ok) {
+        fetchSessionAndOrder();
+      }
+    } catch (err) {
+      console.error("Update tracking error:", err);
+    } finally {
+      setTrackingUpdating(false);
     }
   }
 
@@ -274,6 +303,74 @@ export default function AdminOrderDetailsPage({ params }) {
                 {order.address || "No street address entered"}
               </p>
             </div>
+
+            {/* BRAND DELIVERY TRACKING CONTROLS (EXCLUSIVELY FOR BRAND ADMINS) */}
+            {adminSession && !adminSession.isSuperAdmin && (
+              <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">
+                  Brand Delivery Tracking
+                </h2>
+                <p className="text-[10px] text-neutral-400 mb-4">
+                  Manage independent delivery status for your brand portion:
+                </p>
+
+                {Array.isArray(order.brandTrackingsInfo) && order.brandTrackingsInfo.length > 0 ? (
+                  <div className="space-y-4">
+                    {order.brandTrackingsInfo.map((bt) => {
+                      const adminBrandKey =
+                        adminSession.role === "UTHY"
+                          ? "UTHY_LUXURY"
+                          : adminSession.role === "ALOMZIEE"
+                          ? "ALOMZIEE_FOOTIES"
+                          : adminSession.brand;
+
+                      const isMyBrand = bt.brand === adminBrandKey;
+
+                      return (
+                        <div
+                          key={bt.brand}
+                          className={`p-4 rounded-xl border ${
+                            isMyBrand
+                              ? "border-amber-400/40 bg-amber-400/5"
+                              : "border-white/10 bg-white/[0.02]"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-wider text-white">
+                                {bt.displayName}
+                              </p>
+                              <p className="text-[10px] text-neutral-400 mt-0.5">
+                                Current Status: <span className="text-amber-400 font-bold">{bt.status}</span>
+                              </p>
+                            </div>
+
+                            {isMyBrand ? (
+                              <select
+                                value={bt.status}
+                                onChange={(e) => handleTrackingUpdate(e.target.value)}
+                                disabled={trackingUpdating}
+                                className="rounded-xl border border-amber-400/40 bg-black px-3 py-1.5 text-xs font-bold text-amber-400 outline-none focus:border-amber-400 disabled:opacity-50 cursor-pointer"
+                              >
+                                <option value="Processing">Processing</option>
+                                <option value="In Transit">In Transit</option>
+                                <option value="Delivered">Delivered</option>
+                              </select>
+                            ) : (
+                              <span className="text-[10px] uppercase font-bold text-neutral-500 bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg">
+                                Read Only
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-neutral-500">No brand tracking entries available.</p>
+                )}
+              </div>
+            )}
 
             {/* PAYMENT SUMMARY */}
             <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6">

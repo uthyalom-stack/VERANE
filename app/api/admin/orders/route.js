@@ -57,11 +57,17 @@ export async function GET() {
         where: whereClause,
         include: {
           user: true,
+          brandTrackings: true,
           items: {
             include: {
               product: true,
               variant: true,
-              collaborationProduct: true,
+              collaborationProduct: {
+                include: {
+                  productA: true,
+                  productB: true,
+                },
+              },
               collaborationVariant: true,
             },
           },
@@ -71,7 +77,14 @@ export async function GET() {
         },
       });
 
-      return NextResponse.json(orders);
+      const { getOrderBrandTrackingInfo } = await import("@/lib/order-tracking");
+
+      const ordersWithTracking = orders.map((order) => ({
+        ...order,
+        brandTrackingsInfo: getOrderBrandTrackingInfo(order),
+      }));
+
+      return NextResponse.json(ordersWithTracking);
     } catch (dbError) {
       console.warn("GET /api/admin/orders DB query warning:", dbError.message);
       return NextResponse.json([]);
