@@ -39,7 +39,7 @@ function makeRequest(url, options = {}) {
 }
 
 export async function runOrdersApiServerAuthoritativeTests() {
-  console.log("=== RUNNING VÉRANE /api/orders SERVER-AUTHORITATIVE FINANCIAL TESTS ===\n");
+  console.log("=== RUNNING VÉRANE /api/orders SERVER-AUTHORITATIVE & VARIANT OWNERSHIP TESTS ===\n");
   let passed = 0;
   let failed = 0;
 
@@ -64,7 +64,7 @@ export async function runOrdersApiServerAuthoritativeTests() {
   };
   db.users.push(userA);
 
-  // Seed DB Products & Delivery State
+  // Seed DB Products & Variants for Ownership Tests
   const prod1 = {
     id: "prod_luxury_shoe",
     name: "VÉRANE Luxury Heels",
@@ -78,23 +78,50 @@ export async function runOrdersApiServerAuthoritativeTests() {
     stock: 10,
   };
 
-  const collabProd = {
+  const prod2 = {
+    id: "prod_luxury_jacket",
+    name: "VÉRANE Leather Jacket",
+    price: 300000,
+    inventory: 10,
+    preOrderEnabled: false,
+  };
+  const variant2 = {
+    id: "var_jacket_black_m",
+    productId: "prod_luxury_jacket",
+    stock: 5,
+  };
+
+  // Seed DB Collaboration Products & Variants for Ownership Tests
+  const collabProd1 = {
     id: "collab_bag_gold",
     name: "VÉRANE x Brand Bag",
     price: 250000, // ₦250,000 DB Price
     status: "published",
     productAId: "prod_luxury_shoe",
   };
-  const collabVariant = {
+  const collabVariant1 = {
     id: "collab_var_bag_gold_std",
     collaborationProductId: "collab_bag_gold",
     stock: 5,
   };
 
-  db.products.push(prod1);
-  db.productVariants.push(variant1);
-  db.collaborationProducts.push(collabProd);
-  db.collaborationVariants.push(collabVariant);
+  const collabProd2 = {
+    id: "collab_scarf_silk",
+    name: "VÉRANE x Silk Scarf",
+    price: 80000,
+    status: "published",
+    productAId: "prod_luxury_shoe",
+  };
+  const collabVariant2 = {
+    id: "collab_var_scarf_red",
+    collaborationProductId: "collab_scarf_silk",
+    stock: 8,
+  };
+
+  db.products.push(prod1, prod2);
+  db.productVariants.push(variant1, variant2);
+  db.collaborationProducts.push(collabProd1, collabProd2);
+  db.collaborationVariants.push(collabVariant1, collabVariant2);
 
   db.deliveryStates.push({
     id: "ds_lagos",
@@ -156,7 +183,7 @@ export async function runOrdersApiServerAuthoritativeTests() {
     assert(data1.order.shippingFee === 5000, "3. Client-supplied shippingFee: 0 is IGNORED, stored Order.shippingFee equals server delivery rate 5000");
 
     // ----------------------------------------------------
-    // TEST 4: Valid product/variant combination produces exact server price (incl. collaboration items)
+    // TEST 4: Valid product/variant & collaboration pricing
     // ----------------------------------------------------
     console.log("\n--- TEST 4: Valid product/variant & collaboration pricing ---");
     const validCollabBody = {
@@ -187,89 +214,193 @@ export async function runOrdersApiServerAuthoritativeTests() {
     assert(data4.order.total === 255000, "4. Collaboration order total calculated correctly (250000 + 5000 = 255000)");
 
     // ----------------------------------------------------
-    // TEST 5: Invalid product / variant combinations rejected with 400 Bad Request
+    // TEST 5: PRODUCT VARIANT OWNERSHIP & VALIDATION
     // ----------------------------------------------------
-    console.log("\n--- TEST 5: Invalid product/variant rejection ---");
+    console.log("\n--- TEST 5: Product Variant Ownership Validation ---");
 
-    // Case 5a: Non-existent product ID
-    const badProdBody = {
-      items: [{ id: "non_existent_product_xyz", qty: 1 }],
+    // Case 5a: Nonexistent variantId -> 400 Bad Request
+    const nonExistentVarBody = {
+      items: [{ id: "prod_luxury_shoe", variantId: "nonexistent_var_id_123", qty: 1 }],
       state: "Lagos",
     };
     const res5a = await postOrder(
       makeRequest("http://localhost/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(badProdBody),
+        body: JSON.stringify(nonExistentVarBody),
       })
     );
     const data5a = await res5a.json();
-    assert(res5a.status === 400 && data5a.error.includes("Product not found"), "5a. Order with non-existent product ID rejected with HTTP 400");
+    assert(res5a.status === 400 && data5a.error.includes("variant not found"), "5a. Nonexistent variantId rejected with HTTP 400");
 
-    // Case 5b: Non-existent product variant ID
-    const badVarBody = {
-      items: [{ id: "prod_luxury_shoe", variantId: "non_existent_variant_xyz", qty: 1 }],
+    // Case 5b: Variant belonging to ANOTHER product -> 400 Bad Request
+    // Submitting productId: prod_luxury_shoe with variantId: var_jacket_black_m (which belongs to prod_luxury_jacket)
+    const mismatchedVarBody = {
+      items: [{ id: "prod_luxury_shoe", variantId: "var_jacket_black_m", qty: 1 }],
       state: "Lagos",
     };
     const res5b = await postOrder(
       makeRequest("http://localhost/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(badVarBody),
+        body: JSON.stringify(mismatchedVarBody),
       })
     );
     const data5b = await res5b.json();
-    assert(res5b.status === 400 && data5b.error.includes("variant not found"), "5b. Order with non-existent variant ID rejected with HTTP 400");
+    assert(res5b.status === 400 && data5b.error.includes("does not belong to the requested product"), "5b. Variant belonging to another product rejected with HTTP 400");
+
+    // Case 5c: Valid product + matching variant -> succeeds
+    const validMatchingVarBody = {
+      items: [{ id: "prod_luxury_shoe", variantId: "var_shoe_red_38", qty: 1 }],
+      state: "Lagos",
+    };
+    const res5c = await postOrder(
+      makeRequest("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(validMatchingVarBody),
+      })
+    );
+    const data5c = await res5c.json();
+    assert(res5c.status === 200 && data5c.success === true, "5c. Valid product with matching variant succeeds (HTTP 200)");
 
     // ----------------------------------------------------
-    // TEST 6: Invalid quantities rejected with 400 Bad Request
+    // TEST 6: COLLABORATION VARIANT OWNERSHIP & VALIDATION
     // ----------------------------------------------------
-    console.log("\n--- TEST 6: Invalid item quantity rejection ---");
+    console.log("\n--- TEST 6: Collaboration Variant Ownership Validation ---");
 
-    // Case 6a: Zero quantity
-    const zeroQtyBody = {
-      items: [{ id: "prod_luxury_shoe", qty: 0 }],
+    // Case 6a: Nonexistent collaborationVariantId -> 400 Bad Request
+    const nonExistentCollabVarBody = {
+      items: [{ collaborationProductId: "collab_bag_gold", collaborationVariantId: "nonexistent_collab_var_123", isCollaboration: true, qty: 1 }],
       state: "Lagos",
     };
     const res6a = await postOrder(
       makeRequest("http://localhost/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(zeroQtyBody),
+        body: JSON.stringify(nonExistentCollabVarBody),
       })
     );
     const data6a = await res6a.json();
-    assert(res6a.status === 400 && data6a.error.includes("Invalid quantity"), "6a. Order with zero quantity rejected with HTTP 400");
+    assert(res6a.status === 400 && data6a.error.includes("collaboration variant not found"), "6a. Nonexistent collaborationVariantId rejected with HTTP 400");
 
-    // Case 6b: Negative quantity
-    const negQtyBody = {
-      items: [{ id: "prod_luxury_shoe", qty: -5 }],
+    // Case 6b: Collaboration variant belonging to ANOTHER collaboration product -> 400 Bad Request
+    // Submitting collaborationProductId: collab_bag_gold with collaborationVariantId: collab_var_scarf_red (belongs to collab_scarf_silk)
+    const mismatchedCollabVarBody = {
+      items: [{ collaborationProductId: "collab_bag_gold", collaborationVariantId: "collab_var_scarf_red", isCollaboration: true, qty: 1 }],
       state: "Lagos",
     };
     const res6b = await postOrder(
       makeRequest("http://localhost/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(negQtyBody),
+        body: JSON.stringify(mismatchedCollabVarBody),
       })
     );
     const data6b = await res6b.json();
-    assert(res6b.status === 400 && data6b.error.includes("Invalid quantity"), "6b. Order with negative quantity rejected with HTTP 400");
+    assert(res6b.status === 400 && data6b.error.includes("does not belong to the requested collaboration product"), "6b. Mismatched collaboration variant rejected with HTTP 400");
 
-    // Case 6c: Quantity exceeding variant stock (stock = 10, requesting 99)
-    const excessQtyBody = {
-      items: [{ id: "prod_luxury_shoe", variantId: "var_shoe_red_38", qty: 99 }],
+    // Case 6c: Valid collaboration product + matching collaboration variant -> succeeds
+    const validCollabMatchingBody = {
+      items: [{ collaborationProductId: "collab_bag_gold", collaborationVariantId: "collab_var_bag_gold_std", isCollaboration: true, qty: 1 }],
       state: "Lagos",
     };
     const res6c = await postOrder(
       makeRequest("http://localhost/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(excessQtyBody),
+        body: JSON.stringify(validCollabMatchingBody),
       })
     );
     const data6c = await res6c.json();
-    assert(res6c.status === 400 && data6c.error.includes("Insufficient stock"), "6c. Order exceeding available stock rejected with HTTP 400");
+    assert(res6c.status === 200 && data6c.success === true, "6c. Valid collaboration product with matching collaboration variant succeeds (HTTP 200)");
+
+    // ----------------------------------------------------
+    // TEST 7: INVALID ITEM QUANTITY REJECTION
+    // ----------------------------------------------------
+    console.log("\n--- TEST 7: Invalid item quantity rejection ---");
+
+    // Case 7a: Zero quantity -> 400
+    const zeroQtyBody = {
+      items: [{ id: "prod_luxury_shoe", qty: 0 }],
+      state: "Lagos",
+    };
+    const res7a = await postOrder(
+      makeRequest("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(zeroQtyBody),
+      })
+    );
+    const data7a = await res7a.json();
+    assert(res7a.status === 400 && data7a.error.includes("Invalid quantity"), "7a. Order with zero quantity rejected with HTTP 400");
+
+    // Case 7b: Negative quantity -> 400
+    const negQtyBody = {
+      items: [{ id: "prod_luxury_shoe", qty: -5 }],
+      state: "Lagos",
+    };
+    const res7b = await postOrder(
+      makeRequest("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(negQtyBody),
+      })
+    );
+    const data7b = await res7b.json();
+    assert(res7b.status === 400 && data7b.error.includes("Invalid quantity"), "7b. Order with negative quantity rejected with HTTP 400");
+
+    // Case 7c: Quantity exceeding stock -> 400
+    const excessQtyBody = {
+      items: [{ id: "prod_luxury_shoe", variantId: "var_shoe_red_38", qty: 99 }],
+      state: "Lagos",
+    };
+    const res7c = await postOrder(
+      makeRequest("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(excessQtyBody),
+      })
+    );
+    const data7c = await res7c.json();
+    assert(res7c.status === 400 && data7c.error.includes("Insufficient stock"), "7c. Order exceeding available stock rejected with HTTP 400");
+
+    // ----------------------------------------------------
+    // TEST 8: ERROR CLASSIFICATION (400 VALIDATION VS 500 DATABASE FAILURE)
+    // ----------------------------------------------------
+    console.log("\n--- TEST 8: Error Classification (HTTP 400 vs HTTP 500) ---");
+
+    // Case 8a: Validation error produces HTTP 400 Bad Request with descriptive message
+    const validationErrBody = {
+      items: [{ id: "nonexistent_prod_abc", qty: 1 }],
+      state: "Lagos",
+    };
+    const res8a = await postOrder(
+      makeRequest("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(validationErrBody),
+      })
+    );
+    const data8a = await res8a.json();
+    assert(res8a.status === 400 && data8a.error === "Product not found.", "8a. Validation error returns HTTP 400 Bad Request with validation message");
+
+    // Case 8b: Simulated database/infrastructure failure produces HTTP 500 Internal Server Error without leaking internal DB details
+    db.shouldThrow = true;
+    const dbErrBody = {
+      items: [{ id: "prod_luxury_shoe", qty: 1 }],
+      state: "Lagos",
+    };
+    const res8b = await postOrder(
+      makeRequest("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dbErrBody),
+      })
+    );
+    const data8b = await res8b.json();
+    assert(res8b.status === 500 && data8b.error === "Failed to create order", "8b. Simulated database/infrastructure error returns HTTP 500 with safe generic error message");
+    db.shouldThrow = false;
 
   } catch (error) {
     console.error("Test execution exception:", error);

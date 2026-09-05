@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { verifyCustomerSession, getCustomerCookieName } from "@/lib/auth/customer";
-import { calculateOrderTotalsServer } from "@/lib/paystack";
+import { calculateOrderTotalsServer, OrderValidationError } from "@/lib/paystack";
 
 /**
  * Retrieves the authenticated customer from the session cookie.
@@ -148,15 +148,14 @@ export async function POST(request) {
         zone,
       });
     } catch (calcError) {
-      return NextResponse.json(
-        {
-          error:
-            calcError instanceof Error
-              ? calcError.message
-              : "Invalid order details or calculation failure.",
-        },
-        { status: 400 }
-      );
+      if (calcError instanceof OrderValidationError) {
+        return NextResponse.json(
+          { error: calcError.message },
+          { status: 400 }
+        );
+      }
+      // Rethrow infrastructure/database errors to be caught as HTTP 500
+      throw calcError;
     }
 
     const { shippingFee: trustedShippingFee, total: trustedGrandTotal, items: validatedItems } = calculation;
@@ -232,10 +231,7 @@ export async function POST(request) {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to create order",
+        error: "Failed to create order",
       },
       { status: 500 }
     );
