@@ -316,9 +316,9 @@ export async function runOrdersApiServerAuthoritativeTests() {
     assert(res6c.status === 200 && data6c.success === true, "6c. Valid collaboration product with matching collaboration variant succeeds (HTTP 200)");
 
     // ----------------------------------------------------
-    // TEST 7: INVALID ITEM QUANTITY REJECTION
+    // TEST 7: INVALID ITEM QUANTITY & MALFORMED ITEM REJECTION
     // ----------------------------------------------------
-    console.log("\n--- TEST 7: Invalid item quantity rejection ---");
+    console.log("\n--- TEST 7: Invalid item quantity & malformed item rejection ---");
 
     // Case 7a: Zero quantity -> 400
     const zeroQtyBody = {
@@ -364,6 +364,36 @@ export async function runOrdersApiServerAuthoritativeTests() {
     );
     const data7c = await res7c.json();
     assert(res7c.status === 400 && data7c.error.includes("Insufficient stock"), "7c. Order exceeding available stock rejected with HTTP 400");
+
+    // Case 7d: Malformed cart item: items: [null] -> 400 Bad Request
+    const nullItemBody = {
+      items: [null],
+      state: "Lagos",
+    };
+    const res7d = await postOrder(
+      makeRequest("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nullItemBody),
+      })
+    );
+    const data7d = await res7d.json();
+    assert(res7d.status === 400 && data7d.error.includes("Invalid cart item"), "7d. Order with null cart item rejected with HTTP 400 Bad Request");
+
+    // Case 7e: Malformed cart item: items: ["invalid"] -> 400 Bad Request
+    const stringItemBody = {
+      items: ["invalid"],
+      state: "Lagos",
+    };
+    const res7e = await postOrder(
+      makeRequest("http://localhost/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(stringItemBody),
+      })
+    );
+    const data7e = await res7e.json();
+    assert(res7e.status === 400 && data7e.error.includes("Invalid cart item"), "7e. Order with non-object cart item rejected with HTTP 400 Bad Request");
 
     // ----------------------------------------------------
     // TEST 8: ERROR CLASSIFICATION (400 VALIDATION VS 500 DATABASE FAILURE)
