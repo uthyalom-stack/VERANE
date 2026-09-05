@@ -43,7 +43,7 @@ export async function POST(request) {
 
     // Authenticated checkout attaches the authenticated customer's userId.
     // Guest checkout ALWAYS produces userId = null, even if the submitted email matches an existing User.
-    const userId = session.authenticated && session.user?.id ? session.user.id : null;
+    const userId = session.user?.id || null;
 
     const body = await request.json();
 
