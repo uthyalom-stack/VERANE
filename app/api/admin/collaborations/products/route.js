@@ -112,6 +112,13 @@ export async function POST(request) {
       );
     }
 
+    if (productAId === productBId) {
+      return NextResponse.json(
+        { success: false, error: "Product A and Product B cannot be the same product." },
+        { status: 400 }
+      );
+    }
+
     if (!name) {
       return NextResponse.json(
         { success: false, error: "Collaboration product name is required." },

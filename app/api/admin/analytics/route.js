@@ -312,34 +312,52 @@ export async function GET(request) {
 
     const totalProducts = products.length;
 
+    // Helper to calculate inventory source of truth:
+    // If variants exist, inventory is sum of variant stock
+    const getProductEffectiveInventory = (p) => {
+      if (Array.isArray(p.variants) && p.variants.length > 0) {
+        return p.variants.reduce((sum, v) => sum + Math.max(0, money(v.stock)), 0);
+      }
+      return money(p.inventory);
+    };
+
+    const getProductInitialInventory = (p) => {
+      if (Array.isArray(p.variants) && p.variants.length > 0) {
+        const variantInitialSum = p.variants.reduce((sum, v) => sum + Math.max(0, money(v.initialStock ?? v.stock)), 0);
+        if (variantInitialSum > 0) return variantInitialSum;
+      }
+      const inv = getProductEffectiveInventory(p);
+      return money(p.initialInventory) || inv;
+    };
+
     const getPct = (p) => {
-      const inv = money(p.inventory);
-      const initInv = money(p.initialInventory) || inv;
+      const inv = getProductEffectiveInventory(p);
+      const initInv = getProductInitialInventory(p) || inv;
       return initInv > 0 ? (inv / initInv) * 100 : (inv > 0 ? 100 : 0);
     };
 
-    const outOfStockProducts = products.filter((p) => money(p.inventory) <= 0);
+    const outOfStockProducts = products.filter((p) => getProductEffectiveInventory(p) <= 0);
     const fewLeftProducts = products.filter((p) => {
-      const inv = money(p.inventory);
+      const inv = getProductEffectiveInventory(p);
       const pct = getPct(p);
       return inv > 0 && pct <= 25;
     });
     const almostSoldOutProducts = products.filter((p) => {
-      const inv = money(p.inventory);
+      const inv = getProductEffectiveInventory(p);
       const pct = getPct(p);
       return inv > 0 && pct > 25 && pct <= 50;
     });
     const availableProducts = products.filter((p) => {
-      const inv = money(p.inventory);
+      const inv = getProductEffectiveInventory(p);
       const pct = getPct(p);
       return inv > 0 && pct > 50;
     });
 
-    const activeProducts = products.filter((p) => money(p.inventory) > 0).length;
+    const activeProducts = products.filter((p) => getProductEffectiveInventory(p) > 0).length;
     const outOfStock = outOfStockProducts.length;
 
     const lowStockProducts = products.filter((product) => {
-      const inventory = money(product.inventory);
+      const inventory = getProductEffectiveInventory(product);
       return inventory > 0 && inventory <= 10;
     });
 
@@ -347,7 +365,7 @@ export async function GET(request) {
       products.reduce(
         (total, product) =>
           total +
-          money(product.inventory),
+          getProductEffectiveInventory(product),
         0
       );
 
@@ -355,7 +373,7 @@ export async function GET(request) {
       products.reduce(
         (total, product) => {
           const inventory =
-            money(product.inventory);
+            getProductEffectiveInventory(product);
 
           const price =
             getProductPrice(product);
@@ -381,6 +399,7 @@ export async function GET(request) {
       new Map();
 
     for (const product of products) {
+      const effectiveInv = getProductEffectiveInventory(product);
       productStats.set(product.id, {
         id: product.id,
 
@@ -398,7 +417,7 @@ export async function GET(request) {
           getProductPrice(product),
 
         inventory:
-          money(product.inventory),
+          effectiveInv,
 
         category:
           product.categoryRef?.name ||
@@ -416,9 +435,9 @@ export async function GET(request) {
         orders: 0,
 
         status:
-          money(product.inventory) <= 0
+          effectiveInv <= 0
             ? "out_of_stock"
-            : money(product.inventory) <= 5
+            : effectiveInv <= 5
               ? "low_stock"
               : "in_stock",
 
@@ -596,12 +615,13 @@ export async function GET(request) {
       }
     }
 
-    // Isolate new users in range strictly to those associated with this brand via order activity
+    // Isolate new users in range strictly to those whose signup AND brand order both fall inside the reporting period
     const newUsersInRange = await prisma.user.findMany({
       where: {
         createdAt: { gte: start, lte: end },
         orders: {
           some: {
+            createdAt: { gte: start, lte: end },
             items: {
               some: brandItemWhereClause,
             },
@@ -710,7 +730,7 @@ export async function GET(request) {
     const restockPriorityList = products.map((prod) => {
       const pId = prod.id;
       const pName = prod.name;
-      const inv = money(prod.inventory);
+      const inv = getProductEffectiveInventory(prod);
       const stats = productStats.get(pId) || { unitsSold: 0, revenue: 0 };
       const demand = waitingListByProductMap.get(pId)?.count || 0;
 
@@ -731,12 +751,15 @@ export async function GET(request) {
     }).sort((a, b) => b.priorityScore - a.priorityScore);
 
     const topInventoryHoldings = products
-      .map((prod) => ({
-        id: prod.id,
-        name: prod.name,
-        inventory: money(prod.inventory),
-        valuation: money(prod.inventory) * getProductPrice(prod),
-      }))
+      .map((prod) => {
+        const inv = getProductEffectiveInventory(prod);
+        return {
+          id: prod.id,
+          name: prod.name,
+          inventory: inv,
+          valuation: inv * getProductPrice(prod),
+        };
+      })
       .sort((a, b) => b.inventory - a.inventory)
       .slice(0, 10);
 
@@ -747,7 +770,7 @@ export async function GET(request) {
           id: prod.id,
           name: prod.name,
           unitsSold: stats.unitsSold,
-          currentStock: money(prod.inventory),
+          currentStock: getProductEffectiveInventory(prod),
         };
       })
       .filter((p) => p.unitsSold > 0 || p.currentStock > 0)
@@ -1183,7 +1206,15 @@ export async function GET(request) {
             include: {
               visits: { where: { createdAt: { gte: start, lte: end } } },
               orders: {
-                where: { createdAt: { gte: start, lte: end } },
+                where: {
+                  createdAt: { gte: start, lte: end },
+                  order: {
+                    createdAt: { gte: start, lte: end },
+                    items: {
+                      some: brandItemWhereClause,
+                    },
+                  },
+                },
                 include: {
                   order: {
                     include: {
@@ -1252,9 +1283,7 @@ export async function GET(request) {
                   product.name,
 
                 inventory:
-                  money(
-                    product.inventory
-                  ),
+                  getProductEffectiveInventory(product),
 
                 price:
                   getProductPrice(
@@ -1277,9 +1306,7 @@ export async function GET(request) {
                   product.name,
 
                 inventory:
-                  money(
-                    product.inventory
-                  ),
+                  getProductEffectiveInventory(product),
 
                 price:
                   getProductPrice(
