@@ -2,6 +2,9 @@ import assert from "node:assert";
 import prisma from "./mock_prisma.js";
 import { generateOrderReceiptPDF } from "../lib/receipt-pdf.js";
 
+/**
+ * Runs integration tests for receipt PDF generation across supported brands and logo fallback scenarios.
+ */
 async function runReceiptPDFLogoTests() {
   console.log("=== RUNNING VÉRANE RECEIPT PDF LOGO INTEGRATION SUITE ===\n");
 

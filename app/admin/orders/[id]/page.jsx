@@ -22,6 +22,9 @@ export default function AdminOrderDetailsPage({ params }) {
     fetchSessionAndOrder();
   }, [id]);
 
+  /**
+   * Loads the administrator session and order details, updating the page state when the requests succeed.
+   */
   async function fetchSessionAndOrder() {
     try {
       const [sessionRes, orderRes] = await Promise.all([
@@ -46,6 +49,10 @@ export default function AdminOrderDetailsPage({ params }) {
     }
   }
 
+  /**
+   * Updates the order's overall status and refreshes the order data when successful.
+   * @param {string} newStatus - The status to assign to the order.
+   */
   async function handleStatusUpdate(newStatus) {
     setSaving(true);
     try {
@@ -65,6 +72,10 @@ export default function AdminOrderDetailsPage({ params }) {
     }
   }
 
+  /**
+   * Updates the current order's delivery tracking status.
+   * @param {string} newTrackingStatus - The new delivery tracking status.
+   */
   async function handleTrackingUpdate(newTrackingStatus) {
     setTrackingUpdating(true);
     try {
@@ -83,6 +94,11 @@ export default function AdminOrderDetailsPage({ params }) {
     }
   }
 
+  /**
+   * Formats an amount as Nigerian naira using the en-NG locale.
+   * @param {number|string} amount - The amount to format.
+   * @return {string} The formatted naira amount.
+   */
   function formatMoney(amount) {
     return "₦" + Number(amount || 0).toLocaleString("en-NG");
   }

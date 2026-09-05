@@ -7,6 +7,9 @@ import { createCustomerSession, getCustomerCookieName } from "../lib/auth/custom
 process.env.CUSTOMER_AUTH_SECRET = "test-customer-auth-secret-key-32chars!!";
 process.env.PAYSTACK_SECRET_KEY = "sk_test_fake_paystack_secret_key";
 
+/**
+ * Runs integration tests for Paystack checkout ownership and contact email handling.
+ */
 async function runTests() {
   console.log("=== RUNNING PAYSTACK INITIALIZE GUEST CHECKOUT OWNERSHIP SUITE ===");
 

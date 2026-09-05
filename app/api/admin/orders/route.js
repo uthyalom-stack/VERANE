@@ -8,7 +8,7 @@ import { getAdminSession } from "@/lib/admin-auth";
  * Super administrators can access all orders; other administrators receive orders
  * associated with their brand, including applicable collaboration products.
  *
- * @return {Promise<NextResponse>} A response containing the orders, or an error response when authentication or retrieval fails.
+ * @return {Promise<NextResponse>} A response containing the orders, a 401 status for unauthenticated requests, an empty array for database query failures, or a 500 status for other failures.
  */
 export async function GET() {
   try {
