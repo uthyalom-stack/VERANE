@@ -127,10 +127,29 @@ export async function POST(request) {
         );
       }
       if (type === "image/avif") {
-        return (
-          buf.length >= 12 &&
-          buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70
-        );
+        // Must contain ISO Base Media File Format ftyp box at offset 4
+        if (buf.length < 12 || buf[4] !== 0x66 || buf[5] !== 0x74 || buf[6] !== 0x79 || buf[7] !== 0x70) {
+          return false;
+        }
+
+        // Parse major_brand (4 bytes starting at offset 8)
+        const majorBrand = buf.toString("ascii", 8, 12);
+        if (majorBrand === "avif" || majorBrand === "avis") {
+          return true;
+        }
+
+        // Parse compatible_brands list starting at offset 16 up to box length
+        const boxLength = buf.readUInt32BE(0);
+        const limit = Math.min(buf.length, boxLength > 0 ? boxLength : buf.length);
+
+        for (let offset = 16; offset + 4 <= limit; offset += 4) {
+          const compBrand = buf.toString("ascii", offset, offset + 4);
+          if (compBrand === "avif" || compBrand === "avis") {
+            return true;
+          }
+        }
+
+        return false;
       }
       return false;
     }

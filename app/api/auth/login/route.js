@@ -33,7 +33,7 @@ export async function POST(request) {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
     const rateKey = `customer_login:${email}:${ip}`;
 
-    const limit = checkRateLimit(rateKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
+    const limit = await checkRateLimit(rateKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
     if (!limit.allowed) {
       const minutes = Math.ceil(limit.resetMs / 60000);
       return NextResponse.json(
@@ -53,7 +53,7 @@ export async function POST(request) {
       });
 
     if (!user) {
-      recordFailedAttempt(rateKey);
+      await recordFailedAttempt(rateKey);
       return NextResponse.json(
         {
           success: false,
@@ -71,7 +71,7 @@ export async function POST(request) {
       );
 
     if (!validPassword) {
-      recordFailedAttempt(rateKey);
+      await recordFailedAttempt(rateKey);
       return NextResponse.json(
         {
           success: false,
@@ -82,7 +82,7 @@ export async function POST(request) {
       );
     }
 
-    resetRateLimit(rateKey);
+    await resetRateLimit(rateKey);
 
     const safeUser = {
       id: user.id,

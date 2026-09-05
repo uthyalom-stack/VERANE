@@ -403,8 +403,11 @@ export default function OrdersPage() {
                               Processing
                             </option>
 
-                            <option value="completed">
-                              Completed
+                            <option value="shipped">
+                              Shipped
+                            </option>
+                            <option value="delivered">
+                              Delivered
                             </option>
 
                             <option value="cancelled">

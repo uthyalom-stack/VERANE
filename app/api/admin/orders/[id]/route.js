@@ -199,49 +199,23 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // Verify brand authorization for global order mutation:
-    // 1. Single-brand order (all items belong to admin's brand)
-    // 2. Genuine collaboration order (contains at least one collaboration product involving admin's brand)
-    // Unrelated mixed-brand orders cannot be mutated globally by a single brand admin.
-    const { normalizeBrandKey } = await import("@/lib/order-tracking");
-    const adminBrandKey = normalizeBrandKey(admin.brand);
+    const { evaluateBrandOrderAuthorization } = await import("@/lib/order-tracking");
+    const authResult = evaluateBrandOrderAuthorization(existingOrder, admin.brand);
 
-    let hasAdminBrandItem = false;
-    let hasOtherBrandItem = false;
-    let isGenuineCollaborationOrder = false;
-
-    for (const item of existingOrder.items) {
-      if (item.collaborationProductId && item.collaborationProduct) {
-        const brandA = normalizeBrandKey(item.collaborationProduct.productA?.brand);
-        const brandB = normalizeBrandKey(item.collaborationProduct.productB?.brand);
-        if (adminBrandKey === brandA || adminBrandKey === brandB || !brandA) {
-          isGenuineCollaborationOrder = true;
-          hasAdminBrandItem = true;
-        }
-      } else if (item.product?.brand) {
-        const itemBrand = normalizeBrandKey(item.product.brand);
-        if (itemBrand === adminBrandKey) {
-          hasAdminBrandItem = true;
-        } else {
-          hasOtherBrandItem = true;
-        }
+    if (!authResult.authorized) {
+      if (authResult.reason === "mixed_brand_forbidden") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Forbidden: Brand admin cannot globally mutate an order containing unrelated products from other brands. Use brand delivery tracking for brand-specific updates.",
+          },
+          { status: 403 }
+        );
       }
-    }
 
-    if (!hasAdminBrandItem) {
       return NextResponse.json(
         { success: false, error: "Order not found." },
         { status: 404 }
-      );
-    }
-
-    if (hasOtherBrandItem && !isGenuineCollaborationOrder) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Forbidden: Brand admin cannot globally mutate an order containing unrelated products from other brands. Use brand delivery tracking for brand-specific updates.",
-        },
-        { status: 403 }
       );
     }
 
@@ -335,45 +309,23 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const { normalizeBrandKey } = await import("@/lib/order-tracking");
-    const adminBrandKey = normalizeBrandKey(admin.brand);
+    const { evaluateBrandOrderAuthorization } = await import("@/lib/order-tracking");
+    const authResult = evaluateBrandOrderAuthorization(existingOrder, admin.brand);
 
-    let hasAdminBrandItem = false;
-    let hasOtherBrandItem = false;
-    let isGenuineCollaborationOrder = false;
-
-    for (const item of existingOrder.items) {
-      if (item.collaborationProductId && item.collaborationProduct) {
-        const brandA = normalizeBrandKey(item.collaborationProduct.productA?.brand);
-        const brandB = normalizeBrandKey(item.collaborationProduct.productB?.brand);
-        if (adminBrandKey === brandA || adminBrandKey === brandB || !brandA) {
-          isGenuineCollaborationOrder = true;
-          hasAdminBrandItem = true;
-        }
-      } else if (item.product?.brand) {
-        const itemBrand = normalizeBrandKey(item.product.brand);
-        if (itemBrand === adminBrandKey) {
-          hasAdminBrandItem = true;
-        } else {
-          hasOtherBrandItem = true;
-        }
+    if (!authResult.authorized) {
+      if (authResult.reason === "mixed_brand_forbidden") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Forbidden: Brand admin cannot delete an order containing unrelated products from other brands.",
+          },
+          { status: 403 }
+        );
       }
-    }
 
-    if (!hasAdminBrandItem) {
       return NextResponse.json(
         { success: false, error: "Order not found." },
         { status: 404 }
-      );
-    }
-
-    if (hasOtherBrandItem && !isGenuineCollaborationOrder) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Forbidden: Brand admin cannot delete an order containing unrelated products from other brands.",
-        },
-        { status: 403 }
       );
     }
 
