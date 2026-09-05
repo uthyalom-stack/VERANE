@@ -41,31 +41,9 @@ export async function POST(request) {
   try {
     const session = await getSession();
 
-    let userId = session.user?.id || null;
-
-    // If user is guest/unauthenticated, create or locate a user record using guest email
-    if (!userId) {
-      const bodyPreview = await request.clone().json().catch(() => ({}));
-      const guestEmail = String(bodyPreview.email || "").trim().toLowerCase();
-      if (!guestEmail) {
-        return NextResponse.json(
-          { success: false, error: "Email address is required for checkout." },
-          { status: 400 }
-        );
-      }
-
-      let guestUser = await prisma.user.findUnique({ where: { email: guestEmail } });
-      if (!guestUser) {
-        guestUser = await prisma.user.create({
-          data: {
-            email: guestEmail,
-            name: [bodyPreview.firstName, bodyPreview.lastName].filter(Boolean).join(" ") || "Guest Customer",
-            password: "GUEST_CHECKOUT_ACCOUNT",
-          },
-        });
-      }
-      userId = guestUser.id;
-    }
+    // Authenticated checkout attaches the authenticated customer's userId.
+    // Guest checkout ALWAYS produces userId = null, even if the submitted email matches an existing User.
+    const userId = session.authenticated && session.user?.id ? session.user.id : null;
 
     const body = await request.json();
 

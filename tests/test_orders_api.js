@@ -2,9 +2,11 @@ import crypto from "crypto";
 import path from "path";
 import { pathToFileURL } from "url";
 
-// Set required CUSTOMER_AUTH_SECRET for test environment
+// Set required secrets for test environment
 const originalSecretEnv = process.env.CUSTOMER_AUTH_SECRET;
+const originalPaystackSecretEnv = process.env.PAYSTACK_SECRET_KEY;
 process.env.CUSTOMER_AUTH_SECRET = "test-secret-key-1234567890-super-secure";
+process.env.PAYSTACK_SECRET_KEY = "sk_test_mock_secret_key_12345";
 
 const repoRoot = process.cwd();
 
@@ -13,6 +15,7 @@ const customerAuthPath = pathToFileURL(path.join(repoRoot, "lib/auth/customer.js
 const mockHeadersPath = pathToFileURL(path.join(repoRoot, "tests/mock_next_headers.js")).href;
 const mockPrismaPath = pathToFileURL(path.join(repoRoot, "tests/mock_prisma.js")).href;
 const ordersRoutePath = pathToFileURL(path.join(repoRoot, "app/api/orders/route.js")).href;
+const initializeRoutePath = pathToFileURL(path.join(repoRoot, "app/api/paystack/initialize/route.js")).href;
 
 const {
   hashPassword,
@@ -23,6 +26,27 @@ const {
 const { setTestCookie, clearTestCookies, getTestCookie } = await import(mockHeadersPath);
 const { db, resetDb } = await import(mockPrismaPath);
 const { POST: postOrder } = await import(ordersRoutePath);
+const { POST: postInitialize } = await import(initializeRoutePath);
+
+// Mock fetch for Paystack API calls in tests
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async (url, options) => {
+  const urlString = typeof url === "string" ? url : url?.toString() || "";
+  if (urlString.includes("paystack.co")) {
+    return new Response(
+      JSON.stringify({
+        status: true,
+        data: {
+          authorization_url: "https://checkout.paystack.com/mock-auth-url",
+          access_code: "mock_access_code",
+          reference: "VR-REF-12345",
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  return originalFetch(url, options);
+};
 
 /**
  * Creates a request with mocked cookie and json body access for testing.
@@ -35,11 +59,12 @@ function makeRequest(url, options = {}) {
   req.cookies = {
     get: (name) => getTestCookie(name),
   };
+  req.nextUrl = new URL(url);
   return req;
 }
 
 export async function runOrdersApiServerAuthoritativeTests() {
-  console.log("=== RUNNING VÉRANE /api/orders SERVER-AUTHORITATIVE & VARIANT OWNERSHIP TESTS ===\n");
+  console.log("=== RUNNING VÉRANE /api/orders SERVER-AUTHORITATIVE & GUEST OWNERSHIP TESTS ===\n");
   let passed = 0;
   let failed = 0;
 
@@ -432,10 +457,65 @@ export async function runOrdersApiServerAuthoritativeTests() {
     assert(res8b.status === 500 && data8b.error === "Failed to create order", "8b. Simulated database/infrastructure error returns HTTP 500 with safe generic error message");
     db.shouldThrow = false;
 
+    // ----------------------------------------------------
+    // TEST 9: GUEST CHECKOUT OWNERSHIP INTEGRITY
+    // ----------------------------------------------------
+    console.log("\n--- TEST 9: Guest Checkout Ownership Integrity ---");
+
+    // 9a. Logged-in customer checkout receives session.user.id
+    setTestCookie(cookieName, sessionToken);
+    const loggedInCheckoutBody = {
+      items: [{ id: "prod_luxury_shoe", qty: 1 }],
+      firstName: "Authenticated",
+      lastName: "User",
+      email: userA.email,
+      address: "123 Main St",
+      city: "Ikeja",
+      state: "Lagos",
+    };
+    const res9a = await postInitialize(
+      makeRequest("http://localhost/api/paystack/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(loggedInCheckoutBody),
+      })
+    );
+    const data9a = await res9a.json();
+    assert(res9a.status === 200 && data9a.success === true, "9a. Authenticated checkout initialization succeeds");
+
+    const createdOrderAuth = db.orders.find((o) => o.paymentReference === data9a.reference);
+    assert(createdOrderAuth && createdOrderAuth.userId === userA.id, "9a. Order created by authenticated session is correctly attached to userA.id");
+
+    // 9b. Guest checkout submitting existing userA email always gets userId = null
+    clearTestCookies(); // Unauthenticate
+    const guestCheckoutExistingEmailBody = {
+      items: [{ id: "prod_luxury_shoe", qty: 1 }],
+      firstName: "Guest",
+      lastName: "Impostor",
+      email: userA.email, // Submitting userA's email as guest
+      address: "456 Guest Road",
+      city: "Ikeja",
+      state: "Lagos",
+    };
+    const res9b = await postInitialize(
+      makeRequest("http://localhost/api/paystack/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(guestCheckoutExistingEmailBody),
+      })
+    );
+    const data9b = await res9b.json();
+    assert(res9b.status === 200 && data9b.success === true, "9b. Guest checkout with existing customer email succeeds");
+
+    const createdOrderGuest = db.orders.find((o) => o.paymentReference === data9b.reference);
+    assert(createdOrderGuest && createdOrderGuest.userId === null, "9b. Guest checkout order ALWAYS receives userId = null (never attached to userA.id)");
+    assert(createdOrderGuest && createdOrderGuest.email === userA.email, "9b. Guest email is preserved in order.email field");
+
   } catch (error) {
     console.error("Test execution exception:", error);
     failed++;
   } finally {
+    globalThis.fetch = originalFetch;
     clearTestCookies();
     resetDb();
 
@@ -443,6 +523,12 @@ export async function runOrdersApiServerAuthoritativeTests() {
       process.env.CUSTOMER_AUTH_SECRET = originalSecretEnv;
     } else {
       delete process.env.CUSTOMER_AUTH_SECRET;
+    }
+
+    if (originalPaystackSecretEnv !== undefined) {
+      process.env.PAYSTACK_SECRET_KEY = originalPaystackSecretEnv;
+    } else {
+      delete process.env.PAYSTACK_SECRET_KEY;
     }
   }
 
