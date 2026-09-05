@@ -162,6 +162,22 @@ model Order {
   user                User?       @relation(fields: [userId], references: [id])
   items               OrderItem[]
   attribution         OrderAttribution?
+  brandTrackings      OrderBrandTracking[]
+}
+
+model OrderBrandTracking {
+  id        String   @id @default(cuid())
+  orderId   String
+  brand     String
+  status    String   @default("Processing")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, brand])
+  @@index([orderId])
+  @@index([brand])
 }
 
 model DeliveryLocation {

@@ -22,9 +22,10 @@ class MockJsPDF {
   }
   setFillColor() {}
   roundedRect() {}
+  addImage() {}
   addPage() {}
   output() {
-    return new ArrayBuffer(1024);
+    return new ArrayBuffer(10240);
   }
 }
 

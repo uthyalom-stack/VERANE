@@ -23,6 +23,7 @@ export async function GET(request, { params }) {
       where: { id },
       include: {
         user: true,
+        brandTrackings: true,
         items: {
           include: {
             product: true,
@@ -50,6 +51,9 @@ export async function GET(request, { params }) {
       );
     }
 
+    const { getOrderBrandTrackingInfo } = await import("@/lib/order-tracking");
+    const brandTrackingsInfo = getOrderBrandTrackingInfo(order);
+
     // Filter items by brand unless superadmin
     if (!admin.isSuperAdmin) {
       order.items = order.items.filter((item) => {
@@ -63,7 +67,13 @@ export async function GET(request, { params }) {
       });
     }
 
-    return NextResponse.json({ success: true, order });
+    return NextResponse.json({
+      success: true,
+      order: {
+        ...order,
+        brandTrackingsInfo,
+      },
+    });
   } catch (error) {
     console.error("GET /api/admin/orders/[id] error:", error);
     return NextResponse.json(

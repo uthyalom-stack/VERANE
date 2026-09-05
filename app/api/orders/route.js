@@ -65,6 +65,7 @@ export async function GET(request) {
         createdAt: "desc",
       },
       include: {
+        brandTrackings: true,
         items: {
           include: {
             product: true,
@@ -73,14 +74,27 @@ export async function GET(request) {
                 color: true,
               },
             },
+            collaborationProduct: {
+              include: {
+                productA: true,
+                productB: true,
+              },
+            },
           },
         },
       },
     });
 
+    const { getOrderBrandTrackingInfo } = await import("@/lib/order-tracking");
+
+    const ordersWithTracking = orders.map((order) => ({
+      ...order,
+      brandTrackingsInfo: getOrderBrandTrackingInfo(order),
+    }));
+
     return NextResponse.json({
       authenticated: true,
-      orders,
+      orders: ordersWithTracking,
     });
   } catch (error) {
     console.error("Orders API error:", error);
