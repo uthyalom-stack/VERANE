@@ -1,3 +1,6 @@
+-- Lock dependent tables to prevent concurrent insert/update races during consolidation
+LOCK TABLE "ProductVariant", "OrderItem", "WaitingList", "CollaborationVariant" IN EXCLUSIVE MODE;
+
 -- Consolidation of duplicate ProductVariant rows before index creation
 DO $$
 DECLARE
