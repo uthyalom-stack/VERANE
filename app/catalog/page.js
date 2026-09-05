@@ -212,8 +212,6 @@ function CatalogContent({
         const productsData =
           await prodRes.json();
 
-console.log("CATALOG PRODUCTS:", productsData);
-
        const collectionsData = colRes.ok
   ? await colRes.json()
   : [];

@@ -1,4 +1,0 @@
-node_modules\.prisma\client\index.d.ts:9483:     * const Order = await prisma.order.create({
-node_modules\.prisma\client\index.d.ts:9497:     * const order = await prisma.order.createMany({
-node_modules\.prisma\client\index.d.ts:9511:     * const order = await prisma.order.createManyAndReturn({
-node_modules\.prisma\client\index.d.ts:9518:     * const orderWithIdOnly = await prisma.order.createManyAndReturn({ 

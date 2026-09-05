@@ -37,6 +37,21 @@ function normalizeBrand(value) {
 }
 
 /**
+ * Gets database string variants for a normalized brand name.
+ * @param {string} brand
+ * @returns {string[]}
+ */
+function getBrandDbNames(brand) {
+  if (brand === "UTHY") {
+    return ["UTHY", "UTHY_LUXURY", "UTHY LUXURY"];
+  }
+  if (brand === "ALOMZIEE") {
+    return ["ALOMZIEE", "ALOMZIEE_FOOTIES", "ALOMZIEE FOOTIES"];
+  }
+  return [brand];
+}
+
+/**
  * Converts a numeric, string, or decimal-like value to a finite number.
  * @param {*} value - The value to convert.
  * @return {number} The converted number, or `0` when the value is null, undefined, or not finite.
@@ -273,31 +288,27 @@ export async function GET(request) {
       );
     }
 
+    const brandDbNames = getBrandDbNames(brand);
+
     const range = searchParams.get("range") || "30d";
     const startDateParam = searchParams.get("startDate");
     const endDateParam = searchParams.get("endDate");
 
     const { start, end } = getDateRange(range, startDateParam, endDateParam);
 
-    const allProducts =
-      await prisma.product.findMany({
-        include: {
-          categoryRef: true,
-          collection: true,
-          variants: true,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-    const products =
-      allProducts.filter((product) => {
-        return (
-          normalizeBrand(product.brand) ===
-          brand
-        );
-      });
+    const products = await prisma.product.findMany({
+      where: {
+        brand: { in: brandDbNames },
+      },
+      include: {
+        categoryRef: true,
+        collection: true,
+        variants: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
     const totalProducts = products.length;
 
@@ -416,87 +427,65 @@ export async function GET(request) {
       });
     }
 
-    const productIds =
-      products.map(
-        (product) => product.id
-      );
-
-    let orders = [];
-
-    if (productIds.length > 0) {
-      orders =
-        await prisma.order.findMany({
-          where: {
-            createdAt: {
-              gte: start,
-              lte: end,
-            },
-
-            items: {
-              some: {
-                productId: {
-                  in: productIds,
-                },
-              },
-            },
+    const brandItemWhereClause = {
+      OR: [
+        { product: { brand: { in: brandDbNames } } },
+        {
+          collaborationProduct: {
+            OR: [
+              { productA: { brand: { in: brandDbNames } } },
+              { productB: { brand: { in: brandDbNames } } },
+            ],
           },
+        },
+      ],
+    };
 
+    const orders = await prisma.order.findMany({
+      where: {
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+        items: {
+          some: brandItemWhereClause,
+        },
+      },
+      include: {
+        user: true,
+        items: {
+          where: brandItemWhereClause,
           include: {
-            user: true,
-
-            items: {
+            product: {
               include: {
-                product: {
-                  include: {
-                    categoryRef: true,
-                    collection: true,
-                  },
-                },
+                categoryRef: true,
+                collection: true,
+              },
+            },
+            collaborationProduct: {
+              include: {
+                productA: true,
+                productB: true,
               },
             },
           },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-          orderBy: {
-            createdAt: "desc",
-          },
-        });
-    }
-
-    const brandOrders = [];
+    const brandOrders = orders;
     const brandOrderItems = [];
 
-    for (const order of orders) {
-      const itemsForBrand =
-        order.items.filter(
-          (item) =>
-            normalizeBrand(
-              item.product?.brand
-            ) === brand
-        );
-
-      if (
-        itemsForBrand.length === 0
-      ) {
-        continue;
-      }
-
-      brandOrders.push({
-        ...order,
-        items: itemsForBrand,
-      });
-
-      for (const item of itemsForBrand) {
+    for (const order of brandOrders) {
+      for (const item of order.items) {
         brandOrderItems.push({
           ...item,
-
-          orderStatus:
-            order.status,
-
-          orderCreatedAt:
-            order.createdAt,
-
-          customerId:
-            order.userId,
+          orderStatus: order.status,
+          orderCreatedAt: order.createdAt,
+          customerId: order.userId,
         });
       }
     }
@@ -534,19 +523,21 @@ export async function GET(request) {
 
       revenue += itemRevenue;
 
-      const existing =
-        productStats.get(
-          item.productId
-        );
+      if (item.productId) {
+        const existing =
+          productStats.get(
+            item.productId
+          );
 
-      if (existing) {
-        existing.unitsSold +=
-          quantity;
+        if (existing) {
+          existing.unitsSold +=
+            quantity;
 
-        existing.revenue +=
-          itemRevenue;
+          existing.revenue +=
+            itemRevenue;
 
-        existing.orders += 1;
+          existing.orders += 1;
+        }
       }
     }
 
@@ -582,6 +573,9 @@ export async function GET(request) {
         where: {
           userId: { in: Array.from(customerIds) },
           status: { notIn: ["cancelled", "canceled", "refunded", "refund", "failed", "rejected"] },
+          items: {
+            some: brandItemWhereClause,
+          },
         },
         select: { userId: true, createdAt: true },
       });
@@ -602,9 +596,17 @@ export async function GET(request) {
       }
     }
 
+    // Isolate new users in range strictly to those associated with this brand via order activity
     const newUsersInRange = await prisma.user.findMany({
       where: {
         createdAt: { gte: start, lte: end },
+        orders: {
+          some: {
+            items: {
+              some: brandItemWhereClause,
+            },
+          },
+        },
       },
       select: { id: true, name: true, email: true, createdAt: true },
     });
@@ -642,12 +644,10 @@ export async function GET(request) {
       }
 
       for (const item of order.items) {
-        if (normalizeBrand(item.product?.brand) === brand) {
-          const qty = money(item.quantity);
-          const prc = getItemPrice(item);
-          existing.units += qty;
-          existing.revenue += qty * prc;
-        }
+        const qty = money(item.quantity);
+        const prc = getItemPrice(item);
+        existing.units += qty;
+        existing.revenue += qty * prc;
       }
 
       customerPerformanceMap.set(uId, existing);
@@ -664,6 +664,8 @@ export async function GET(request) {
       if (cp.orders === 1) singleOrderCustomers += 1;
       else if (cp.orders > 1) repeatOrderCustomers += 1;
     }
+
+    const productIds = products.map((p) => p.id);
 
     let waitingListEntries = [];
     if (productIds.length > 0) {
@@ -788,45 +790,44 @@ export async function GET(request) {
     let prevOrderCount = 0;
     let prevUnitsSold = 0;
 
-    if (productIds.length > 0) {
-      const prevOrdersList = await prisma.order.findMany({
-        where: {
-          createdAt: {
-            gte: prevStart,
-            lte: prevEnd,
-          },
-          items: {
-            some: {
-              productId: {
-                in: productIds,
+    const prevOrdersList = await prisma.order.findMany({
+      where: {
+        createdAt: {
+          gte: prevStart,
+          lte: prevEnd,
+        },
+        items: {
+          some: brandItemWhereClause,
+        },
+      },
+      include: {
+        items: {
+          where: brandItemWhereClause,
+          include: {
+            product: true,
+            collaborationProduct: {
+              include: {
+                productA: true,
+                productB: true,
               },
             },
           },
         },
-        include: {
-          items: {
-            include: {
-              product: true,
-            },
-          },
-        },
-      });
+      },
+    });
 
-      const validPrevOrders = prevOrdersList.filter(
-        (o) => !isCancelledStatus(o.status)
-      );
+    const validPrevOrders = prevOrdersList.filter(
+      (o) => !isCancelledStatus(o.status)
+    );
 
-      prevOrderCount = validPrevOrders.length;
+    prevOrderCount = validPrevOrders.length;
 
-      for (const po of validPrevOrders) {
-        for (const pi of po.items) {
-          if (normalizeBrand(pi.product?.brand) === brand) {
-            const qty = money(pi.quantity);
-            const prc = getItemPrice(pi);
-            prevUnitsSold += qty;
-            prevRevenue += qty * prc;
-          }
-        }
+    for (const po of validPrevOrders) {
+      for (const pi of po.items) {
+        const qty = money(pi.quantity);
+        const prc = getItemPrice(pi);
+        prevUnitsSold += qty;
+        prevRevenue += qty * prc;
       }
     }
 
@@ -1184,7 +1185,14 @@ export async function GET(request) {
               orders: {
                 where: { createdAt: { gte: start, lte: end } },
                 include: {
-                  order: { include: { items: { include: { product: true } } } },
+                  order: {
+                    include: {
+                      items: {
+                        where: brandItemWhereClause,
+                        include: { product: true },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -1207,11 +1215,9 @@ export async function GET(request) {
 
             for (const attr of validAttrs) {
               for (const item of attr.order.items) {
-                if (normalizeBrand(item.product?.brand) === brand) {
-                  const qty = money(item.quantity);
-                  const prc = getItemPrice(item);
-                  attributedRevenue += qty * prc;
-                }
+                const qty = money(item.quantity);
+                const prc = getItemPrice(item);
+                attributedRevenue += qty * prc;
               }
             }
           }
@@ -1290,71 +1296,6 @@ export async function GET(request) {
           productPerformance,
 
         recentOrders,
-
-        debug: {
-          databaseProductCount:
-            allProducts.length,
-
-          matchingBrandProductCount:
-            products.length,
-
-          requestedBrand:
-            requestedBrand || null,
-
-          normalizedBrand:
-            brand,
-
-          adminBrand,
-
-          databaseBrandsFound:
-            [
-              ...new Set(
-                allProducts
-                  .map(
-                    (product) =>
-                      product.brand
-                  )
-                  .filter(Boolean)
-              ),
-            ],
-
-          matchingProducts:
-            products.map(
-              (product) => ({
-                id:
-                  product.id,
-
-                name:
-                  product.name,
-
-                brand:
-                  product.brand,
-
-                normalizedBrand:
-                  normalizeBrand(
-                    product.brand
-                  ),
-
-                price:
-                  getProductPrice(
-                    product
-                  ),
-
-                inventory:
-                  money(
-                    product.inventory
-                  ),
-
-                inventoryValue:
-                  money(
-                    product.inventory
-                  ) *
-                  getProductPrice(
-                    product
-                  ),
-              })
-            ),
-        },
 
         generatedAt:
           new Date(),
