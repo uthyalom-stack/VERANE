@@ -80,11 +80,17 @@ export async function POST(request) {
     }
 
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
-    const rateKey = `admin_login:${role}:${ip}`;
 
-    const limit = await checkRateLimit(rateKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
-    if (!limit.allowed) {
-      const minutes = Math.ceil(limit.resetMs / 60000);
+    // Separate role-based and IP-based rate limiting keys
+    const roleKey = `admin_role:${role}`;
+    const ipKey = `admin_ip:${ip}`;
+
+    const roleLimit = await checkRateLimit(roleKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
+    const ipLimit = await checkRateLimit(ipKey, { maxAttempts: 15, windowMs: 15 * 60 * 1000 });
+
+    if (!roleLimit.allowed || !ipLimit.allowed) {
+      const resetMs = !roleLimit.allowed ? roleLimit.resetMs : ipLimit.resetMs;
+      const minutes = Math.ceil(resetMs / 60000);
       return NextResponse.json(
         {
           error: `Too many failed login attempts. Please try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
@@ -111,7 +117,10 @@ export async function POST(request) {
     }
 
     if (expectedPassword !== password) {
-      await recordFailedAttempt(rateKey);
+      await Promise.all([
+        recordFailedAttempt(roleKey),
+        recordFailedAttempt(ipKey),
+      ]);
       return NextResponse.json(
         {
           error: "Incorrect password.",
@@ -122,7 +131,8 @@ export async function POST(request) {
       );
     }
 
-    await resetRateLimit(rateKey);
+    // On successful admin login, clear role failure counter
+    await resetRateLimit(roleKey);
 
     const sessionPayload = {
       role,

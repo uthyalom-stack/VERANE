@@ -203,19 +203,19 @@ export async function PUT(request, { params }) {
     const authResult = evaluateBrandOrderAuthorization(existingOrder, admin.brand);
 
     if (!authResult.authorized) {
-      if (authResult.reason === "mixed_brand_forbidden") {
+      if (authResult.reason === "not_found") {
         return NextResponse.json(
-          {
-            success: false,
-            error: "Forbidden: Brand admin cannot globally mutate an order containing unrelated products from other brands. Use brand delivery tracking for brand-specific updates.",
-          },
-          { status: 403 }
+          { success: false, error: "Order not found." },
+          { status: 404 }
         );
       }
 
       return NextResponse.json(
-        { success: false, error: "Order not found." },
-        { status: 404 }
+        {
+          success: false,
+          error: "Forbidden: Brand admin cannot globally mutate an order containing unrelated products or malformed collaboration data. Use brand delivery tracking for brand-specific updates.",
+        },
+        { status: 403 }
       );
     }
 
@@ -313,19 +313,19 @@ export async function DELETE(request, { params }) {
     const authResult = evaluateBrandOrderAuthorization(existingOrder, admin.brand);
 
     if (!authResult.authorized) {
-      if (authResult.reason === "mixed_brand_forbidden") {
+      if (authResult.reason === "not_found") {
         return NextResponse.json(
-          {
-            success: false,
-            error: "Forbidden: Brand admin cannot delete an order containing unrelated products from other brands.",
-          },
-          { status: 403 }
+          { success: false, error: "Order not found." },
+          { status: 404 }
         );
       }
 
       return NextResponse.json(
-        { success: false, error: "Order not found." },
-        { status: 404 }
+        {
+          success: false,
+          error: "Forbidden: Brand admin cannot delete an order containing unrelated products or malformed collaboration data.",
+        },
+        { status: 403 }
       );
     }
 

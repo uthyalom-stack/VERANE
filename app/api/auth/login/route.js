@@ -31,11 +31,19 @@ export async function POST(request) {
     }
 
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
-    const rateKey = `customer_login:${email}:${ip}`;
 
-    const limit = await checkRateLimit(rateKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
-    if (!limit.allowed) {
-      const minutes = Math.ceil(limit.resetMs / 60000);
+    // Separate account-level and IP-level keys
+    const acctKey = `customer_acct:${email}`;
+    const ipKey = `customer_ip:${ip}`;
+
+    // Account limit: 5 failed attempts per 15 minutes
+    const acctLimit = await checkRateLimit(acctKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
+    // IP limit: 30 failed attempts per 15 minutes (protects against account spraying across multiple accounts)
+    const ipLimit = await checkRateLimit(ipKey, { maxAttempts: 30, windowMs: 15 * 60 * 1000 });
+
+    if (!acctLimit.allowed || !ipLimit.allowed) {
+      const resetMs = !acctLimit.allowed ? acctLimit.resetMs : ipLimit.resetMs;
+      const minutes = Math.ceil(resetMs / 60000);
       return NextResponse.json(
         {
           success: false,
@@ -53,7 +61,10 @@ export async function POST(request) {
       });
 
     if (!user) {
-      await recordFailedAttempt(rateKey);
+      await Promise.all([
+        recordFailedAttempt(acctKey),
+        recordFailedAttempt(ipKey),
+      ]);
       return NextResponse.json(
         {
           success: false,
@@ -71,7 +82,10 @@ export async function POST(request) {
       );
 
     if (!validPassword) {
-      await recordFailedAttempt(rateKey);
+      await Promise.all([
+        recordFailedAttempt(acctKey),
+        recordFailedAttempt(ipKey),
+      ]);
       return NextResponse.json(
         {
           success: false,
@@ -82,7 +96,8 @@ export async function POST(request) {
       );
     }
 
-    await resetRateLimit(rateKey);
+    // On successful login, clear account-specific failure counter
+    await resetRateLimit(acctKey);
 
     const safeUser = {
       id: user.id,
