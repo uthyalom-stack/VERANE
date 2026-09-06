@@ -69,7 +69,7 @@ export async function GET() {
 
     // Products for Brand
     const products = await prisma.product.findMany({
-      where: { brand },
+      where: { brand, archivedAt: null },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
       take: 100,

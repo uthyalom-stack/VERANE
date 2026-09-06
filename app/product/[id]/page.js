@@ -32,18 +32,17 @@ export default function ProductDetail() {
   useEffect(() => {
     async function loadProduct() {
       try {
-        const response = await fetch("/api/products", {
+        const response = await fetch(`/api/products/${id}`, {
           cache: "no-store",
         });
 
         if (!response.ok) {
-          throw new Error("Failed to fetch products");
+          setProduct(null);
+          return;
         }
 
-        const products = await response.json();
-        const found = products.find((p) => p.id === id);
-
-        setProduct(found || null);
+        const found = await response.json();
+        setProduct(found && found.id ? found : null);
       } catch (error) {
         console.error("Failed to load product:", error);
         setProduct(null);

@@ -99,7 +99,10 @@ export async function GET(request, { params }) {
       prisma.siteSetting.findUnique({ where: { key: getStorageKey(brand) } }),
       prisma.siteSetting.findUnique({ where: { key: getHeroKey(brand) } }),
       prisma.product.findMany({
-        where: { brand },
+        where: {
+          brand,
+          archivedAt: null,
+        },
         orderBy: { createdAt: "desc" },
         include: {
           variants: {

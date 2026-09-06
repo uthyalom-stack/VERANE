@@ -77,6 +77,7 @@ export async function GET(request) {
     const products = await prisma.product.findMany({
       where: {
         brand,
+        archivedAt: null,
       },
       orderBy: {
         createdAt: "desc",
@@ -205,6 +206,7 @@ export async function POST(request) {
           in: productIds,
         },
         brand,
+        archivedAt: null,
       },
       select: {
         id: true,
@@ -381,6 +383,7 @@ export async function PUT(request) {
               in: productIds,
             },
             brand,
+            archivedAt: null,
           },
           select: {
             id: true,
