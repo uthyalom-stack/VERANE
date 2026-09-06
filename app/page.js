@@ -170,6 +170,9 @@ async function getHomepageSections() {
 async function getProducts() {
   try {
     const products = await prisma.product.findMany({
+      where: {
+        archivedAt: null,
+      },
       orderBy: {
         createdAt: "desc",
       },

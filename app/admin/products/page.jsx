@@ -124,13 +124,23 @@ export default function ProductsPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => router.push("/admin/products/add")}
-              className="rounded-full bg-amber-500 px-6 py-3 text-sm font-black text-black transition hover:bg-amber-400"
-            >
-              + Add Product
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => router.push("/admin/products/history")}
+                className="rounded-full border border-white/20 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10"
+              >
+                Product History
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push("/admin/products/add")}
+                className="rounded-full bg-amber-500 px-6 py-3 text-sm font-black text-black transition hover:bg-amber-400"
+              >
+                + Add Product
+              </button>
+            </div>
           </div>
         </div>
       </header>

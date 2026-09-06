@@ -42,15 +42,44 @@ const mockPrisma = {
   },
   product: {
     create: async ({ data }) => {
-      const newProduct = { id: data.id || `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, ...data };
+      const newProduct = { id: data.id || `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, archivedAt: null, ...data };
       db.products.push(newProduct);
       return newProduct;
     },
     findUnique: async ({ where }) => {
       return db.products.find((p) => p.id === where.id) || null;
     },
-    findMany: async () => {
-      return db.products;
+    findFirst: async ({ where }) => {
+      let list = db.products;
+      if (where?.id) list = list.filter((p) => p.id === where.id);
+      if (where?.brand) list = list.filter((p) => p.brand === where.brand);
+      if (where?.archivedAt === null) list = list.filter((p) => p.archivedAt === null);
+      if (where?.archivedAt && where.archivedAt.not !== undefined) list = list.filter((p) => p.archivedAt !== null);
+      return list[0] || null;
+    },
+    findMany: async (query = {}) => {
+      let list = db.products;
+      const where = query?.where;
+      if (where) {
+        if (where.brand) list = list.filter((p) => p.brand === where.brand);
+        if (where.archivedAt === null) list = list.filter((p) => (p.archivedAt ?? null) === null);
+        if (where.archivedAt && where.archivedAt.not !== undefined) list = list.filter((p) => p.archivedAt !== null);
+      }
+      return list;
+    },
+    update: async ({ where, data }) => {
+      const prod = db.products.find((p) => p.id === where.id);
+      if (prod) {
+        Object.assign(prod, data);
+      }
+      return prod;
+    },
+    delete: async ({ where }) => {
+      const idx = db.products.findIndex((p) => p.id === where.id);
+      if (idx !== -1) {
+        return db.products.splice(idx, 1)[0];
+      }
+      return null;
     },
   },
   collaboration: {

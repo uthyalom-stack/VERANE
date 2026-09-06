@@ -66,6 +66,7 @@ model Product {
   preOrderEnabled        Boolean                @default(false)
   sizeType               String?
 sizeGuideImage String?
+  archivedAt             DateTime?
   collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
   orderItems             OrderItem[]
@@ -79,6 +80,7 @@ sizeGuideImage String?
   @@index([brand])
   @@index([categoryId])
   @@index([collectionId])
+  @@index([archivedAt])
 }
 
 model Category {

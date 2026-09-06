@@ -2,6 +2,104 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
+/**
+ * Retrieves a single active product by ID for public customer view.
+ * Excludes archived products (returns HTTP 404).
+ */
+export async function GET(request, { params }) {
+  try {
+    const { id } = await params;
+
+    const product = await prisma.product.findFirst({
+      where: {
+        id,
+        archivedAt: null,
+      },
+      include: {
+        variants: {
+          orderBy: {
+            createdAt: "asc",
+          },
+          include: {
+            color: true,
+          },
+        },
+        productColors: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+        categoryRef: true,
+        collection: true,
+      },
+    });
+
+    if (!product) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Product not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const publicVariants = (product.variants || []).map((v) => ({
+      id: v.id,
+      productId: v.productId,
+      stock: Math.max(0, Number(v.stock || 0)),
+      size: v.size || null,
+      colorId: v.colorId || null,
+      color: v.color
+        ? {
+            id: v.color.id,
+            name: v.color.name,
+            hex: v.color.hex,
+          }
+        : null,
+    }));
+
+    const publicColors = (product.productColors || []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      hex: c.hex,
+    }));
+
+    const publicProduct = {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      brand: product.brand,
+      category: product.category,
+      description: product.description,
+      images: product.images,
+      inventory: Math.max(0, Number(product.inventory || 0)),
+      preOrderEnabled: Boolean(product.preOrderEnabled),
+      customSizingEnabled: Boolean(product.customSizingEnabled),
+      fulfillmentTime: product.fulfillmentTime || null,
+      sizeType: product.sizeType || null,
+      style: product.style || null,
+      occasion: product.occasion || null,
+      createdAt: product.createdAt,
+      categoryRef: product.categoryRef,
+      collection: product.collection,
+      productColors: publicColors,
+      variants: publicVariants,
+    };
+
+    return NextResponse.json(publicProduct);
+  } catch (error) {
+    console.error("GET /api/products/[id] error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to load product.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(request, { params }) {
   try {
     const admin = await getAdminSession();
@@ -33,6 +131,7 @@ export async function PUT(request, { params }) {
       where: {
         id,
         brand: admin.brand,
+        archivedAt: null,
       },
       include: {
         productColors: {
@@ -669,6 +768,7 @@ export async function DELETE(
         where: {
           id,
           brand: admin.brand,
+          archivedAt: null,
         },
         include: {
           orderItems: {
@@ -696,6 +796,7 @@ export async function DELETE(
         prisma.product.update({
           where: { id },
           data: {
+            archivedAt: new Date(),
             inventory: 0,
             preOrderEnabled: false,
           },
