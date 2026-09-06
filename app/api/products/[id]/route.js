@@ -621,9 +621,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Failed to update product.",
+        error: "Failed to update product.",
       },
       { status: 500 }
     );
@@ -750,9 +748,7 @@ export async function DELETE(
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Failed to delete product.",
+        error: "Failed to delete product.",
       },
       { status: 500 }
     );

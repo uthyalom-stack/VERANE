@@ -39,7 +39,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("Paystack webhook error:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Webhook handler failed." },
+      { success: false, error: "Webhook handler failed." },
       { status: 500 }
     );
   }

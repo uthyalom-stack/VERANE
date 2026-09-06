@@ -93,7 +93,6 @@ export async function POST(request) {
     return NextResponse.json(
       {
         error: "Failed to assign product to collection.",
-        details: error?.message || "Unknown error",
       },
       { status: 500 }
     );
@@ -167,7 +166,6 @@ export async function DELETE(request) {
     return NextResponse.json(
       {
         error: "Failed to remove product from collection.",
-        details: error?.message || "Unknown error",
       },
       { status: 500 }
     );

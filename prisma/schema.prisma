@@ -526,3 +526,12 @@ model OrderAttribution {
   @@index([campaignId])
   @@index([brand])
 }
+
+model RateLimit {
+  key          String   @id
+  attempts     Int      @default(0)
+  firstAttempt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([updatedAt])
+}

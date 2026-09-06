@@ -162,7 +162,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Failed to upload image to storage.",
+        error: "Failed to upload image to storage.",
       },
       { status: 500 }
     );

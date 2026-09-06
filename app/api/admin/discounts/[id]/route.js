@@ -251,9 +251,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Unable to update discount.",
+        error: "Unable to update discount.",
       },
       { status: 500 }
     );
@@ -321,9 +319,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Unable to delete discount.",
+        error: "Unable to delete discount.",
       },
       { status: 500 }
     );

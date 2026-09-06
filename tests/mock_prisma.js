@@ -1,6 +1,7 @@
 export const db = {
   users: [],
   products: [],
+  collaborations: [],
   orders: [],
   savedAddresses: [],
   wishlists: [],
@@ -47,6 +48,14 @@ const mockPrisma = {
     },
     findUnique: async ({ where }) => {
       return db.products.find((p) => p.id === where.id) || null;
+    },
+    findMany: async () => {
+      return db.products;
+    },
+  },
+  collaboration: {
+    findMany: async () => {
+      return db.collaborations;
     },
   },
   order: {

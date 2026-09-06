@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "npx prisma@5 generate && npx prisma@5 migrate deploy && next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node --experimental-loader ./tests/loader.mjs tests/test_security_audit_suite.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1117.0",

@@ -192,9 +192,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Failed to create collection.",
+        error: "Failed to create collection.",
       },
       { status: 500 }
     );

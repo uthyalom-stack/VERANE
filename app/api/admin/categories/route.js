@@ -176,8 +176,7 @@ const sizeType = allowedSizeTypes.includes(
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message || "Failed to create category.",
+        error: "Failed to create category.",
       },
       { status: 500 }
     );

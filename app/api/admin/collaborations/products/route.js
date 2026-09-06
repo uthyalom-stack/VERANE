@@ -290,7 +290,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Failed to create collaboration product.",
+        error: "Failed to create collaboration product.",
       },
       { status: 500 }
     );
@@ -347,7 +347,7 @@ export async function GET(request) {
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Failed to load collaboration products.",
+        error: "Failed to load collaboration products.",
       },
       { status: 500 }
     );

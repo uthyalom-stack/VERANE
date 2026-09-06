@@ -57,7 +57,7 @@ export async function GET(request, { params }) {
     return NextResponse.json({ success: true, product: collabProduct });
   } catch (error) {
     console.error("GET COLLABORATION PRODUCT ERROR:", error);
-    return NextResponse.json({ success: false, error: error?.message || "Failed to load product." }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Failed to load product." }, { status: 500 });
   }
 }
 
@@ -162,7 +162,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ success: true, product: updatedProduct });
   } catch (error) {
     console.error("UPDATE COLLABORATION PRODUCT ERROR:", error);
-    return NextResponse.json({ success: false, error: error?.message || "Failed to update product." }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Failed to update product." }, { status: 500 });
   }
 }
 
@@ -211,6 +211,6 @@ export async function DELETE(request, { params }) {
     });
   } catch (error) {
     console.error("DELETE COLLABORATION PRODUCT ERROR:", error);
-    return NextResponse.json({ success: false, error: error?.message || "Failed to delete product." }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Failed to delete product." }, { status: 500 });
   }
 }

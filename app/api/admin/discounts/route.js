@@ -304,9 +304,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Unable to create discount.",
+        error: "Unable to create discount.",
       },
       { status: 500 }
     );

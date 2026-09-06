@@ -88,7 +88,7 @@ export async function GET() {
   } catch (error) {
     console.error("GET /api/admin/delivery error:", error);
     return NextResponse.json(
-      { success: false, error: String(error?.message || error) },
+      { success: false, error: "Failed to fetch delivery settings." },
       { status: 500 }
     );
   }
