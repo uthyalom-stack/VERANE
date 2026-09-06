@@ -104,66 +104,6 @@ export async function POST(request) {
       );
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Verify magic bytes signature
-    function isValidImageSignature(buf, type) {
-      if (!buf || buf.length < 4) return false;
-      if (type === "image/jpeg") {
-        return buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
-      }
-      if (type === "image/png") {
-        return buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
-      }
-      if (type === "image/gif") {
-        return buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46;
-      }
-      if (type === "image/webp") {
-        return (
-          buf.length >= 12 &&
-          buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
-          buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
-        );
-      }
-      if (type === "image/avif") {
-        // Must contain ISO Base Media File Format ftyp box at offset 4
-        if (buf.length < 12 || buf[4] !== 0x66 || buf[5] !== 0x74 || buf[6] !== 0x79 || buf[7] !== 0x70) {
-          return false;
-        }
-
-        // Parse major_brand (4 bytes starting at offset 8)
-        const majorBrand = buf.toString("ascii", 8, 12);
-        if (majorBrand === "avif" || majorBrand === "avis") {
-          return true;
-        }
-
-        // Parse compatible_brands list starting at offset 16 up to box length
-        const boxLength = buf.readUInt32BE(0);
-        const limit = Math.min(buf.length, boxLength > 0 ? boxLength : buf.length);
-
-        for (let offset = 16; offset + 4 <= limit; offset += 4) {
-          const compBrand = buf.toString("ascii", offset, offset + 4);
-          if (compBrand === "avif" || compBrand === "avis") {
-            return true;
-          }
-        }
-
-        return false;
-      }
-      return false;
-    }
-
-    if (!isValidImageSignature(buffer, contentType)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid file content: signature does not match declared image type.",
-        },
-        { status: 400 }
-      );
-    }
-
     const extension = contentType === "image/jpeg"
       ? "jpg"
       : contentType.split("/")[1];
@@ -173,6 +113,8 @@ export async function POST(request) {
       .substring(2, 10)}.${extension}`;
 
     const key = `uploads/${filename}`;
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
     console.log(`[R2 UPLOAD] Prepared buffer (${buffer.length} bytes) in ${Date.now() - startTime}ms. Initializing S3Client...`);
 

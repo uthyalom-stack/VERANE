@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSignedAdminToken } from "@/lib/admin-auth";
-import { rateLimitAndIncrement, resetRateLimit } from "@/lib/rate-limit";
+import { rateLimitAndIncrement, checkRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/rate-limit";
 
 const ADMIN_CONFIG = {
   UTHY: {
@@ -86,24 +86,26 @@ export async function POST(request) {
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       "127.0.0.1";
 
-    // Separate role-based and IP-based rate limiting keys
     const roleKey = `admin_role:${role}`;
     const ipKey = `admin_ip:${ip}`;
 
-    const [roleLimit, ipLimit] = await Promise.all([
-      rateLimitAndIncrement(roleKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 }),
-      rateLimitAndIncrement(ipKey, { maxAttempts: 15, windowMs: 15 * 60 * 1000 }),
-    ]);
-
-    if (!roleLimit.allowed || !ipLimit.allowed) {
-      const resetMs = !roleLimit.allowed ? roleLimit.resetMs : ipLimit.resetMs;
-      const minutes = Math.ceil(resetMs / 60000);
+    // 1. IP Hard Limit: Atomically increment and enforce hard throttling on source IP (15 attempts per 15m)
+    const ipLimit = await rateLimitAndIncrement(ipKey, { maxAttempts: 15, windowMs: 15 * 60 * 1000 });
+    if (!ipLimit.allowed) {
+      const minutes = Math.ceil(ipLimit.resetMs / 60000);
       return NextResponse.json(
         {
-          error: `Too many failed login attempts. Please try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+          error: `Too many failed login attempts from this network. Please try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
         },
         { status: 429 }
       );
+    }
+
+    // 2. Role Failure Throttling: Check accumulated failure history for role without pre-locking out legitimate admins
+    const roleCheck = await checkRateLimit(roleKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
+    if (!roleCheck.allowed) {
+      const penaltyDelay = Math.min(1000 * Math.max(1, 6 - roleCheck.remaining), 3000);
+      await new Promise((res) => setTimeout(res, penaltyDelay));
     }
 
     const account = ADMIN_CONFIG[role];
@@ -124,6 +126,7 @@ export async function POST(request) {
     }
 
     if (expectedPassword !== password) {
+      await recordFailedAttempt(roleKey);
       return NextResponse.json(
         {
           error: "Incorrect password.",
@@ -134,7 +137,7 @@ export async function POST(request) {
       );
     }
 
-    // On successful admin login, clear role failure counter (preserve IP history)
+    // On successful admin authentication, clear role failure history
     await resetRateLimit(roleKey);
 
     const sessionPayload = {

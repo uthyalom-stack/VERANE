@@ -90,11 +90,6 @@ export function proxy(request: Request) {
     "strict-origin-when-cross-origin"
   );
 
-  response.headers.set(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=()"
-  );
-
   if (
     pathname.startsWith("/admin") ||
     pathname.startsWith("/api/admin")

@@ -155,38 +155,32 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const ALLOWED_ORDER_STATUSES = [
-      "pending",
-      "processing",
-      "shipped",
-      "delivered",
-      "cancelled",
-    ];
-
-    const normalizedStatus = String(body.status).trim().toLowerCase();
-
-    if (!ALLOWED_ORDER_STATUSES.includes(normalizedStatus)) {
-      return NextResponse.json(
+    const brandItemWhereClause = {
+      OR: [
+        { product: { brand: admin.brand } },
         {
-          success: false,
-          error: `Invalid status "${body.status}". Allowed statuses are: ${ALLOWED_ORDER_STATUSES.join(", ")}.`,
+          collaborationProduct: {
+            OR: [
+              { productA: { brand: admin.brand } },
+              { productB: { brand: admin.brand } },
+            ],
+          },
         },
-        { status: 400 }
-      );
-    }
+      ],
+    };
 
-    const existingOrder = await prisma.order.findUnique({
-      where: { id },
+    const existingOrder = await prisma.order.findFirst({
+      where: {
+        id,
+        items: {
+          some: brandItemWhereClause,
+        },
+      },
       include: {
         items: {
+          where: brandItemWhereClause,
           include: {
             product: true,
-            collaborationProduct: {
-              include: {
-                productA: true,
-                productB: true,
-              },
-            },
           },
         },
       },
@@ -194,37 +188,25 @@ export async function PUT(request, { params }) {
 
     if (!existingOrder) {
       return NextResponse.json(
-        { success: false, error: "Order not found." },
+        {
+          success: false,
+          error: "Order not found.",
+        },
         { status: 404 }
       );
     }
 
-    const { evaluateBrandOrderAuthorization } = await import("@/lib/order-tracking");
-    const authResult = evaluateBrandOrderAuthorization(existingOrder, admin.brand);
-
-    if (!authResult.authorized) {
-      if (authResult.reason === "not_found") {
-        return NextResponse.json(
-          { success: false, error: "Order not found." },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Forbidden: Brand admin cannot globally mutate an order containing unrelated products or malformed collaboration data. Use brand delivery tracking for brand-specific updates.",
-        },
-        { status: 403 }
-      );
-    }
-
     const order = await prisma.order.update({
-      where: { id },
-      data: { status: normalizedStatus },
+      where: {
+        id,
+      },
+      data: {
+        status: body.status,
+      },
       include: {
         user: true,
         items: {
+          where: brandItemWhereClause,
           include: {
             product: true,
           },
@@ -285,52 +267,46 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const existingOrder = await prisma.order.findUnique({
-      where: { id },
-      include: {
-        items: {
-          include: {
-            product: true,
-            collaborationProduct: {
-              include: {
-                productA: true,
-                productB: true,
-              },
-            },
+    const brandItemWhereClause = {
+      OR: [
+        { product: { brand: admin.brand } },
+        {
+          collaborationProduct: {
+            OR: [
+              { productA: { brand: admin.brand } },
+              { productB: { brand: admin.brand } },
+            ],
           },
         },
+      ],
+    };
+
+    const existingOrder = await prisma.order.findFirst({
+      where: {
+        id,
+        items: {
+          some: brandItemWhereClause,
+        },
+      },
+      select: {
+        id: true,
       },
     });
 
     if (!existingOrder) {
       return NextResponse.json(
-        { success: false, error: "Order not found." },
+        {
+          success: false,
+          error: "Order not found.",
+        },
         { status: 404 }
       );
     }
 
-    const { evaluateBrandOrderAuthorization } = await import("@/lib/order-tracking");
-    const authResult = evaluateBrandOrderAuthorization(existingOrder, admin.brand);
-
-    if (!authResult.authorized) {
-      if (authResult.reason === "not_found") {
-        return NextResponse.json(
-          { success: false, error: "Order not found." },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Forbidden: Brand admin cannot delete an order containing unrelated products or malformed collaboration data.",
-        },
-        { status: 403 }
-      );
-    }
-
     await prisma.order.delete({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     return NextResponse.json({
