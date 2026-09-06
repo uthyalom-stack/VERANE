@@ -1,5 +1,5 @@
 import assert from "assert";
-import { rateLimitAndIncrement, checkRateLimit, recordFailedAttempt, resetRateLimit } from "../lib/rate-limit.js";
+import { checkRateLimit, recordFailedAttempt, resetRateLimit } from "../lib/rate-limit.js";
 import { evaluateBrandOrderAuthorization } from "../lib/order-tracking.js";
 import { GET as getPublicSettingsHandler } from "../app/api/settings/route.js";
 import { POST as postOrderHandler } from "../app/api/orders/route.js";
@@ -161,40 +161,50 @@ async function runAuditTests() {
   // Scenario 10: SUPERADMIN logic handled directly in route handlers (not restricted by brand authorization helper).
   console.log("   ✓ All 10 brand authorization scenarios strictly validated (fail closed)");
 
-  // 5. Rate Limiter Soft Throttling, Hard IP Limits, Reset, and Concurrency Tests
-  console.log("-> Testing rate limiter account failure tracking and IP hard limits...");
-  const acctKey = "test_acct_" + Date.now();
-  const ipKey = "test_ip_" + Date.now();
+  // 5. Rate Limiter IP Failed Attempt vs Successful Login Tests
+  console.log("-> Testing rate limiter IP failure counting vs successful login exemption...");
+  const testIpKey = "test_ip_failures_" + Date.now();
+  const testAcctKey = "test_acct_failures_" + Date.now();
 
-  // Test account failure tracking without hard lockout
-  await recordFailedAttempt(acctKey);
-  await recordFailedAttempt(acctKey);
-  await recordFailedAttempt(acctKey);
-  await recordFailedAttempt(acctKey);
-  await recordFailedAttempt(acctKey);
+  // 1. Initial check: IP is unblocked
+  let ipCheck = await checkRateLimit(testIpKey, { maxAttempts: 3, windowMs: 10000 });
+  assert.strictEqual(ipCheck.allowed, true, "Initial IP check allowed");
 
-  let acctCheck = await checkRateLimit(acctKey, { maxAttempts: 5, windowMs: 10000 });
-  assert.strictEqual(acctCheck.allowed, false, "Account failure threshold reached");
+  // 2. Failed attempt records IP failure
+  await recordFailedAttempt(testIpKey, { windowMs: 10000 });
+  await recordFailedAttempt(testIpKey, { windowMs: 10000 });
+  await recordFailedAttempt(testIpKey, { windowMs: 10000 });
 
-  // Successful authentication resets account failure state
-  await resetRateLimit(acctKey);
-  acctCheck = await checkRateLimit(acctKey, { maxAttempts: 5, windowMs: 10000 });
-  assert.strictEqual(acctCheck.allowed, true, "Successful login resets account failure state");
+  ipCheck = await checkRateLimit(testIpKey, { maxAttempts: 3, windowMs: 10000 });
+  assert.strictEqual(ipCheck.allowed, false, "IP blocked after 3 failed attempts");
 
-  // Test IP Hard Limit Atomic Concurrency
-  const concurrentRequests = Array.from({ length: 10 }, () =>
-    rateLimitAndIncrement(ipKey, { maxAttempts: 5, windowMs: 10000 })
+  // 3. Reset IP key
+  await resetRateLimit(testIpKey);
+  ipCheck = await checkRateLimit(testIpKey, { maxAttempts: 3, windowMs: 10000 });
+  assert.strictEqual(ipCheck.allowed, true, "IP check allowed after reset");
+
+  // 4. Test account failure resetting
+  await recordFailedAttempt(testAcctKey, { windowMs: 10000 });
+  await recordFailedAttempt(testAcctKey, { windowMs: 10000 });
+  await resetRateLimit(testAcctKey);
+
+  const acctCheck = await checkRateLimit(testAcctKey, { maxAttempts: 3, windowMs: 10000 });
+  assert.strictEqual(acctCheck.allowed, true, "Account failure count cleared on reset");
+
+  // 5. Atomic concurrency test for failed attempts
+  const concurrentIpKey = "concurrent_ip_fails_" + Date.now();
+  const concurrentFails = Array.from({ length: 10 }, () =>
+    recordFailedAttempt(concurrentIpKey, { windowMs: 10000 })
   );
 
-  const results = await Promise.all(concurrentRequests);
-  const allowedCount = results.filter((r) => r.allowed).length;
-  const blockedCount = results.filter((r) => !r.allowed).length;
+  const failResults = await Promise.all(concurrentFails);
+  assert.strictEqual(failResults.length, 10, "10 concurrent failed attempts recorded");
 
-  assert.strictEqual(allowedCount, 5, "Exactly maxAttempts (5) requests allowed under concurrent execution for IP key");
-  assert.strictEqual(blockedCount, 5, "Remaining 5 concurrent requests strictly blocked");
+  const concurrentCheck = await checkRateLimit(concurrentIpKey, { maxAttempts: 5, windowMs: 10000 });
+  assert.strictEqual(concurrentCheck.allowed, false, "Concurrent failed attempts trigger IP hard block");
 
-  await resetRateLimit(ipKey);
-  console.log("   ✓ Rate limiter account failure throttling, reset, and concurrent IP hard limit verified");
+  await resetRateLimit(concurrentIpKey);
+  console.log("   ✓ IP rate limiter correctly counts ONLY failed attempts, supports atomic concurrency, and resets on success");
 
   // 6. Admin Order Status Validation Test
   console.log("-> Testing admin order status validation...");

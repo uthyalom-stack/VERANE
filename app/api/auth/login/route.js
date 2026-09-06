@@ -5,7 +5,7 @@ import {
   createCustomerSession,
   customerCookieOptions,
 } from "@/lib/auth/customer";
-import { rateLimitAndIncrement, checkRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -40,10 +40,10 @@ export async function POST(request) {
     const acctKey = `customer_acct:${email}`;
     const ipKey = `customer_ip:${ip}`;
 
-    // 1. IP Hard Limit: Atomically increment and enforce hard throttling on source IP (30 attempts per 15m)
-    const ipLimit = await rateLimitAndIncrement(ipKey, { maxAttempts: 30, windowMs: 15 * 60 * 1000 });
-    if (!ipLimit.allowed) {
-      const minutes = Math.ceil(ipLimit.resetMs / 60000);
+    // 1. IP Hard Limit Read Check: Check if source IP is blocked from accumulated failed attempts (30 failed attempts / 15m)
+    const ipCheck = await checkRateLimit(ipKey, { maxAttempts: 30, windowMs: 15 * 60 * 1000 });
+    if (!ipCheck.allowed) {
+      const minutes = Math.ceil(ipCheck.resetMs / 60000);
       return NextResponse.json(
         {
           success: false,
@@ -53,10 +53,9 @@ export async function POST(request) {
       );
     }
 
-    // 2. Account Failure Throttling: Check accumulated failure history for account without pre-locking out legitimate users
+    // 2. Account Failure Throttling: Check accumulated failure history for account without locking out legitimate user
     const acctCheck = await checkRateLimit(acctKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
     if (!acctCheck.allowed) {
-      // Progressive delay to slow down brute forcing against this account
       const penaltyDelay = Math.min(1000 * Math.max(1, 6 - acctCheck.remaining), 3000);
       await new Promise((res) => setTimeout(res, penaltyDelay));
     }
@@ -69,7 +68,10 @@ export async function POST(request) {
       });
 
     if (!user) {
-      await recordFailedAttempt(acctKey);
+      await Promise.all([
+        recordFailedAttempt(acctKey),
+        recordFailedAttempt(ipKey),
+      ]);
       return NextResponse.json(
         {
           success: false,
@@ -87,7 +89,10 @@ export async function POST(request) {
       );
 
     if (!validPassword) {
-      await recordFailedAttempt(acctKey);
+      await Promise.all([
+        recordFailedAttempt(acctKey),
+        recordFailedAttempt(ipKey),
+      ]);
       return NextResponse.json(
         {
           success: false,
@@ -98,7 +103,7 @@ export async function POST(request) {
       );
     }
 
-    // On successful authentication, reset account failure history so legitimate user is unhindered
+    // On successful authentication, clear account failure state. Successful logins DO NOT consume IP failure budget.
     await resetRateLimit(acctKey);
 
     const safeUser = {
