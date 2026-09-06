@@ -5,6 +5,7 @@ import {
   createCustomerSession,
   customerCookieOptions,
 } from "@/lib/auth/customer";
+import { checkRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,36 @@ export async function POST(request) {
       );
     }
 
+    // Extract trusted client IP from platform-managed headers
+    const ip =
+      request.headers.get("x-real-ip")?.trim() ||
+      request.headers.get("cf-connecting-ip")?.trim() ||
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      "127.0.0.1";
+
+    const acctKey = `customer_acct:${email}`;
+    const ipKey = `customer_ip:${ip}`;
+
+    // 1. IP Hard Limit Read Check: Check if source IP is blocked from accumulated failed attempts (30 failed attempts / 15m)
+    const ipCheck = await checkRateLimit(ipKey, { maxAttempts: 30, windowMs: 15 * 60 * 1000 });
+    if (!ipCheck.allowed) {
+      const minutes = Math.ceil(ipCheck.resetMs / 60000);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Too many failed login attempts from this network. Please try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+        },
+        { status: 429 }
+      );
+    }
+
+    // 2. Account Failure Throttling: Check accumulated failure history for account without locking out legitimate user
+    const acctCheck = await checkRateLimit(acctKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
+    if (!acctCheck.allowed) {
+      const penaltyDelay = Math.min(1000 * Math.max(1, 6 - acctCheck.remaining), 3000);
+      await new Promise((res) => setTimeout(res, penaltyDelay));
+    }
+
     const user =
       await prisma.user.findUnique({
         where: {
@@ -37,6 +68,10 @@ export async function POST(request) {
       });
 
     if (!user) {
+      await Promise.all([
+        recordFailedAttempt(acctKey),
+        recordFailedAttempt(ipKey),
+      ]);
       return NextResponse.json(
         {
           success: false,
@@ -54,6 +89,10 @@ export async function POST(request) {
       );
 
     if (!validPassword) {
+      await Promise.all([
+        recordFailedAttempt(acctKey),
+        recordFailedAttempt(ipKey),
+      ]);
       return NextResponse.json(
         {
           success: false,
@@ -63,6 +102,9 @@ export async function POST(request) {
         { status: 401 }
       );
     }
+
+    // On successful authentication, clear account failure state. Successful logins DO NOT consume IP failure budget.
+    await resetRateLimit(acctKey);
 
     const safeUser = {
       id: user.id,

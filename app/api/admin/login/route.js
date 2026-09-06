@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSignedAdminToken } from "@/lib/admin-auth";
+import { checkRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/rate-limit";
 
 const ADMIN_CONFIG = {
   UTHY: {
@@ -78,6 +79,35 @@ export async function POST(request) {
       );
     }
 
+    // Extract trusted client IP from platform-managed headers
+    const ip =
+      request.headers.get("x-real-ip")?.trim() ||
+      request.headers.get("cf-connecting-ip")?.trim() ||
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      "127.0.0.1";
+
+    const roleKey = `admin_role:${role}`;
+    const ipKey = `admin_ip:${ip}`;
+
+    // 1. IP Hard Limit Read Check: Check if source IP is blocked from accumulated failed attempts (15 failed attempts / 15m)
+    const ipCheck = await checkRateLimit(ipKey, { maxAttempts: 15, windowMs: 15 * 60 * 1000 });
+    if (!ipCheck.allowed) {
+      const minutes = Math.ceil(ipCheck.resetMs / 60000);
+      return NextResponse.json(
+        {
+          error: `Too many failed login attempts from this network. Please try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+        },
+        { status: 429 }
+      );
+    }
+
+    // 2. Role Failure Throttling: Check accumulated failure history for role without locking out legitimate admin
+    const roleCheck = await checkRateLimit(roleKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
+    if (!roleCheck.allowed) {
+      const penaltyDelay = Math.min(1000 * Math.max(1, 6 - roleCheck.remaining), 3000);
+      await new Promise((res) => setTimeout(res, penaltyDelay));
+    }
+
     const account = ADMIN_CONFIG[role];
     const expectedPassword = account.getEnvPassword();
 
@@ -96,6 +126,10 @@ export async function POST(request) {
     }
 
     if (expectedPassword !== password) {
+      await Promise.all([
+        recordFailedAttempt(roleKey),
+        recordFailedAttempt(ipKey),
+      ]);
       return NextResponse.json(
         {
           error: "Incorrect password.",
@@ -105,6 +139,9 @@ export async function POST(request) {
         }
       );
     }
+
+    // On successful admin authentication, clear role failure state. Successful logins DO NOT consume IP failure budget.
+    await resetRateLimit(roleKey);
 
     const sessionPayload = {
       role,
