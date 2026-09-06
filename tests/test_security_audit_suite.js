@@ -1,8 +1,6 @@
 import assert from "assert";
 import { POST as subscribePost } from "../app/api/subscribe/route.js";
 import { POST as orderPost } from "../app/api/orders/route.js";
-import { GET as productsGet } from "../app/api/products/route.js";
-import { GET as collaborationsGet } from "../app/api/collaborations/route.js";
 
 async function testDisabledOrderCreation() {
   console.log("\n--- TEST: Disabled Direct Order Creation (POST /api/orders) ---");
