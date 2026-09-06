@@ -11,7 +11,9 @@ export async function POST(request) {
         ? rawEmail.trim().toLowerCase()
         : "";
 
-    if (!email) {
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!email || email.length > 254 || !EMAIL_REGEX.test(email)) {
       return NextResponse.redirect(
         new URL("/?subscribed=error", request.url)
       );

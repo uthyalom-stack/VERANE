@@ -205,7 +205,7 @@ export async function GET(request) {
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Failed to load collaborations.",
+        error: "Failed to load collaborations.",
       },
       { status: 500 }
     );
@@ -319,7 +319,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Failed to create collaboration request.",
+        error: "Failed to create collaboration request.",
       },
       { status: 500 }
     );

@@ -152,7 +152,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Failed to initialize payment.",
+        error: "Failed to initialize payment.",
       },
       { status: 500 }
     );
