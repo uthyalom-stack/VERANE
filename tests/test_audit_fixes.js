@@ -1,5 +1,5 @@
 import assert from "assert";
-import { checkRateLimit, recordFailedAttempt, resetRateLimit } from "../lib/rate-limit.js";
+import { rateLimitAndIncrement, checkRateLimit, resetRateLimit } from "../lib/rate-limit.js";
 import { evaluateBrandOrderAuthorization } from "../lib/order-tracking.js";
 import { GET as getPublicSettingsHandler } from "../app/api/settings/route.js";
 import { POST as postOrderHandler } from "../app/api/orders/route.js";
@@ -161,30 +161,26 @@ async function runAuditTests() {
   // Scenario 10: SUPERADMIN logic handled directly in route handlers (not restricted by brand authorization helper).
   console.log("   ✓ All 10 brand authorization scenarios strictly validated (fail closed)");
 
-  // 5. Rate Limiter Account vs IP, Concurrency, and Reset Tests
-  console.log("-> Testing rate limiter account/IP separation, concurrency, and reset...");
-  const acctKey = "test_acct_" + Date.now();
-  const ipKey = "test_ip_" + Date.now();
+  // 5. Rate Limiter Concurrent Execution Decision Test
+  console.log("-> Testing rate limiter concurrent execution atomic protection...");
+  const concurrentKey = "concurrent_key_" + Date.now();
 
-  let acctLimit = await checkRateLimit(acctKey, { maxAttempts: 3, windowMs: 10000 });
-  assert.strictEqual(acctLimit.allowed, true);
+  // Fire 10 simultaneous rate limit requests concurrently
+  const concurrentRequests = Array.from({ length: 10 }, () =>
+    rateLimitAndIncrement(concurrentKey, { maxAttempts: 5, windowMs: 10000 })
+  );
 
-  await recordFailedAttempt(acctKey);
-  await recordFailedAttempt(acctKey);
-  await recordFailedAttempt(acctKey);
+  const results = await Promise.all(concurrentRequests);
+  const allowedCount = results.filter((r) => r.allowed).length;
+  const blockedCount = results.filter((r) => !r.allowed).length;
 
-  acctLimit = await checkRateLimit(acctKey, { maxAttempts: 3, windowMs: 10000 });
-  assert.strictEqual(acctLimit.allowed, false, "Account limit triggered after 3 failures");
+  assert.strictEqual(allowedCount, 5, "Exactly maxAttempts (5) requests allowed under concurrent execution");
+  assert.strictEqual(blockedCount, 5, "Remaining 5 concurrent requests strictly blocked");
 
-  // IP key remains unblocked
-  let ipLimit = await checkRateLimit(ipKey, { maxAttempts: 3, windowMs: 10000 });
-  assert.strictEqual(ipLimit.allowed, true, "IP key remains independent of account key");
-
-  // Reset account counter on successful login
-  await resetRateLimit(acctKey);
-  acctLimit = await checkRateLimit(acctKey, { maxAttempts: 3, windowMs: 10000 });
-  assert.strictEqual(acctLimit.allowed, true, "Account counter reset successfully on login success");
-  console.log("   ✓ Rate limiter account/IP separation and reset functions verified");
+  await resetRateLimit(concurrentKey);
+  const resetCheck = await checkRateLimit(concurrentKey, { maxAttempts: 5, windowMs: 10000 });
+  assert.strictEqual(resetCheck.allowed, true, "Rate limit key successfully reset");
+  console.log("   ✓ Rate limiter eliminates concurrency decision race conditions");
 
   // 6. Admin Order Status Validation Test
   console.log("-> Testing admin order status validation...");

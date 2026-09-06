@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSignedAdminToken } from "@/lib/admin-auth";
-import { checkRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/rate-limit";
+import { rateLimitAndIncrement, resetRateLimit } from "@/lib/rate-limit";
 
 const ADMIN_CONFIG = {
   UTHY: {
@@ -79,14 +79,21 @@ export async function POST(request) {
       );
     }
 
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+    // Extract trusted client IP from platform-managed headers
+    const ip =
+      request.headers.get("x-real-ip")?.trim() ||
+      request.headers.get("cf-connecting-ip")?.trim() ||
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      "127.0.0.1";
 
     // Separate role-based and IP-based rate limiting keys
     const roleKey = `admin_role:${role}`;
     const ipKey = `admin_ip:${ip}`;
 
-    const roleLimit = await checkRateLimit(roleKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
-    const ipLimit = await checkRateLimit(ipKey, { maxAttempts: 15, windowMs: 15 * 60 * 1000 });
+    const [roleLimit, ipLimit] = await Promise.all([
+      rateLimitAndIncrement(roleKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 }),
+      rateLimitAndIncrement(ipKey, { maxAttempts: 15, windowMs: 15 * 60 * 1000 }),
+    ]);
 
     if (!roleLimit.allowed || !ipLimit.allowed) {
       const resetMs = !roleLimit.allowed ? roleLimit.resetMs : ipLimit.resetMs;
@@ -117,10 +124,6 @@ export async function POST(request) {
     }
 
     if (expectedPassword !== password) {
-      await Promise.all([
-        recordFailedAttempt(roleKey),
-        recordFailedAttempt(ipKey),
-      ]);
       return NextResponse.json(
         {
           error: "Incorrect password.",
@@ -131,7 +134,7 @@ export async function POST(request) {
       );
     }
 
-    // On successful admin login, clear role failure counter
+    // On successful admin login, clear role failure counter (preserve IP history)
     await resetRateLimit(roleKey);
 
     const sessionPayload = {

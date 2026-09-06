@@ -5,7 +5,7 @@ import {
   createCustomerSession,
   customerCookieOptions,
 } from "@/lib/auth/customer";
-import { checkRateLimit, recordFailedAttempt, resetRateLimit } from "@/lib/rate-limit";
+import { rateLimitAndIncrement, resetRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -30,16 +30,22 @@ export async function POST(request) {
       );
     }
 
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+    // Extract trusted client IP from platform-managed headers
+    const ip =
+      request.headers.get("x-real-ip")?.trim() ||
+      request.headers.get("cf-connecting-ip")?.trim() ||
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      "127.0.0.1";
 
     // Separate account-level and IP-level keys
     const acctKey = `customer_acct:${email}`;
     const ipKey = `customer_ip:${ip}`;
 
-    // Account limit: 5 failed attempts per 15 minutes
-    const acctLimit = await checkRateLimit(acctKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 });
-    // IP limit: 30 failed attempts per 15 minutes (protects against account spraying across multiple accounts)
-    const ipLimit = await checkRateLimit(ipKey, { maxAttempts: 30, windowMs: 15 * 60 * 1000 });
+    // Atomically increment and evaluate rate limits
+    const [acctLimit, ipLimit] = await Promise.all([
+      rateLimitAndIncrement(acctKey, { maxAttempts: 5, windowMs: 15 * 60 * 1000 }),
+      rateLimitAndIncrement(ipKey, { maxAttempts: 30, windowMs: 15 * 60 * 1000 }),
+    ]);
 
     if (!acctLimit.allowed || !ipLimit.allowed) {
       const resetMs = !acctLimit.allowed ? acctLimit.resetMs : ipLimit.resetMs;
@@ -61,10 +67,6 @@ export async function POST(request) {
       });
 
     if (!user) {
-      await Promise.all([
-        recordFailedAttempt(acctKey),
-        recordFailedAttempt(ipKey),
-      ]);
       return NextResponse.json(
         {
           success: false,
@@ -82,10 +84,6 @@ export async function POST(request) {
       );
 
     if (!validPassword) {
-      await Promise.all([
-        recordFailedAttempt(acctKey),
-        recordFailedAttempt(ipKey),
-      ]);
       return NextResponse.json(
         {
           success: false,
@@ -96,7 +94,7 @@ export async function POST(request) {
       );
     }
 
-    // On successful login, clear account-specific failure counter
+    // On successful login, clear account-specific failure counter (preserve IP history)
     await resetRateLimit(acctKey);
 
     const safeUser = {
