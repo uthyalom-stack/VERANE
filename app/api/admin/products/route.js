@@ -606,9 +606,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Failed to create product.",
+        error: "Failed to create product.",
       },
       { status: 500 }
     );

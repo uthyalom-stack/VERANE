@@ -155,9 +155,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Failed to update collection.",
+        error: "Failed to update collection.",
       },
       { status: 500 }
     );
@@ -227,9 +225,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Failed to delete collection.",
+        error: "Failed to delete collection.",
       },
       { status: 500 }
     );

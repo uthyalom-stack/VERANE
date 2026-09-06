@@ -148,8 +148,7 @@ const sizeType = allowedSizeTypes.includes(
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message || "Failed to update category.",
+        error: "Failed to update category.",
       },
       { status: 500 }
     );
@@ -218,8 +217,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message || "Failed to delete category.",
+        error: "Failed to delete category.",
       },
       { status: 500 }
     );
