@@ -138,6 +138,35 @@ function sanitizeImageUrl(url) {
   return trimmed;
 }
 
+function resolvePrimaryImage(images) {
+  if (!images) return "";
+
+  let first = null;
+
+  if (Array.isArray(images)) {
+    first = images[0] || null;
+  } else if (typeof images === "string") {
+    const trimmed = images.trim();
+    if (!trimmed || trimmed === "[]") return "";
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        first = parsed[0] || null;
+      } else if (typeof parsed === "string") {
+        first = parsed;
+      }
+    } catch {
+      first = trimmed.split(",").map((s) => s.trim()).filter(Boolean)[0] || null;
+    }
+  }
+
+  if (!first || typeof first !== "string") return "";
+
+  const clean = sanitizeImageUrl(first);
+  return clean && clean !== "[]" ? clean : "";
+}
+
 function toHomepageSection(sec) {
   if (!sec) return null;
   return {
@@ -163,7 +192,7 @@ function toHomepageProduct(product) {
     name: product.name,
     brand: product.brand,
     price: product.price,
-    images: getProductImage(product.images) || "",
+    image: resolvePrimaryImage(product.images),
     inventory: Math.max(0, Number(product.inventory || 0)),
     preOrderEnabled: Boolean(product.preOrderEnabled),
     customSizingEnabled: Boolean(product.customSizingEnabled),
@@ -421,7 +450,7 @@ function SectionImage({ section, className = "" }) {
  */
 
 function ProductCard({ product }) {
-  const image = getProductImage(product.images);
+  const image = product?.image || "";
   const stockStatus = getProductStockStatus(product);
 
   return (
