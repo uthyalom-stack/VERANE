@@ -7,6 +7,7 @@ export async function GET(request) {
     const pageParam = searchParams.get("page");
     const limitParam = searchParams.get("limit");
     const brandParam = searchParams.get("brand");
+    const searchParam = searchParams.get("search") || searchParams.get("q") || "";
 
     const queryOptions = {
       where: {
@@ -38,9 +39,20 @@ export async function GET(request) {
       queryOptions.where.brand = brandParam;
     }
 
-    if (pageParam || limitParam) {
+    const trimmedSearch = searchParam.trim();
+    if (trimmedSearch) {
+      queryOptions.where.OR = [
+        { name: { contains: trimmedSearch, mode: "insensitive" } },
+        { category: { contains: trimmedSearch, mode: "insensitive" } },
+        { brand: { contains: trimmedSearch, mode: "insensitive" } },
+        { description: { contains: trimmedSearch, mode: "insensitive" } },
+      ];
+    }
+
+    if (pageParam || limitParam || trimmedSearch) {
       const page = Math.max(1, Number(pageParam) || 1);
-      const limit = Math.max(1, Math.min(100, Number(limitParam) || 16));
+      const defaultLimit = trimmedSearch ? 8 : 16;
+      const limit = Math.max(1, Math.min(100, Number(limitParam) || defaultLimit));
       queryOptions.skip = (page - 1) * limit;
       queryOptions.take = limit;
     }

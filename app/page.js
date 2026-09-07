@@ -1,10 +1,20 @@
 import Link from "next/link";
-import prisma from "@/lib/prisma";
+import { PrismaClient } from "@prisma/client";
 import SiteFooter from "@/components/SiteFooter";
 import StorefrontProductActions from "@/components/StorefrontProductActions";
 import { getProductStockStatus } from "@/lib/product-options";
 
 export const revalidate = 60;
+
+const globalForPrisma = globalThis;
+
+const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
 
 const FALLBACK_SECTIONS = [
   {
@@ -378,7 +388,7 @@ function hasSectionImage(section) {
  * @param {string} [className=""] - CSS classes applied to the image.
  * @returns {JSX.Element|null} The responsive image element, or `null` when no image is configured.
  */
-function SectionImage({ section, className = "", priority = false }) {
+function SectionImage({ section, className = "" }) {
   const desktopImg = section?.image?.trim();
   const mobileImg = section?.mobileImage?.trim();
 
@@ -398,9 +408,6 @@ function SectionImage({ section, className = "", priority = false }) {
       <img
         src={primarySrc}
         alt={section?.title || "VERANE"}
-        loading={priority ? "eager" : "lazy"}
-        decoding={priority ? "sync" : "async"}
-        sizes="(max-width: 768px) 100vw, 100vw"
         className={className}
       />
     </picture>
@@ -429,8 +436,6 @@ function ProductCard({ product }) {
               src={image}
               alt={product.name || "Product"}
               loading="lazy"
-              decoding="async"
-              sizes="(max-width: 640px) 72vw, (max-width: 768px) 42vw, (max-width: 1024px) 30vw, 23vw"
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
           ) : (
@@ -576,7 +581,6 @@ export default async function HomePage() {
           <div className="absolute inset-0">
             <SectionImage
               section={hero}
-              priority={true}
               className="absolute inset-0 w-full h-full object-cover"
             />
 
