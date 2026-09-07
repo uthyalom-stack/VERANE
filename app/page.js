@@ -157,14 +157,13 @@ function toHomepageSection(sec) {
 
 function toHomepageProduct(product) {
   if (!product) return null;
-  const firstImage = getProductImage(product.images);
 
   return {
     id: product.id,
     name: product.name,
     brand: product.brand,
     price: product.price,
-    images: firstImage ? [firstImage] : [],
+    images: product.images || "",
     inventory: Math.max(0, Number(product.inventory || 0)),
     preOrderEnabled: Boolean(product.preOrderEnabled),
     customSizingEnabled: Boolean(product.customSizingEnabled),
@@ -348,7 +347,8 @@ function getProductImage(images) {
     }
   }
 
-  return sanitizeImageUrl(first);
+  const clean = sanitizeImageUrl(first);
+  return clean && clean !== "[]" ? clean : null;
 }
 
 function getBrandName(brand) {
