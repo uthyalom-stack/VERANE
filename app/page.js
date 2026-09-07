@@ -134,7 +134,12 @@ const FALLBACK_SECTIONS = [
 function sanitizeImageUrl(url) {
   if (!url || typeof url !== "string") return "";
   const trimmed = url.trim();
-  if (trimmed.startsWith("data:")) return ""; // Exclude heavy embedded base64 data URIs
+  if (trimmed.startsWith("data:")) {
+    if (/^data:image\/(png|jpeg|jpg|webp|avif|gif);base64,/i.test(trimmed)) {
+      return trimmed;
+    }
+    return "";
+  }
   return trimmed;
 }
 
@@ -333,17 +338,27 @@ function getProductImage(images) {
     }
 
     if (!first && typeof images === "string") {
-      first = images
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean)[0] || null;
+      const trimmed = images.trim();
+      if (trimmed.startsWith("data:image/")) {
+        first = trimmed;
+      } else {
+        first = trimmed
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)[0] || null;
+      }
     }
   } catch {
     if (typeof images === "string") {
-      first = images
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean)[0] || null;
+      const trimmed = images.trim();
+      if (trimmed.startsWith("data:image/")) {
+        first = trimmed;
+      } else {
+        first = trimmed
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)[0] || null;
+      }
     }
   }
 
