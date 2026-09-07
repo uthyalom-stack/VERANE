@@ -274,12 +274,18 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-          <p className="text-neutral-400 text-xs font-mono uppercase tracking-[0.3em]">
-            Loading private studio...
-          </p>
+      <main className="min-h-screen bg-black text-white pb-28 md:pb-16">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 pt-10 md:pt-16 space-y-12">
+          <div className="relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-neutral-950 p-8 sm:p-12 md:p-16 space-y-6">
+            <div className="h-4 w-32 animate-pulse rounded bg-neutral-900" />
+            <div className="h-12 w-2/3 animate-pulse rounded-2xl bg-neutral-900" />
+            <div className="h-4 w-1/3 animate-pulse rounded bg-neutral-900" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-7 h-64 animate-pulse rounded-[2rem] border border-white/10 bg-neutral-950" />
+            <div className="lg:col-span-5 h-64 animate-pulse rounded-[2rem] border border-white/10 bg-neutral-950" />
+          </div>
         </div>
       </main>
     );

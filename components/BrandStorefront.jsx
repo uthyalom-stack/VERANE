@@ -59,8 +59,25 @@ export default function BrandStorefront({ brand }) {
   if (loading) {
     return (
       <main className="min-h-screen bg-black text-white">
-        <div className="flex min-h-[60vh] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-amber-400" />
+        <section className="border-b border-white/10 px-5 py-20 sm:px-8 lg:px-10 lg:py-28">
+          <div className="mx-auto max-w-[1600px]">
+            <div className="mb-10 aspect-[16/9] max-h-[620px] w-full animate-pulse rounded-[28px] bg-neutral-900" />
+            <div className="h-3 w-28 animate-pulse rounded-full bg-neutral-900" />
+            <div className="mt-4 h-16 w-3/4 animate-pulse rounded-2xl bg-neutral-900" />
+            <div className="mt-6 h-4 w-1/2 animate-pulse rounded bg-neutral-900" />
+          </div>
+        </section>
+
+        <div className="mx-auto max-w-[1600px] px-5 py-14 sm:px-8 lg:px-10">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="space-y-3">
+                <div className="aspect-[4/5] animate-pulse rounded-2xl bg-neutral-900" />
+                <div className="h-4 w-3/4 animate-pulse rounded bg-neutral-900" />
+                <div className="h-3 w-1/2 animate-pulse rounded bg-neutral-900" />
+              </div>
+            ))}
+          </div>
         </div>
       </main>
     );
@@ -92,11 +109,14 @@ export default function BrandStorefront({ brand }) {
       <section className="border-b border-white/10 px-5 py-20 sm:px-8 lg:px-10 lg:py-28">
         <div className="mx-auto max-w-[1600px]">
           {brandInfo.image ? (
-            <div className="mb-10 overflow-hidden rounded-[28px] border border-white/10 bg-neutral-950">
+            <div className="mb-10 overflow-hidden rounded-[28px] border border-white/10 bg-neutral-950 aspect-[16/9] max-h-[620px]">
               <img
                 src={brandInfo.image}
                 alt={brandInfo.name || "Brand"}
-                className="max-h-[620px] w-full object-cover"
+                loading="eager"
+                decoding="sync"
+                sizes="(max-width: 1280px) 100vw, 1600px"
+                className="h-full w-full object-cover"
               />
             </div>
           ) : null}
@@ -132,11 +152,14 @@ export default function BrandStorefront({ brand }) {
           sections.map((section) => (
             <section key={section.id} className="mb-20 last:mb-0">
               {section.image ? (
-                <div className="mb-8 overflow-hidden rounded-[28px] border border-white/10 bg-neutral-950">
+                <div className="mb-8 overflow-hidden rounded-[28px] border border-white/10 bg-neutral-950 aspect-[16/9] max-h-[560px]">
                   <img
                     src={section.image}
                     alt={section.title || "Section"}
-                    className="max-h-[560px] w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    sizes="(max-width: 1280px) 100vw, 1600px"
+                    className="h-full w-full object-cover"
                   />
                 </div>
               ) : null}
@@ -178,6 +201,9 @@ export default function BrandStorefront({ brand }) {
                           <img
                             src={image}
                             alt={product.name || "Product"}
+                            loading="lazy"
+                            decoding="async"
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                           />
                         ) : (

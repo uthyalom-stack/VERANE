@@ -12,9 +12,57 @@ function StorefrontHeaderInner() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const [account, setAccount] = useState(null);
   const [settings, setSettings] = useState({});
   const [cartCount, setCartCount] = useState(0);
+
+  // Debounced search logic
+  useEffect(() => {
+    const term = search.trim();
+    if (!term || term.length < 2) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      setSearchError("");
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchError("");
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/products?search=${encodeURIComponent(term)}&limit=8`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to search products");
+        }
+
+        const data = await response.json();
+        setSearchResults(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("Search error:", err);
+          setSearchError("Unable to load search results.");
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setSearchLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [search]);
 
   const brandParam = searchParams?.get("brand") || "";
 
@@ -301,6 +349,7 @@ function StorefrontHeaderInner() {
 
               <Link
                 href="/outfit-builder"
+                prefetch={false}
                 className={`text-[10px] uppercase tracking-[0.2em] font-semibold transition ${
                   isOutfitActive() ? "text-white" : "text-neutral-400 hover:text-white"
                 }`}
@@ -420,11 +469,11 @@ function StorefrontHeaderInner() {
           </div>
 
           {/* =====================================================
-              TOP SEARCH PANEL (Accessible across mobile and desktop)
+              TOP SEARCH PANEL & REAL-TIME AUTOCOMPLETE DROPDOWN
           ===================================================== */}
 
           {searchOpen && (
-            <div className="border-t border-white/10 py-3.5 animate-in slide-in-from-top-2 duration-200">
+            <div className="border-t border-white/10 py-3.5 animate-in slide-in-from-top-2 duration-200 relative">
               <form onSubmit={handleSearchSubmit} className="flex items-center gap-3 max-w-3xl mx-auto">
                 <div className="relative flex-1">
                   <input
@@ -453,6 +502,116 @@ function StorefrontHeaderInner() {
                   Search
                 </button>
               </form>
+
+              {/* LIVE AUTOCOMPLETE DROPDOWN RESULTS */}
+              {search.trim().length >= 2 && (
+                <div className="mt-3 max-w-3xl mx-auto rounded-2xl border border-white/10 bg-neutral-950/95 backdrop-blur-2xl p-4 shadow-2xl space-y-3 z-50">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2 px-1">
+                    <p className="text-[9px] font-mono uppercase tracking-[0.25em] text-amber-400 font-bold">
+                      LIVE RESULTS FOR &ldquo;{search.trim()}&rdquo;
+                    </p>
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-neutral-500">
+                      BOTH BRANDS
+                    </span>
+                  </div>
+
+                  {searchLoading ? (
+                    <div className="py-6 space-y-2">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3 p-2 rounded-xl bg-white/[0.02]">
+                          <div className="w-10 h-12 rounded-lg bg-neutral-900 animate-pulse shrink-0" />
+                          <div className="space-y-1 flex-1">
+                            <div className="h-3 w-1/3 rounded bg-neutral-900 animate-pulse" />
+                            <div className="h-4 w-1/2 rounded bg-neutral-900 animate-pulse" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : searchError ? (
+                    <p className="py-4 text-center text-xs text-red-400 font-mono">
+                      {searchError}
+                    </p>
+                  ) : searchResults.length === 0 ? (
+                    <p className="py-6 text-center text-xs text-neutral-500 font-mono">
+                      No products found for &ldquo;{search.trim()}&rdquo;.
+                    </p>
+                  ) : (
+                    <div className="space-y-1 max-h-[380px] overflow-y-auto pr-1">
+                      {searchResults.map((prod) => {
+                        let img = null;
+                        try {
+                          if (Array.isArray(prod.images)) img = prod.images[0];
+                          else if (typeof prod.images === "string") {
+                            const parsed = JSON.parse(prod.images);
+                            if (Array.isArray(parsed)) img = parsed[0];
+                            else img = prod.images;
+                          }
+                        } catch {
+                          img = prod.images;
+                        }
+
+                        const brandName =
+                          prod.brand === "UTHY_LUXURY"
+                            ? "UTHY LUXURY"
+                            : prod.brand === "ALOMZIEE_FOOTIES"
+                            ? "ALOMZIEE FOOTIES"
+                            : prod.brand || "VÉRANE";
+
+                        return (
+                          <Link
+                            key={prod.id}
+                            href={`/product/${prod.id}`}
+                            onClick={() => {
+                              setSearchOpen(false);
+                              setSearch("");
+                            }}
+                            className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/[0.06] transition group"
+                          >
+                            <div className="w-10 h-12 rounded-lg bg-neutral-900 overflow-hidden shrink-0 border border-white/5">
+                              {img ? (
+                                <img
+                                  src={img}
+                                  alt={prod.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[10px] text-neutral-600 font-mono">
+                                  V
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-amber-400 truncate">
+                                {brandName} {prod.category ? `• ${prod.category}` : ""}
+                              </p>
+                              <p className="text-xs font-semibold text-white truncate mt-0.5 group-hover:text-amber-300 transition">
+                                {prod.name}
+                              </p>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <p className="text-xs font-bold font-mono text-white">
+                                ₦{Number(prod.price || 0).toLocaleString("en-NG")}
+                              </p>
+                            </div>
+                          </Link>
+                        );
+                      })}
+
+                      <div className="pt-2 border-t border-white/10 text-center">
+                        <button
+                          type="button"
+                          onClick={handleSearchSubmit}
+                          className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-400 hover:text-amber-300 transition py-1"
+                        >
+                          View all matching results →
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -696,6 +855,7 @@ function StorefrontHeaderInner() {
           {/* 3. OUTFIT (✦ Outfit Builder) */}
           <Link
             href="/outfit-builder"
+            prefetch={false}
             onClick={closeMenu}
             className={`flex flex-col items-center justify-center py-1 px-1 w-full text-center transition ${
               isOutfitActive() ? "text-amber-400" : "text-neutral-400 hover:text-white"

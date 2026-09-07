@@ -4,7 +4,7 @@ import SiteFooter from "@/components/SiteFooter";
 import StorefrontProductActions from "@/components/StorefrontProductActions";
 import { getProductStockStatus } from "@/lib/product-options";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 const globalForPrisma = globalThis;
 
@@ -131,17 +131,83 @@ const FALLBACK_SECTIONS = [
    HOMEPAGE DATA
 ========================================================= */
 
+function sanitizeImageUrl(url) {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (trimmed.startsWith("data:")) return ""; // Exclude heavy embedded base64 data URIs
+  return trimmed;
+}
+
+function toHomepageSection(sec) {
+  if (!sec) return null;
+  return {
+    key: sec.key,
+    enabled: sec.enabled !== false,
+    title: sec.title || "",
+    subtitle: sec.subtitle || "",
+    description: sec.description || "",
+    image: sanitizeImageUrl(sec.image),
+    mobileImage: sanitizeImageUrl(sec.mobileImage),
+    buttonText: sec.buttonText || "",
+    buttonLink: sec.buttonLink || "",
+    secondaryButtonText: sec.secondaryButtonText || "",
+    secondaryButtonLink: sec.secondaryButtonLink || "",
+  };
+}
+
+function toHomepageProduct(product) {
+  if (!product) return null;
+
+  return {
+    id: product.id,
+    name: product.name,
+    brand: product.brand,
+    price: product.price,
+    images: product.images || "",
+    inventory: Math.max(0, Number(product.inventory || 0)),
+    preOrderEnabled: Boolean(product.preOrderEnabled),
+    customSizingEnabled: Boolean(product.customSizingEnabled),
+    sizeType: product.sizeType || "none",
+    productColors: (product.productColors || []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      hex: c.hex,
+    })),
+    variants: (product.variants || []).map((v) => ({
+      id: v.id,
+      stock: Math.max(0, Number(v.stock || 0)),
+      size: v.size || null,
+      colorId: v.colorId || null,
+    })),
+  };
+}
+
 async function getHomepageSections() {
   try {
     const dbSections = await prisma.homepageSection.findMany({
       orderBy: {
         sortOrder: "asc",
       },
+      select: {
+        key: true,
+        enabled: true,
+        sortOrder: true,
+        title: true,
+        subtitle: true,
+        description: true,
+        image: true,
+        mobileImage: true,
+        buttonText: true,
+        buttonLink: true,
+        secondaryButtonText: true,
+        secondaryButtonLink: true,
+      },
     });
 
-    const dbMap = new Map(dbSections.map((s) => [s.key, s]));
+    const dbMap = new Map(
+      dbSections.map((s) => [s.key, toHomepageSection(s)])
+    );
 
-    // Merge DB sections with fallbacks so any newly introduced section keys are preserved
     const mergedSections = FALLBACK_SECTIONS.map((fallback) => {
       const dbSec = dbMap.get(fallback.key);
       if (dbSec) {
@@ -153,10 +219,10 @@ async function getHomepageSections() {
       return fallback;
     });
 
-    // Also include any custom DB section keys that aren't in fallbacks
     dbSections.forEach((dbSec) => {
       if (!FALLBACK_SECTIONS.some((f) => f.key === dbSec.key)) {
-        mergedSections.push(dbSec);
+        const mapped = toHomepageSection(dbSec);
+        if (mapped) mergedSections.push(mapped);
       }
     });
 
@@ -167,21 +233,80 @@ async function getHomepageSections() {
   }
 }
 
-async function getProducts() {
-  try {
-    const products = await prisma.product.findMany({
-      where: {
-        archivedAt: null,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+const PRODUCT_HOMEPAGE_SELECT = {
+  id: true,
+  name: true,
+  brand: true,
+  price: true,
+  images: true,
+  inventory: true,
+  preOrderEnabled: true,
+  customSizingEnabled: true,
+  sizeType: true,
+  createdAt: true,
+  productColors: {
+    select: {
+      id: true,
+      name: true,
+      hex: true,
+    },
+  },
+  variants: {
+    select: {
+      id: true,
+      stock: true,
+      size: true,
+      colorId: true,
+    },
+  },
+};
 
-    return products;
+async function getHomepageProducts() {
+  try {
+    // Deduplicated fetch: top 8 UTHY + top 8 ALOMZIEE products (max 16 products total across entire homepage)
+    const [uthyRaw, alomzieeRaw] = await Promise.all([
+      prisma.product.findMany({
+        where: { archivedAt: null, brand: "UTHY_LUXURY" },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: PRODUCT_HOMEPAGE_SELECT,
+      }),
+      prisma.product.findMany({
+        where: { archivedAt: null, brand: "ALOMZIEE_FOOTIES" },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: PRODUCT_HOMEPAGE_SELECT,
+      }),
+    ]);
+
+    const uthyProducts = uthyRaw.map(toHomepageProduct).filter(Boolean);
+    const alomzieeProducts = alomzieeRaw.map(toHomepageProduct).filter(Boolean);
+
+    const combinedRaw = [...uthyRaw, ...alomzieeRaw].sort(
+      (a, b) =>
+        new Date(b.createdAt || 0).getTime() -
+        new Date(a.createdAt || 0).getTime()
+    );
+
+    const allCombined = combinedRaw.map(toHomepageProduct).filter(Boolean);
+
+    const selectedProducts = allCombined.slice(0, 8);
+    const newArrivals = allCombined.slice(0, 8);
+
+    return {
+      selectedProducts,
+      uthyProducts,
+      alomzieeProducts,
+      newArrivals,
+    };
   } catch (error) {
     console.error("Homepage products error:", error);
-    return [];
+    return {
+      selectedProducts: [],
+      uthyProducts: [],
+      alomzieeProducts: [],
+      newArrivals: [],
+    };
   }
 }
 
@@ -192,34 +317,38 @@ async function getProducts() {
 function getProductImage(images) {
   if (!images) return null;
 
+  let first = null;
+
   try {
     if (Array.isArray(images)) {
-      return images[0] || null;
-    }
-
-    if (typeof images === "string") {
+      first = images[0] || null;
+    } else if (typeof images === "string") {
       const parsed = JSON.parse(images);
 
       if (Array.isArray(parsed)) {
-        return parsed[0] || null;
+        first = parsed[0] || null;
+      } else if (typeof parsed === "string") {
+        first = parsed;
       }
+    }
 
-      if (typeof parsed === "string") {
-        return parsed;
-      }
+    if (!first && typeof images === "string") {
+      first = images
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)[0] || null;
     }
   } catch {
     if (typeof images === "string") {
-      const first = images
+      first = images
         .split(",")
         .map((item) => item.trim())
-        .filter(Boolean)[0];
-
-      return first || null;
+        .filter(Boolean)[0] || null;
     }
   }
 
-  return null;
+  const clean = sanitizeImageUrl(first);
+  return clean && clean !== "[]" ? clean : null;
 }
 
 function getBrandName(brand) {
@@ -414,9 +543,9 @@ function ProductRail({
  */
 
 export default async function HomePage() {
-  const [sections, products] = await Promise.all([
+  const [sections, productData] = await Promise.all([
     getHomepageSections(),
-    getProducts(),
+    getHomepageProducts(),
   ]);
 
   const getSection = (key) => {
@@ -435,17 +564,10 @@ export default async function HomePage() {
   const story = getSection("story");
   const newsletter = getSection("newsletter");
 
-  const selectedProducts = products.slice(0, 8);
-
-  const uthyProducts = products.filter(
-    (product) => product.brand === "UTHY_LUXURY"
-  );
-
-  const alomzieeProducts = products.filter(
-    (product) => product.brand === "ALOMZIEE_FOOTIES"
-  );
-
-  const newArrivals = products.slice(0, 8);
+  const selectedProducts = productData.selectedProducts || [];
+  const uthyProducts = productData.uthyProducts || [];
+  const alomzieeProducts = productData.alomzieeProducts || [];
+  const newArrivals = productData.newArrivals || [];
 
   return (
     <main className="bg-black text-white overflow-hidden">

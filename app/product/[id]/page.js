@@ -607,6 +607,9 @@ export default function ProductDetail() {
                     product.name ||
                     "Product"
                   }
+                  loading="eager"
+                  decoding="sync"
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -664,6 +667,9 @@ export default function ProductDetail() {
                         alt={`${product.name} ${
                           index + 1
                         }`}
+                        loading="lazy"
+                        decoding="async"
+                        sizes="(max-width: 768px) 80px, 96px"
                         className="w-full h-full object-cover"
                       />
                     </button>

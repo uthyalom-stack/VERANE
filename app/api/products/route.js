@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const products = await prisma.product.findMany({
+    const { searchParams } = new URL(request?.url || "http://localhost");
+    const pageParam = searchParams.get("page");
+    const limitParam = searchParams.get("limit");
+    const brandParam = searchParams.get("brand");
+    const searchParam = searchParams.get("search") || searchParams.get("q") || "";
+
+    const queryOptions = {
       where: {
         archivedAt: null,
       },
       orderBy: {
         createdAt: "desc",
       },
-
       include: {
         variants: {
           orderBy: {
@@ -20,17 +25,39 @@ export async function GET() {
             color: true,
           },
         },
-
         productColors: {
           orderBy: {
             createdAt: "asc",
           },
         },
-
         categoryRef: true,
         collection: true,
       },
-    });
+    };
+
+    if (brandParam && brandParam !== "all") {
+      queryOptions.where.brand = brandParam;
+    }
+
+    const trimmedSearch = searchParam.trim();
+    if (trimmedSearch) {
+      queryOptions.where.OR = [
+        { name: { contains: trimmedSearch, mode: "insensitive" } },
+        { category: { contains: trimmedSearch, mode: "insensitive" } },
+        { brand: { contains: trimmedSearch, mode: "insensitive" } },
+        { description: { contains: trimmedSearch, mode: "insensitive" } },
+      ];
+    }
+
+    if (pageParam || limitParam || trimmedSearch) {
+      const page = Math.max(1, Number(pageParam) || 1);
+      const defaultLimit = trimmedSearch ? 8 : 16;
+      const limit = Math.max(1, Math.min(100, Number(limitParam) || defaultLimit));
+      queryOptions.skip = (page - 1) * limit;
+      queryOptions.take = limit;
+    }
+
+    const products = await prisma.product.findMany(queryOptions);
 
     const publicProducts = products.map((product) => {
       const publicVariants = (product.variants || []).map((v) => ({
