@@ -137,6 +137,21 @@ async function getHomepageSections() {
       orderBy: {
         sortOrder: "asc",
       },
+      select: {
+        key: true,
+        type: true,
+        enabled: true,
+        sortOrder: true,
+        title: true,
+        subtitle: true,
+        description: true,
+        image: true,
+        mobileImage: true,
+        buttonText: true,
+        buttonLink: true,
+        secondaryButtonText: true,
+        secondaryButtonLink: true,
+      },
     });
 
     const dbMap = new Map(dbSections.map((s) => [s.key, s]));
@@ -167,6 +182,33 @@ async function getHomepageSections() {
   }
 }
 
+const PRODUCT_HOMEPAGE_SELECT = {
+  id: true,
+  name: true,
+  brand: true,
+  price: true,
+  images: true,
+  inventory: true,
+  preOrderEnabled: true,
+  customSizingEnabled: true,
+  sizeType: true,
+  productColors: {
+    select: {
+      id: true,
+      name: true,
+      hex: true,
+    },
+  },
+  variants: {
+    select: {
+      id: true,
+      stock: true,
+      size: true,
+      colorId: true,
+    },
+  },
+};
+
 async function getHomepageProducts() {
   try {
     const [selectedProducts, uthyProducts, alomzieeProducts, newArrivals] = await Promise.all([
@@ -174,21 +216,25 @@ async function getHomepageProducts() {
         where: { archivedAt: null },
         orderBy: { createdAt: "desc" },
         take: 8,
+        select: PRODUCT_HOMEPAGE_SELECT,
       }),
       prisma.product.findMany({
         where: { archivedAt: null, brand: "UTHY_LUXURY" },
         orderBy: { createdAt: "desc" },
         take: 8,
+        select: PRODUCT_HOMEPAGE_SELECT,
       }),
       prisma.product.findMany({
         where: { archivedAt: null, brand: "ALOMZIEE_FOOTIES" },
         orderBy: { createdAt: "desc" },
         take: 8,
+        select: PRODUCT_HOMEPAGE_SELECT,
       }),
       prisma.product.findMany({
         where: { archivedAt: null },
         orderBy: { createdAt: "desc" },
         take: 8,
+        select: PRODUCT_HOMEPAGE_SELECT,
       }),
     ]);
 
@@ -322,6 +368,20 @@ function ProductCard({ product }) {
   const image = getProductImage(product.images);
   const stockStatus = getProductStockStatus(product);
 
+  const clientProductProps = {
+    id: product.id,
+    name: product.name,
+    brand: product.brand,
+    price: product.price,
+    inventory: product.inventory,
+    preOrderEnabled: product.preOrderEnabled,
+    customSizingEnabled: product.customSizingEnabled,
+    sizeType: product.sizeType,
+    productColors: product.productColors,
+    variants: product.variants,
+    images: image ? [image] : [],
+  };
+
   return (
     <div className="group shrink-0 w-[72vw] sm:w-[42vw] md:w-[30vw] lg:w-[23vw]">
       <Link
@@ -375,7 +435,7 @@ function ProductCard({ product }) {
           </p>
         </Link>
 
-        <StorefrontProductActions product={product} />
+        <StorefrontProductActions product={clientProductProps} />
       </div>
     </div>
   );
