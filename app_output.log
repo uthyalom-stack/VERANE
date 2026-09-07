@@ -1,0 +1,410 @@
+
+> verane@0.1.0 dev
+> next dev
+
+▲ Next.js 16.3.1 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+✓ Ready in 552ms
+✓ Running next.config.mjs took 25ms
+
+CUSTOMER REGISTER ERROR: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__1wvcb4a._.js:122:164
+
+  119         status: 400
+  120     });
+  121 }
+→ 122 const existingUser = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/auth/register/route.js:63:25)
+    at <unknown> (-->  schema.prisma:7)
+    at async POST (app/api/auth/register/route.js:63:7)
+  61 |
+  62 |     const existingUser =
+> 63 |       await prisma.user.findUnique({
+     |                         ^
+  64 |         where: {
+  65 |           email,
+  66 |         }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ POST /api/auth/register 500 in 953ms (next.js: 578ms, application-code: 376ms)
+ GET /account 200 in 2.8s (next.js: 2.5s, application-code: 309ms)
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:94:163
+
+  91 };
+  92 async function GET() {
+  93     try {
+→ 94         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/settings/route.js:26:43)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/settings/route.js:26:18)
+  24 | export async function GET() {
+  25 |   try {
+> 26 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  27 |
+  28 |     const settings = { ...DEFAULT_SETTINGS };
+  29 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:94:163
+
+  91 };
+  92 async function GET() {
+  93     try {
+→ 94         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/settings/route.js:26:43)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/settings/route.js:26:18)
+  24 | export async function GET() {
+  25 |   try {
+> 26 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  27 |
+  28 |     const settings = { ...DEFAULT_SETTINGS };
+  29 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+CUSTOMER SESSION ERROR: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__1wqgkoc._.js:94:156
+
+  91         user: null
+  92     });
+  93 }
+→ 94 const user = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/auth/session/route.js:28:25)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/auth/session/route.js:28:7)
+  26 |
+  27 |     const user =
+> 28 |       await prisma.user.findUnique({
+     |                         ^
+  29 |         where: {
+  30 |           id: session.id,
+  31 |         }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+CUSTOMER SESSION ERROR: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__1wqgkoc._.js:94:156
+
+  91         user: null
+  92     });
+  93 }
+→ 94 const user = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/auth/session/route.js:28:25)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/auth/session/route.js:28:7)
+  26 |
+  27 |     const user =
+> 28 |       await prisma.user.findUnique({
+     |                         ^
+  29 |         where: {
+  30 |           id: session.id,
+  31 |         }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+CUSTOMER SESSION ERROR: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__1wqgkoc._.js:94:156
+
+  91         user: null
+  92     });
+  93 }
+→ 94 const user = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/auth/session/route.js:28:25)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/auth/session/route.js:28:7)
+  26 |
+  27 |     const user =
+> 28 |       await prisma.user.findUnique({
+     |                         ^
+  29 |         where: {
+  30 |           id: session.id,
+  31 |         }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+CUSTOMER SESSION ERROR: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__1wqgkoc._.js:94:156
+
+  91         user: null
+  92     });
+  93 }
+→ 94 const user = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/auth/session/route.js:28:25)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/auth/session/route.js:28:7)
+  26 |
+  27 |     const user =
+> 28 |       await prisma.user.findUnique({
+     |                         ^
+  29 |         where: {
+  30 |           id: session.id,
+  31 |         }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ GET /api/settings 200 in 550ms (next.js: 272ms, application-code: 278ms)
+ GET /api/settings 200 in 525ms (next.js: 329ms, application-code: 196ms)
+ GET /api/auth/session 200 in 571ms (next.js: 351ms, application-code: 219ms)
+ GET /api/auth/session 200 in 576ms (next.js: 365ms, application-code: 211ms)
+ GET /api/auth/session 200 in 525ms (next.js: 321ms, application-code: 204ms)
+ GET /api/auth/session 200 in 528ms (next.js: 341ms, application-code: 188ms)
+ GET /login 200 in 485ms (next.js: 437ms, application-code: 48ms)
+ GET /login 200 in 33ms (next.js: 6ms, application-code: 27ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+ GET /account 200 in 52ms (next.js: 4ms, application-code: 48ms)
+CUSTOMER SESSION ERROR: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__1wqgkoc._.js:94:156
+
+  91         user: null
+  92     });
+  93 }
+→ 94 const user = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/auth/session/route.js:28:25)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/auth/session/route.js:28:7)
+  26 |
+  27 |     const user =
+> 28 |       await prisma.user.findUnique({
+     |                         ^
+  29 |         where: {
+  30 |           id: session.id,
+  31 |         }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ GET /api/auth/session 200 in 26ms (next.js: 3ms, application-code: 23ms)
+CUSTOMER SESSION ERROR: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__1wqgkoc._.js:94:156
+
+  91         user: null
+  92     });
+  93 }
+→ 94 const user = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/auth/session/route.js:28:25)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/auth/session/route.js:28:7)
+  26 |
+  27 |     const user =
+> 28 |       await prisma.user.findUnique({
+     |                         ^
+  29 |         where: {
+  30 |           id: session.id,
+  31 |         }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ GET /api/auth/session 200 in 26ms (next.js: 3ms, application-code: 24ms)
+ GET /login 200 in 62ms (next.js: 15ms, application-code: 47ms)
+ GET /login 200 in 30ms (next.js: 4ms, application-code: 25ms)
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:94:163
+
+  91 };
+  92 async function GET() {
+  93     try {
+→ 94         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/settings/route.js:26:43)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/settings/route.js:26:18)
+  24 | export async function GET() {
+  25 |   try {
+> 26 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  27 |
+  28 |     const settings = { ...DEFAULT_SETTINGS };
+  29 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+CUSTOMER SESSION ERROR: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__1wqgkoc._.js:94:156
+
+  91         user: null
+  92     });
+  93 }
+→ 94 const user = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/auth/session/route.js:28:25)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/auth/session/route.js:28:7)
+  26 |
+  27 |     const user =
+> 28 |       await prisma.user.findUnique({
+     |                         ^
+  29 |         where: {
+  30 |           id: session.id,
+  31 |         }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ GET /api/settings 200 in 40ms (next.js: 15ms, application-code: 25ms)
+ GET /api/auth/session 200 in 40ms (next.js: 22ms, application-code: 17ms)
+Failed to load site settings: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__19w7k-b._.js:94:163
+
+  91 };
+  92 async function GET() {
+  93     try {
+→ 94         const rows = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].siteSetting.findMany(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/settings/route.js:26:43)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/settings/route.js:26:18)
+  24 | export async function GET() {
+  25 |   try {
+> 26 |     const rows = await prisma.siteSetting.findMany();
+     |                                           ^
+  27 |
+  28 |     const settings = { ...DEFAULT_SETTINGS };
+  29 | {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+CUSTOMER SESSION ERROR: Error [PrismaClientInitializationError]:
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique()` invocation in
+/app/.next/dev/server/chunks/[root-of-the-server]__1wqgkoc._.js:94:156
+
+  91         user: null
+  92     });
+  93 }
+→ 94 const user = await __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$prisma$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].user.findUnique(
+error: Error validating datasource `db`: the URL must start with the protocol `postgresql://` or `postgres://`.
+  -->  schema.prisma:7
+   |
+ 6 |   provider  = "postgresql"
+ 7 |   url       = env("DATABASE_URL")
+   |
+
+Validation Error Count: 1
+    at <unknown> (app/api/auth/session/route.js:28:25)
+    at <unknown> (-->  schema.prisma:7)
+    at async GET (app/api/auth/session/route.js:28:7)
+  26 |
+  27 |     const user =
+> 28 |       await prisma.user.findUnique({
+     |                         ^
+  29 |         where: {
+  30 |           id: session.id,
+  31 |         }, {
+  clientVersion: '5.22.0',
+  errorCode: undefined
+}
+ GET /api/settings 200 in 36ms (next.js: 15ms, application-code: 21ms)
+ GET /api/auth/session 200 in 35ms (next.js: 20ms, application-code: 15ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+ GET /account 200 in 66ms (next.js: 8ms, application-code: 58ms)
+ GET /account 200 in 52ms (next.js: 3ms, application-code: 49ms)
