@@ -134,12 +134,7 @@ const FALLBACK_SECTIONS = [
 function sanitizeImageUrl(url) {
   if (!url || typeof url !== "string") return "";
   const trimmed = url.trim();
-  if (trimmed.startsWith("data:")) {
-    if (/^data:image\/(png|jpeg|jpg|webp|avif|gif);base64,/i.test(trimmed)) {
-      return trimmed;
-    }
-    return "";
-  }
+  if (trimmed.startsWith("data:")) return ""; // Exclude heavy embedded base64 data URIs
   return trimmed;
 }
 
@@ -168,7 +163,7 @@ function toHomepageProduct(product) {
     name: product.name,
     brand: product.brand,
     price: product.price,
-    images: product.images || "",
+    images: getProductImage(product.images) || "",
     inventory: Math.max(0, Number(product.inventory || 0)),
     preOrderEnabled: Boolean(product.preOrderEnabled),
     customSizingEnabled: Boolean(product.customSizingEnabled),
@@ -338,27 +333,17 @@ function getProductImage(images) {
     }
 
     if (!first && typeof images === "string") {
-      const trimmed = images.trim();
-      if (trimmed.startsWith("data:image/")) {
-        first = trimmed;
-      } else {
-        first = trimmed
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean)[0] || null;
-      }
+      first = images
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)[0] || null;
     }
   } catch {
     if (typeof images === "string") {
-      const trimmed = images.trim();
-      if (trimmed.startsWith("data:image/")) {
-        first = trimmed;
-      } else {
-        first = trimmed
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean)[0] || null;
-      }
+      first = images
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)[0] || null;
     }
   }
 
