@@ -52,7 +52,7 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en">
       <body
-        className="min-h-screen bg-black text-white antialiased"
+        className="min-h-screen bg-black text-white antialiased pb-20 md:pb-0"
         style={{ "--primary-color": primaryColor }}
       >
         <StorefrontHeader />
