@@ -15,6 +15,10 @@ const DEFAULT_SETTINGS = {
   tiktok: "",
   announcementEnabled: "false",
   announcementText: "",
+  uthyLogo: "",
+  alomzieeLogo: "",
+  uthyName: "UTHY LUXURY",
+  alomzieeName: "ALOMZIEE FOOTIES",
 };
 
 export async function GET() {
