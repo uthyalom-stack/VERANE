@@ -301,6 +301,7 @@ function StorefrontHeaderInner() {
 
               <Link
                 href="/outfit-builder"
+                prefetch={false}
                 className={`text-[10px] uppercase tracking-[0.2em] font-semibold transition ${
                   isOutfitActive() ? "text-white" : "text-neutral-400 hover:text-white"
                 }`}
@@ -696,6 +697,7 @@ function StorefrontHeaderInner() {
           {/* 3. OUTFIT (✦ Outfit Builder) */}
           <Link
             href="/outfit-builder"
+            prefetch={false}
             onClick={closeMenu}
             className={`flex flex-col items-center justify-center py-1 px-1 w-full text-center transition ${
               isOutfitActive() ? "text-amber-400" : "text-neutral-400 hover:text-white"

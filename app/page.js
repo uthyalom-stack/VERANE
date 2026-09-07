@@ -4,7 +4,7 @@ import SiteFooter from "@/components/SiteFooter";
 import StorefrontProductActions from "@/components/StorefrontProductActions";
 import { getProductStockStatus } from "@/lib/product-options";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 const globalForPrisma = globalThis;
 
@@ -167,21 +167,45 @@ async function getHomepageSections() {
   }
 }
 
-async function getProducts() {
+async function getHomepageProducts() {
   try {
-    const products = await prisma.product.findMany({
-      where: {
-        archivedAt: null,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    const [selectedProducts, uthyProducts, alomzieeProducts, newArrivals] = await Promise.all([
+      prisma.product.findMany({
+        where: { archivedAt: null },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      }),
+      prisma.product.findMany({
+        where: { archivedAt: null, brand: "UTHY_LUXURY" },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      }),
+      prisma.product.findMany({
+        where: { archivedAt: null, brand: "ALOMZIEE_FOOTIES" },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      }),
+      prisma.product.findMany({
+        where: { archivedAt: null },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      }),
+    ]);
 
-    return products;
+    return {
+      selectedProducts,
+      uthyProducts,
+      alomzieeProducts,
+      newArrivals,
+    };
   } catch (error) {
     console.error("Homepage products error:", error);
-    return [];
+    return {
+      selectedProducts: [],
+      uthyProducts: [],
+      alomzieeProducts: [],
+      newArrivals: [],
+    };
   }
 }
 
@@ -259,7 +283,7 @@ function hasSectionImage(section) {
  * @param {string} [className=""] - CSS classes applied to the image.
  * @returns {JSX.Element|null} The responsive image element, or `null` when no image is configured.
  */
-function SectionImage({ section, className = "" }) {
+function SectionImage({ section, className = "", priority = false }) {
   const desktopImg = section?.image?.trim();
   const mobileImg = section?.mobileImage?.trim();
 
@@ -279,6 +303,9 @@ function SectionImage({ section, className = "" }) {
       <img
         src={primarySrc}
         alt={section?.title || "VERANE"}
+        loading={priority ? "eager" : "lazy"}
+        decoding={priority ? "sync" : "async"}
+        sizes="(max-width: 768px) 100vw, 100vw"
         className={className}
       />
     </picture>
@@ -307,6 +334,8 @@ function ProductCard({ product }) {
               src={image}
               alt={product.name || "Product"}
               loading="lazy"
+              decoding="async"
+              sizes="(max-width: 640px) 72vw, (max-width: 768px) 42vw, (max-width: 1024px) 30vw, 23vw"
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
           ) : (
@@ -414,9 +443,9 @@ function ProductRail({
  */
 
 export default async function HomePage() {
-  const [sections, products] = await Promise.all([
+  const [sections, productData] = await Promise.all([
     getHomepageSections(),
-    getProducts(),
+    getHomepageProducts(),
   ]);
 
   const getSection = (key) => {
@@ -435,17 +464,10 @@ export default async function HomePage() {
   const story = getSection("story");
   const newsletter = getSection("newsletter");
 
-  const selectedProducts = products.slice(0, 8);
-
-  const uthyProducts = products.filter(
-    (product) => product.brand === "UTHY_LUXURY"
-  );
-
-  const alomzieeProducts = products.filter(
-    (product) => product.brand === "ALOMZIEE_FOOTIES"
-  );
-
-  const newArrivals = products.slice(0, 8);
+  const selectedProducts = productData.selectedProducts || [];
+  const uthyProducts = productData.uthyProducts || [];
+  const alomzieeProducts = productData.alomzieeProducts || [];
+  const newArrivals = productData.newArrivals || [];
 
   return (
     <main className="bg-black text-white overflow-hidden">
@@ -459,6 +481,7 @@ export default async function HomePage() {
           <div className="absolute inset-0">
             <SectionImage
               section={hero}
+              priority={true}
               className="absolute inset-0 w-full h-full object-cover"
             />
 

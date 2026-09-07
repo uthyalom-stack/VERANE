@@ -138,6 +138,9 @@ function CatalogContent({
   const [collections, setCollections] = useState([]);
 
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   const [activeBrand, setActiveBrand] = useState(defaultBrand);
   const [activeCat, setActiveCat] = useState("all");
@@ -152,6 +155,41 @@ function CatalogContent({
     useState({});
 
   const [cartLoading, setCartLoading] = useState({});
+
+  const loadMoreProducts = async () => {
+    if (loadingMore || !hasMore) return;
+
+    try {
+      setLoadingMore(true);
+      const nextPage = page + 1;
+      const res = await fetch(`/api/products?page=${nextPage}&limit=16`, {
+        cache: "no-store",
+      });
+
+      if (!res.ok) throw new Error("Failed to load more products");
+
+      const data = await res.json();
+      const newProducts = Array.isArray(data) ? data : [];
+
+      if (newProducts.length === 0) {
+        setHasMore(false);
+      } else {
+        setProducts((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id));
+          const uniqueNew = newProducts.filter((p) => !existingIds.has(p.id));
+          return [...prev, ...uniqueNew];
+        });
+        setPage(nextPage);
+        if (newProducts.length < 16) {
+          setHasMore(false);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading more products:", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   /*
    * Read brand from URL.
@@ -188,7 +226,7 @@ function CatalogContent({
 
         const [prodRes, colRes] =
           await Promise.all([
-            fetch("/api/products", {
+            fetch("/api/products?page=1&limit=16", {
               cache: "no-store",
             }),
 
@@ -231,6 +269,8 @@ function CatalogContent({
 
         setProducts(loadedProducts);
         setCollections(loadedCollections);
+        setHasMore(loadedProducts.length >= 16);
+        setPage(1);
 
         /*
          * Load wishlist separately.
@@ -595,21 +635,26 @@ function CatalogContent({
   if (loading) {
     return (
       <main className="min-h-screen bg-black text-white">
-        <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8">
+        <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8">
           <div className="mb-10">
-            <div className="h-3 w-32 animate-pulse rounded-full bg-neutral-900" />
-
-            <div className="mt-5 h-20 w-full max-w-3xl animate-pulse rounded-2xl bg-neutral-900" />
+            <div className="h-3 w-28 animate-pulse rounded-full bg-neutral-900 mb-3" />
+            <div className="h-14 md:h-20 w-full max-w-xl animate-pulse rounded-2xl bg-neutral-900" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {Array.from({
-              length: 8,
-            }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-[4/5] animate-pulse rounded-2xl bg-neutral-900"
-              />
+          <div className="mb-8 flex gap-2 overflow-hidden">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-10 w-24 animate-pulse rounded-full bg-neutral-900 shrink-0" />
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="space-y-4">
+                <div className="aspect-[4/5] animate-pulse rounded-2xl bg-neutral-900" />
+                <div className="h-3 w-20 animate-pulse rounded bg-neutral-900" />
+                <div className="h-5 w-3/4 animate-pulse rounded bg-neutral-900" />
+                <div className="h-4 w-16 animate-pulse rounded bg-neutral-900" />
+              </div>
             ))}
           </div>
         </div>
@@ -851,6 +896,8 @@ function CatalogContent({
                               "Product"
                             }
                             loading="lazy"
+                            decoding="async"
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                             className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
                           />
                         ) : (
@@ -1009,6 +1056,20 @@ function CatalogContent({
                 );
               }
             )}
+          </div>
+        )}
+
+        {/* LOAD MORE BUTTON */}
+        {hasMore && filtered.length > 0 && (
+          <div className="mt-16 text-center">
+            <button
+              type="button"
+              onClick={loadMoreProducts}
+              disabled={loadingMore}
+              className="rounded-full border border-white/20 bg-neutral-950 px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] text-white transition hover:border-amber-400 hover:text-amber-400 disabled:opacity-50"
+            >
+              {loadingMore ? "Loading pieces..." : "Load More Pieces"}
+            </button>
           </div>
         )}
       </div>

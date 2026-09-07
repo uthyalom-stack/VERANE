@@ -2,6 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+
+const Mannequin = dynamic(() => Promise.resolve(MannequinComponent), {
+  ssr: false,
+  loading: () => (
+    <div className="relative h-[560px] w-[300px] sm:h-[650px] sm:w-[350px] flex items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-amber-400" />
+    </div>
+  ),
+});
 
 const CATEGORIES = [
   { key: "top", label: "TOP" },
@@ -27,7 +37,7 @@ const EMPTY_OUTFIT = {
   hand: null,
 };
 
-function Mannequin({ outfit }) {
+function MannequinComponent({ outfit }) {
   return (
     <div className="relative h-[560px] w-[300px] sm:h-[650px] sm:w-[350px]">
       {/* HEAD */}

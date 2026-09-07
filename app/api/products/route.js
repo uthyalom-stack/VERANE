@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const products = await prisma.product.findMany({
+    const { searchParams } = new URL(request?.url || "http://localhost");
+    const pageParam = searchParams.get("page");
+    const limitParam = searchParams.get("limit");
+    const brandParam = searchParams.get("brand");
+
+    const queryOptions = {
       where: {
         archivedAt: null,
       },
       orderBy: {
         createdAt: "desc",
       },
-
       include: {
         variants: {
           orderBy: {
@@ -20,17 +24,28 @@ export async function GET() {
             color: true,
           },
         },
-
         productColors: {
           orderBy: {
             createdAt: "asc",
           },
         },
-
         categoryRef: true,
         collection: true,
       },
-    });
+    };
+
+    if (brandParam && brandParam !== "all") {
+      queryOptions.where.brand = brandParam;
+    }
+
+    if (pageParam || limitParam) {
+      const page = Math.max(1, Number(pageParam) || 1);
+      const limit = Math.max(1, Math.min(100, Number(limitParam) || 16));
+      queryOptions.skip = (page - 1) * limit;
+      queryOptions.take = limit;
+    }
+
+    const products = await prisma.product.findMany(queryOptions);
 
     const publicProducts = products.map((product) => {
       const publicVariants = (product.variants || []).map((v) => ({

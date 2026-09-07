@@ -41,10 +41,19 @@ export default function OrdersPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p className="text-neutral-500 text-xs uppercase tracking-[0.3em]">
-          Loading orders...
-        </p>
+      <main className="min-h-screen bg-black text-white">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8 py-12 md:py-20 space-y-6">
+          <div className="h-3 w-28 animate-pulse rounded bg-neutral-900" />
+          <div className="h-14 w-2/3 animate-pulse rounded-2xl bg-neutral-900" />
+          <div className="space-y-4 pt-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-36 animate-pulse rounded-[2rem] border border-white/10 bg-neutral-950"
+              />
+            ))}
+          </div>
+        </div>
       </main>
     );
   }
