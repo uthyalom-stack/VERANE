@@ -133,9 +133,7 @@ const FALLBACK_SECTIONS = [
 
 function sanitizeImageUrl(url) {
   if (!url || typeof url !== "string") return "";
-  const trimmed = url.trim();
-  if (trimmed.startsWith("data:")) return ""; // Exclude heavy embedded base64 data URIs
-  return trimmed;
+  return url.trim();
 }
 
 function toHomepageSection(sec) {
@@ -333,17 +331,29 @@ function getProductImage(images) {
     }
 
     if (!first && typeof images === "string") {
-      first = images
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean)[0] || null;
+      const trimmed = images.trim();
+      if (trimmed.startsWith("data:")) {
+        first = trimmed;
+      } else {
+        first =
+          trimmed
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean)[0] || null;
+      }
     }
   } catch {
     if (typeof images === "string") {
-      first = images
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean)[0] || null;
+      const trimmed = images.trim();
+      if (trimmed.startsWith("data:")) {
+        first = trimmed;
+      } else {
+        first =
+          trimmed
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean)[0] || null;
+      }
     }
   }
 
