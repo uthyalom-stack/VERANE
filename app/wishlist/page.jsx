@@ -257,6 +257,9 @@ My Account </Link>
                         product.name ||
                         "Saved product"
                       }
+                      loading="lazy"
+                      decoding="async"
+                      sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
                     />
                   ) : (

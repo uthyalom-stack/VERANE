@@ -58,42 +58,49 @@ import { productRequiresOptions } from "@/lib/product-options";
  * @param {Object} product - The product associated with the actions.
  * @return {JSX.Element} The wishlist and cart action controls.
  */
-export default function StorefrontProductActions({ product }) {
+let globalWishlistPromise = null;
+
+function getSharedWishlistSet() {
+  if (!globalWishlistPromise) {
+    globalWishlistPromise = fetch("/api/wishlist", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.wishlist)) {
+          return new Set(data.wishlist.map((item) => item?.productId || item?.product?.id || item?.id));
+        }
+        return new Set();
+      })
+      .catch(() => new Set());
+  }
+  return globalWishlistPromise;
+}
+
+export default function StorefrontProductActions({ product, initialWishlisted = false }) {
   const router = useRouter();
-  const [wishlisted, setWishlisted] = useState(false);
+  const [wishlisted, setWishlisted] = useState(Boolean(initialWishlisted));
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [cartAdded, setCartAdded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadWishlist() {
-      try {
-        const response = await fetch("/api/wishlist", {
-          cache: "no-store",
-        });
-
-        if (!response.ok) return;
-
-        const data = await response.json().catch(() => null);
-        const saved = Array.isArray(data?.wishlist)
-          ? data.wishlist.some(
-              (item) => item?.productId === product?.id
-            )
-          : false;
-
-        if (!cancelled) setWishlisted(saved);
-      } catch (error) {
-        console.error("Failed to load wishlist status:", error);
-      }
+    if (initialWishlisted) {
+      setWishlisted(true);
+      return;
     }
 
-    if (product?.id) loadWishlist();
+    if (product?.id) {
+      getSharedWishlistSet().then((set) => {
+        if (!cancelled) {
+          setWishlisted(set.has(product.id));
+        }
+      });
+    }
 
     return () => {
       cancelled = true;
     };
-  }, [product?.id]);
+  }, [product?.id, initialWishlisted]);
 
   async function toggleWishlist(event) {
     event.preventDefault();
@@ -126,6 +133,7 @@ export default function StorefrontProductActions({ product }) {
         throw new Error(data?.error || "Failed to update wishlist.");
       }
 
+      globalWishlistPromise = null;
       setWishlisted(Boolean(data.wishlisted));
     } catch (error) {
       console.error("Wishlist update failed:", error);

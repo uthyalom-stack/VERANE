@@ -532,6 +532,9 @@ export default function AccountPage() {
                                 <img
                                   src={thumbnail}
                                   alt={prod?.name || "Product thumbnail"}
+                                  loading="lazy"
+                                  decoding="async"
+                                  sizes="64px"
                                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                                 />
                               ) : (
@@ -621,6 +624,9 @@ export default function AccountPage() {
                               <img
                                 src={thumbnail}
                                 alt={item.product?.name || "Wishlist item"}
+                                loading="lazy"
+                                decoding="async"
+                                sizes="(max-width: 1024px) 33vw, 150px"
                                 className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
                               />
                             ) : (

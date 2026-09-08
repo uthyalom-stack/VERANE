@@ -41,6 +41,9 @@ function ProductCard({ product }) {
             <img
               src={image}
               alt={product.name || "Product"}
+              loading="lazy"
+              decoding="async"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
               className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
             />
           ) : (
@@ -60,7 +63,7 @@ function ProductCard({ product }) {
           <p className="truncate text-sm font-medium text-white">{product.name || "Unnamed Product"}</p>
           <p className="mt-1 text-xs text-white/40">{formatPrice(product.price)}</p>
         </Link>
-        <StorefrontProductActions product={product} />
+        <StorefrontProductActions product={product} initialWishlisted={false} />
       </div>
     </div>
   );
