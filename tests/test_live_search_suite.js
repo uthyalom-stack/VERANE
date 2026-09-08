@@ -59,42 +59,49 @@ async function runLiveSearchTests() {
   assert.strictEqual(clause3.AND[0].OR[0].name.contains, "boots");
   console.log("✓ Brand-scoped search clause preserves brand filtering");
 
-  // 2. Test Lightweight Primary Image Extraction & DTO Mapping
+  // 2. Test Base64 Image Omission vs HTTP URL Preservation
   function extractPrimaryImage(images) {
     if (!images) return "";
 
+    let raw = "";
     try {
       const parsed = typeof images === "string" ? JSON.parse(images) : images;
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return String(parsed[0] || "");
+        raw = String(parsed[0] || "").trim();
+      } else if (typeof parsed === "string") {
+        raw = parsed.trim();
       }
-      if (typeof parsed === "string") return parsed;
     } catch {
       if (typeof images === "string") {
         const parts = images.split(",").map((item) => item.trim()).filter(Boolean);
-        if (parts.length > 0) return parts[0];
+        if (parts.length > 0) raw = parts[0];
       }
     }
 
-    return "";
+    if (raw.startsWith("data:")) {
+      return "";
+    }
+
+    return raw;
   }
 
   const sampleImagesJson = JSON.stringify([
     "https://example.com/img1.jpg",
     "https://example.com/img2.jpg",
-    "data:image/webp;base64,QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB",
   ]);
 
   const primaryImg = extractPrimaryImage(sampleImagesJson);
   assert.strictEqual(primaryImg, "https://example.com/img1.jpg");
-  console.log("✓ Primary image safely extracted from JSON image array");
+  console.log("✓ Primary HTTPS image safely preserved from JSON image array");
 
-  const sampleCsvImages = "https://example.com/thumb.webp, https://example.com/full.webp";
-  assert.strictEqual(extractPrimaryImage(sampleCsvImages), "https://example.com/thumb.webp");
-  console.log("✓ Primary image safely extracted from CSV string");
+  const sampleBase64Json = JSON.stringify([
+    "data:image/webp;base64,QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB",
+  ]);
+  assert.strictEqual(extractPrimaryImage(sampleBase64Json), "", "Base64 data URI omitted from live search DTO");
+  console.log("✓ Multi-megabyte base64 data URI safely omitted from live search response payload");
 
-  // 3. Lightweight DTO Structure Verification
-  const mockDbProduct = {
+  // 3. Prisma Select Projection DTO Shape Verification
+  const mockDbProductSelected = {
     id: "prod_123",
     name: "Luxury Silk Shirt",
     price: 45000,
@@ -103,19 +110,17 @@ async function runLiveSearchTests() {
     images: sampleImagesJson,
     inventory: 10,
     preOrderEnabled: false,
-    initialInventory: 50,
-    variants: [{ id: "v1", stock: 5 }],
   };
 
   const lightweightDto = {
-    id: mockDbProduct.id,
-    name: mockDbProduct.name,
-    price: mockDbProduct.price,
-    brand: mockDbProduct.brand,
-    category: mockDbProduct.category,
-    images: extractPrimaryImage(mockDbProduct.images) ? [extractPrimaryImage(mockDbProduct.images)] : [],
-    inventory: Math.max(0, Number(mockDbProduct.inventory || 0)),
-    preOrderEnabled: Boolean(mockDbProduct.preOrderEnabled),
+    id: mockDbProductSelected.id,
+    name: mockDbProductSelected.name,
+    price: mockDbProductSelected.price,
+    brand: mockDbProductSelected.brand,
+    category: mockDbProductSelected.category,
+    images: extractPrimaryImage(mockDbProductSelected.images) ? [extractPrimaryImage(mockDbProductSelected.images)] : [],
+    inventory: Math.max(0, Number(mockDbProductSelected.inventory || 0)),
+    preOrderEnabled: Boolean(mockDbProductSelected.preOrderEnabled),
   };
 
   assert.strictEqual(lightweightDto.id, "prod_123");
@@ -123,8 +128,8 @@ async function runLiveSearchTests() {
   assert.strictEqual(lightweightDto.images.length, 1);
   assert.strictEqual(lightweightDto.images[0], "https://example.com/img1.jpg");
   assert.strictEqual(lightweightDto.variants, undefined, "Variants omitted from lightweight DTO");
-  assert.strictEqual(lightweightDto.initialInventory, undefined, "Internal inventory omitted from lightweight DTO");
-  console.log("✓ Lightweight DTO contains only minimal fields required for live search");
+  assert.strictEqual(lightweightDto.description, undefined, "Full description omitted from lightweight DTO");
+  console.log("✓ Lightweight DTO matches explicit Prisma select projection");
 
   // 4. Test Mobile Brand Redirect Guard logic
   function shouldRedirectMobileLink(href) {

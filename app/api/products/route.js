@@ -4,20 +4,27 @@ import prisma from "@/lib/prisma";
 function extractPrimaryImage(images) {
   if (!images) return "";
 
+  let raw = "";
+
   try {
     const parsed = typeof images === "string" ? JSON.parse(images) : images;
     if (Array.isArray(parsed) && parsed.length > 0) {
-      return String(parsed[0] || "");
+      raw = String(parsed[0] || "").trim();
+    } else if (typeof parsed === "string") {
+      raw = parsed.trim();
     }
-    if (typeof parsed === "string") return parsed;
   } catch {
     if (typeof images === "string") {
       const parts = images.split(",").map((item) => item.trim()).filter(Boolean);
-      if (parts.length > 0) return parts[0];
+      if (parts.length > 0) raw = parts[0];
     }
   }
 
-  return "";
+  if (raw.startsWith("data:")) {
+    return "";
+  }
+
+  return raw;
 }
 
 export async function GET(request) {
@@ -69,6 +76,16 @@ export async function GET(request) {
         take: limit,
         orderBy: {
           createdAt: "desc",
+        },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          brand: true,
+          category: true,
+          images: true,
+          inventory: true,
+          preOrderEnabled: true,
         },
       });
 
