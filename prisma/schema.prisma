@@ -159,12 +159,28 @@ model Order {
   city                String?
   zone                String?
   address             String?
+  fulfillmentMethod   String      @default("DELIVERY")
+  fulfillmentStatus   String?
+  pickupLocationId    String?
+  shippingCourier     String?
+  shippingCourierCode String?
+  shipbubbleRateToken String?
+  shipbubbleOrderId   String?
+  shipbubbleTrackingCode String?
+  shipbubbleWaybillUrl String?
+  pickupReadyAt       DateTime?
+  pickupCollectedAt   DateTime?
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
   createdAt           DateTime    @default(now())
   orderNumber         String      @unique
   user                User        @relation(fields: [userId], references: [id])
   items               OrderItem[]
   attribution         OrderAttribution?
   brandTrackings      OrderBrandTracking[]
+
+  @@index([fulfillmentMethod])
+  @@index([fulfillmentStatus])
 }
 
 model OrderBrandTracking {
