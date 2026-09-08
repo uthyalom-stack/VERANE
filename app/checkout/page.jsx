@@ -5,10 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
 
-/**
- * Renders the checkout page with cart details, delivery options, address selection, and Paystack payment initiation.
- * @returns {JSX.Element} The checkout page.
- */
 export default function CheckoutPage() {
   const router = useRouter();
   const [processing, setProcessing] = useState(false);
@@ -18,7 +14,7 @@ export default function CheckoutPage() {
   // Customer session & saved addresses state
   const [customer, setCustomer] = useState(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
-  const [addressMode, setAddressMode] = useState("saved"); // "saved" | "manual"
+  const [addressMode, setAddressMode] = useState("saved");
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [saveNewAddressToAccount, setSaveNewAddressToAccount] = useState(false);
 
@@ -73,11 +69,15 @@ export default function CheckoutPage() {
       if (sessionData.authenticated && sessionData.user) {
         setCustomer(sessionData.user);
 
-        // Fetch saved addresses
         const addrRes = await fetch("/api/account/addresses", { cache: "no-store" });
         const addrData = await addrRes.json();
 
-        if (addrRes.ok && addrData.success && Array.isArray(addrData.addresses) && addrData.addresses.length > 0) {
+        if (
+          addrRes.ok &&
+          addrData.success &&
+          Array.isArray(addrData.addresses) &&
+          addrData.addresses.length > 0
+        ) {
           const addrs = addrData.addresses;
           setSavedAddresses(addrs);
           setAddressMode("saved");
@@ -146,14 +146,16 @@ export default function CheckoutPage() {
     }
   }
 
-  // Update available states and cities when location form inputs change
   useEffect(() => {
     if (form.country.toLowerCase() === "nigeria") {
       const states = NIGERIAN_STATES;
       const matchedStateKey = form.state
         ? NIGERIAN_STATES.find((s) => s.toLowerCase() === form.state.trim().toLowerCase())
         : null;
-      const cities = matchedStateKey && NIGERIA_LOCATIONS[matchedStateKey] ? NIGERIA_LOCATIONS[matchedStateKey] : [];
+      const cities =
+        matchedStateKey && NIGERIA_LOCATIONS[matchedStateKey]
+          ? NIGERIA_LOCATIONS[matchedStateKey]
+          : [];
 
       setDeliveryOptions((prev) => ({
         ...prev,
@@ -169,7 +171,6 @@ export default function CheckoutPage() {
     }
   }, [form.country, form.state]);
 
-  // Fetch location shipping fee whenever location changes
   useEffect(() => {
     async function loadDeliveryFee() {
       if (!form.country) return;
@@ -211,11 +212,9 @@ export default function CheckoutPage() {
     setForm((previous) => {
       const next = { ...previous, [name]: value };
 
-      // Reset city if state changes
       if (name === "state") {
         next.city = "";
       }
-      // Reset state & city if country changes
       if (name === "country") {
         next.state = "";
         next.city = "";
@@ -231,6 +230,9 @@ export default function CheckoutPage() {
       const parsed = typeof images === "string" ? JSON.parse(images) : images;
       return Array.isArray(parsed) ? parsed : [];
     } catch {
+      if (typeof images === "string") {
+        return images.split(",").map((s) => s.trim()).filter(Boolean);
+      }
       return [];
     }
   };
@@ -246,7 +248,6 @@ export default function CheckoutPage() {
     try {
       setProcessing(true);
 
-      // If customer opted to save new manual address to account
       if (addressMode === "manual" && customer && saveNewAddressToAccount) {
         try {
           await fetch("/api/account/addresses", {
@@ -293,7 +294,6 @@ export default function CheckoutPage() {
         throw new Error(data.error || "Failed to initialize Paystack checkout.");
       }
 
-      // Clear local cart before redirecting to Paystack checkout
       localStorage.removeItem("cart");
       window.location.href = data.authorizationUrl;
     } catch (error) {
@@ -305,21 +305,31 @@ export default function CheckoutPage() {
 
   if (!loaded) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-neutral-500 text-xs uppercase tracking-[0.3em] animate-pulse">Loading checkout...</div>
+      <main className="min-h-screen bg-[#070707] text-white flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-amber-400" />
+          <p className="mt-4 text-xs font-bold uppercase tracking-luxury text-amber-400">
+            Initializing Secure Checkout...
+          </p>
+        </div>
       </main>
     );
   }
 
   if (cart.items.length === 0) {
     return (
-      <main className="min-h-screen bg-black text-white">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8 py-20 md:py-32 text-center">
-          <p className="text-amber-400 text-[10px] font-bold tracking-[0.35em] uppercase">VÉRANE</p>
-          <h1 className="text-5xl md:text-7xl font-black tracking-[-0.05em] mt-4">CHECKOUT</h1>
-          <p className="text-neutral-500 mt-6">Your cart is empty.</p>
-          <Link href="/catalog" className="inline-flex mt-8 bg-white text-black px-8 py-4 rounded-full text-xs font-black uppercase tracking-[0.15em] hover:bg-neutral-200 transition">
-            Explore Collection
+      <main className="min-h-screen bg-[#070707] text-[#f5f5f5]">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8 py-28 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-couture text-amber-400 mb-3">
+            VÉRANE CHECKOUT
+          </p>
+          <h1 className="text-4xl sm:text-6xl font-editorial font-light text-white">Your Bag is Empty</h1>
+          <p className="text-neutral-400 font-light mt-4">Please add pieces to your bag before proceeding to checkout.</p>
+          <Link
+            href="/catalog"
+            className="inline-flex mt-8 bg-amber-400 text-black px-8 py-3.5 rounded-full text-xs font-bold uppercase tracking-luxury hover:bg-amber-300 transition shadow-lg shadow-amber-400/10"
+          >
+            Explore Catalog
           </Link>
         </div>
       </main>
@@ -327,56 +337,67 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <div className="max-w-7xl mx-auto px-5 sm:px-8 py-12 md:py-20">
-        <div className="mb-12">
-          <Link href="/cart" className="text-neutral-500 text-xs uppercase tracking-[0.15em] hover:text-white transition">← Back to cart</Link>
-          <p className="text-amber-400 text-[10px] font-bold tracking-[0.35em] uppercase mt-10">VÉRANE</p>
-          <h1 className="text-5xl md:text-7xl font-black tracking-[-0.05em] mt-3">CHECKOUT</h1>
+    <main className="min-h-screen bg-[#070707] text-[#f5f5f5] pb-24">
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 py-12 lg:py-20">
+        <div className="mb-10 border-b border-white/[0.08] pb-6">
+          <Link
+            href="/cart"
+            className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-luxury text-neutral-400 hover:text-white transition mb-4"
+          >
+            <span>←</span> Back to Shopping Bag
+          </Link>
+          <p className="text-[10px] font-bold uppercase tracking-couture text-amber-400">
+            SECURE ATELIER CHECKOUT
+          </p>
+          <h1 className="text-4xl sm:text-6xl font-editorial font-light tracking-tight text-white mt-1">
+            Order & Shipping Details
+          </h1>
         </div>
 
         <div className="grid lg:grid-cols-[1fr_420px] gap-10 lg:gap-14">
-          <section>
-            <div className="border border-white/10 bg-neutral-950 rounded-[2rem] p-6 md:p-8 space-y-8">
-
-              {/* LOGGED-IN CUSTOMER SAVED ADDRESS SELECTOR */}
+          <section className="space-y-8">
+            <div className="rounded-3xl border border-white/[0.08] bg-neutral-950/70 p-6 sm:p-8 space-y-8 backdrop-blur-md">
+              {/* SAVED ADDRESS SELECTOR */}
               {customer && savedAddresses.length > 0 && (
-                <div className="p-6 rounded-2xl bg-black border border-amber-500/30 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4">
+                <div className="p-6 rounded-2xl bg-black/60 border border-amber-400/30 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
                     <div>
-                      <p className="text-[10px] text-amber-400 uppercase tracking-[0.2em] font-bold">SAVED ADDRESSES</p>
-                      <h2 className="text-sm font-bold text-white mt-0.5">Use your default / saved address</h2>
+                      <p className="text-[9px] font-bold text-amber-400 uppercase tracking-couture">
+                        SAVED ATELIER ADDRESSES
+                      </p>
+                      <h2 className="text-sm font-semibold text-white mt-0.5">
+                        Select destination from your account
+                      </h2>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={handleSwitchToSaved}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-luxury transition ${
                           addressMode === "saved"
-                            ? "bg-amber-500 text-black shadow-lg"
+                            ? "bg-amber-400 text-black shadow-md"
                             : "bg-neutral-900 text-neutral-400 hover:text-white"
                         }`}
                       >
-                        Use Saved Address
+                        Saved
                       </button>
                       <button
                         type="button"
                         onClick={handleSwitchToManual}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-luxury transition ${
                           addressMode === "manual"
-                            ? "bg-amber-500 text-black shadow-lg"
+                            ? "bg-amber-400 text-black shadow-md"
                             : "bg-neutral-900 text-neutral-400 hover:text-white"
                         }`}
                       >
-                        Use Another Address
+                        New Address
                       </button>
                     </div>
                   </div>
 
                   {addressMode === "saved" && (
                     <div className="space-y-3">
-                      <p className="text-xs text-neutral-400">Select an address from your VÉRANE account:</p>
                       <div className="grid grid-cols-1 gap-3">
                         {savedAddresses.map((addr) => {
                           const isSelected = addr.id === selectedAddressId;
@@ -387,19 +408,19 @@ export default function CheckoutPage() {
                               className={`p-4 rounded-xl border cursor-pointer transition ${
                                 isSelected
                                   ? "border-amber-400 bg-amber-400/10 text-white"
-                                  : "border-white/10 bg-neutral-900 text-neutral-300 hover:border-white/20"
+                                  : "border-white/10 bg-neutral-900/60 text-neutral-300 hover:border-white/20"
                               }`}
                             >
                               <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold">{addr.fullName}</span>
                                 {addr.isDefault && (
-                                  <span className="text-[9px] font-black uppercase tracking-wider bg-amber-500 text-black px-2 py-0.5 rounded-full">
+                                  <span className="text-[8px] font-black uppercase tracking-luxury bg-amber-400 text-black px-2 py-0.5 rounded-full">
                                     DEFAULT
                                   </span>
                                 )}
                               </div>
                               <p className="text-[11px] text-neutral-400 mt-1">{addr.phone}</p>
-                              <p className="text-xs text-neutral-300 mt-2">
+                              <p className="text-xs text-neutral-300 mt-1.5 font-light">
                                 {addr.streetAddress}, {addr.city}, {addr.state}, {addr.country}
                               </p>
                             </div>
@@ -413,74 +434,156 @@ export default function CheckoutPage() {
 
               {/* CONTACT DETAILS */}
               <div>
-                <p className="text-[10px] text-amber-400 uppercase tracking-[0.25em] font-bold">1. Contact Information</p>
-                <div className="grid sm:grid-cols-2 gap-4 mt-6">
-                  <input name="firstName" value={form.firstName} onChange={updateField} placeholder="First name *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                  <input name="lastName" value={form.lastName} onChange={updateField} placeholder="Last name" className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                  <input name="email" type="email" value={form.email} onChange={updateField} placeholder="Email address *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
-                  <input name="phone" value={form.phone} onChange={updateField} placeholder="Phone number *" required className="rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                <p className="text-[10px] text-amber-400 uppercase tracking-couture font-bold mb-4">
+                  1. CONTACT INFORMATION
+                </p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <input
+                    name="firstName"
+                    value={form.firstName}
+                    onChange={updateField}
+                    placeholder="First Name *"
+                    required
+                    className="rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white placeholder:text-neutral-600 outline-none transition focus:border-amber-400/50"
+                  />
+                  <input
+                    name="lastName"
+                    value={form.lastName}
+                    onChange={updateField}
+                    placeholder="Last Name"
+                    className="rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white placeholder:text-neutral-600 outline-none transition focus:border-amber-400/50"
+                  />
+                  <input
+                    name="email"
+                    type="email"
+                    value={form.email}
+                    onChange={updateField}
+                    placeholder="Email Address *"
+                    required
+                    className="rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white placeholder:text-neutral-600 outline-none transition focus:border-amber-400/50"
+                  />
+                  <input
+                    name="phone"
+                    value={form.phone}
+                    onChange={updateField}
+                    placeholder="Phone Number *"
+                    required
+                    className="rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white placeholder:text-neutral-600 outline-none transition focus:border-amber-400/50"
+                  />
                 </div>
               </div>
 
-              {/* DELIVERY LOCATION SELECTOR */}
+              {/* DELIVERY LOCATION */}
               <div>
-                <p className="text-[10px] text-amber-400 uppercase tracking-[0.25em] font-bold">2. Delivery Location & Address</p>
-                <div className="space-y-4 mt-6">
-
-                  {/* COUNTRY */}
+                <p className="text-[10px] text-amber-400 uppercase tracking-couture font-bold mb-4">
+                  2. DELIVERY DESTINATION
+                </p>
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Country *</label>
-                    <select name="country" value={form.country} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
+                    <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
+                      Country *
+                    </label>
+                    <select
+                      name="country"
+                      value={form.country}
+                      onChange={updateField}
+                      className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none focus:border-amber-400/50"
+                    >
                       {deliveryOptions.countries.map((c) => (
-                        <option key={c} value={c} className="bg-neutral-900">{c}</option>
+                        <option key={c} value={c} className="bg-neutral-900">
+                          {c}
+                        </option>
                       ))}
                     </select>
                   </div>
 
-                  {/* STATE & CITY */}
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">State / Region *</label>
+                      <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
+                        State / Region *
+                      </label>
                       {deliveryOptions.states.length > 0 ? (
-                        <select name="state" value={form.state} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
+                        <select
+                          name="state"
+                          value={form.state}
+                          onChange={updateField}
+                          className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none focus:border-amber-400/50"
+                        >
                           <option value="">Select State</option>
                           {deliveryOptions.states.map((s) => (
-                            <option key={s} value={s} className="bg-neutral-900">{s}</option>
+                            <option key={s} value={s} className="bg-neutral-900">
+                              {s}
+                            </option>
                           ))}
                         </select>
                       ) : (
-                        <input name="state" value={form.state} onChange={updateField} placeholder="e.g. Lagos" className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                        <input
+                          name="state"
+                          value={form.state}
+                          onChange={updateField}
+                          placeholder="State / Region *"
+                          className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50"
+                        />
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">City / LGA *</label>
+                      <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
+                        City / LGA *
+                      </label>
                       {deliveryOptions.cities.length > 0 ? (
-                        <select name="city" value={form.city} onChange={updateField} className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm text-white outline-none focus:border-amber-400/50">
+                        <select
+                          name="city"
+                          value={form.city}
+                          onChange={updateField}
+                          className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none focus:border-amber-400/50"
+                        >
                           <option value="">Select City / LGA</option>
                           {deliveryOptions.cities.map((c) => (
-                            <option key={c} value={c} className="bg-neutral-900">{c}</option>
+                            <option key={c} value={c} className="bg-neutral-900">
+                              {c}
+                            </option>
                           ))}
                         </select>
                       ) : (
-                        <input name="city" value={form.city} onChange={updateField} placeholder="e.g. Ikeja" className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                        <input
+                          name="city"
+                          value={form.city}
+                          onChange={updateField}
+                          placeholder="City / LGA *"
+                          className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50"
+                        />
                       )}
                     </div>
                   </div>
 
-                  {/* ZONE / NEIGHBORHOOD */}
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Zone / Neighborhood (Optional)</label>
-                    <input name="zone" value={form.zone} onChange={updateField} placeholder="e.g. Lekki Phase 1, Victoria Island..." className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50" />
+                    <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
+                      Zone / Neighborhood (Optional)
+                    </label>
+                    <input
+                      name="zone"
+                      value={form.zone}
+                      onChange={updateField}
+                      placeholder="e.g. Lekki Phase 1, Victoria Island..."
+                      className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50"
+                    />
                   </div>
 
-                  {/* FULL STREET ADDRESS */}
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Complete Physical Address *</label>
-                    <textarea name="address" value={form.address} onChange={updateField} rows={3} placeholder="Street address, house number, apartment, suite, etc." className="w-full rounded-xl border border-white/10 bg-black px-4 py-4 text-sm outline-none placeholder:text-neutral-600 focus:border-amber-400/50 resize-none" />
+                    <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
+                      Complete Physical Address *
+                    </label>
+                    <textarea
+                      name="address"
+                      value={form.address}
+                      onChange={updateField}
+                      rows={3}
+                      placeholder="Street address, house number, suite, or apartment..."
+                      className="w-full rounded-2xl border border-white/10 bg-neutral-900/90 p-4 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50 resize-none"
+                    />
                   </div>
 
-                  {/* AUTO SAVE ADDRESS CHECKBOX FOR MANUAL ENTRY */}
                   {customer && addressMode === "manual" && (
                     <div className="flex items-center gap-2 pt-2">
                       <input
@@ -488,32 +591,26 @@ export default function CheckoutPage() {
                         id="saveNewAddressToAccountCheck"
                         checked={saveNewAddressToAccount}
                         onChange={(e) => setSaveNewAddressToAccount(e.target.checked)}
-                        className="accent-amber-500"
+                        className="accent-amber-400"
                       />
                       <label htmlFor="saveNewAddressToAccountCheck" className="text-xs text-neutral-300">
-                        Save this new address to my VÉRANE account for future purchases
+                        Save this address to my account for future orders
                       </label>
                     </div>
                   )}
-
                 </div>
-              </div>
-
-              <div className="mt-8 border border-white/5 rounded-2xl p-5 bg-white/[0.02]">
-                <p className="text-xs font-bold text-amber-400">Payment Authorization</p>
-                <p className="text-xs text-neutral-400 mt-1.5 leading-relaxed">
-                  Payment configuration step. Your order will be created and confirmed upon submission.
-                </p>
               </div>
             </div>
           </section>
 
           {/* ORDER SUMMARY */}
           <aside className="lg:sticky lg:top-8 h-fit">
-            <div className="border border-white/10 bg-neutral-950 rounded-[2rem] p-6 md:p-8">
-              <p className="text-[10px] text-amber-400 uppercase tracking-[0.25em] font-bold">Order Summary</p>
+            <div className="rounded-3xl border border-white/10 bg-neutral-950/80 p-6 sm:p-8 backdrop-blur-md">
+              <p className="text-[10px] font-bold uppercase tracking-couture text-amber-400 mb-6">
+                CHECKOUT SUMMARY
+              </p>
 
-              <div className="mt-7 space-y-5">
+              <div className="space-y-4">
                 {cart.items.map((item, index) => {
                   const images = getImages(item.images);
                   const image = images.length > 0 ? images[0] : null;
@@ -522,15 +619,26 @@ export default function CheckoutPage() {
                   const variation = [item.selectedColor, item.selectedSize].filter(Boolean).join(" / ");
 
                   return (
-                    <div key={item.cartItemKey || `${item.id}-${index}`} className="flex gap-4">
-                      <div className="w-16 h-20 rounded-lg overflow-hidden bg-neutral-900 shrink-0 border border-white/5">
-                        {image ? <img src={image} alt={item.name || "Product"} className="w-full h-full object-cover" /> : null}
+                    <div
+                      key={item.cartItemKey || `${item.id}-${index}`}
+                      className="flex gap-4 border-b border-white/[0.05] pb-4 last:border-0"
+                    >
+                      <div className="w-14 h-18 rounded-lg overflow-hidden bg-neutral-900 shrink-0 border border-white/5">
+                        {image ? (
+                          <img src={image} alt={item.name || "Product"} className="w-full h-full object-cover" />
+                        ) : null}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{item.name}</p>
-                        {variation ? <p className="text-xs text-neutral-500 mt-0.5">{variation}</p> : null}
-                        <p className="text-xs text-neutral-600 mt-0.5">Qty: {quantity}</p>
-                        <p className="text-sm font-bold mt-1">₦{(price * quantity).toLocaleString()}</p>
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-white truncate">{item.name}</p>
+                          {variation && <p className="text-[10px] text-neutral-400 mt-0.5">{variation}</p>}
+                        </div>
+                        <div className="flex justify-between items-baseline mt-2">
+                          <span className="text-[10px] text-neutral-500">Qty: {quantity}</span>
+                          <span className="text-xs font-bold text-white">
+                            ₦{(price * quantity).toLocaleString()}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -538,28 +646,28 @@ export default function CheckoutPage() {
               </div>
 
               {/* FINANCIAL BREAKDOWN */}
-              <div className="border-t border-white/10 mt-7 pt-6 space-y-3.5">
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-400">Subtotal</span>
-                  <span>₦{cart.total.toLocaleString()}</span>
+              <div className="border-t border-white/10 mt-6 pt-5 space-y-3 text-sm font-light">
+                <div className="flex justify-between text-neutral-300">
+                  <span>Bag Subtotal</span>
+                  <span className="font-semibold text-white">₦{cart.total.toLocaleString()}</span>
                 </div>
 
-                <div className="flex justify-between text-sm">
-                  <span className="text-neutral-400">Delivery Fee</span>
+                <div className="flex justify-between text-neutral-300">
+                  <span>Logistics / Shipping</span>
                   <span className="font-bold text-amber-400">
-                    {shippingFee > 0 ? `₦${shippingFee.toLocaleString()}` : "Select location"}
+                    {shippingFee > 0 ? `₦${shippingFee.toLocaleString()}` : "Select State & City"}
                   </span>
                 </div>
 
                 {matchedLocationName && (
                   <p className="text-[10px] text-neutral-500 italic">
-                    Rate: {matchedLocationName}
+                    Calculated for: {matchedLocationName}
                   </p>
                 )}
 
                 <div className="border-t border-white/10 pt-4 flex justify-between items-baseline">
-                  <span className="font-bold text-base">Total</span>
-                  <span className="text-2xl font-black text-amber-400">
+                  <span className="font-editorial text-lg text-white">Grand Total</span>
+                  <span className="text-2xl font-bold text-amber-400">
                     ₦{grandTotal.toLocaleString()}
                   </span>
                 </div>
@@ -569,14 +677,10 @@ export default function CheckoutPage() {
                 type="button"
                 onClick={placeOrder}
                 disabled={processing}
-                className="mt-8 w-full rounded-full bg-amber-500 px-6 py-4 text-xs font-black uppercase tracking-[0.15em] text-black hover:bg-amber-400 transition disabled:opacity-50"
+                className="mt-8 w-full bg-amber-400 text-black py-4 rounded-full text-xs font-bold uppercase tracking-luxury hover:bg-amber-300 transition shadow-xl shadow-amber-400/10 disabled:opacity-50"
               >
-                {processing ? "Creating Order..." : "Place Order & Pay"}
+                {processing ? "Processing Order..." : "Proceed to Payment →"}
               </button>
-
-              <p className="text-[10px] text-neutral-500 text-center mt-4 leading-relaxed">
-                Calculated based on selected state, city & zone rate.
-              </p>
             </div>
           </aside>
         </div>
