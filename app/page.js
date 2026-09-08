@@ -135,6 +135,7 @@ function sanitizeImageUrl(url) {
   if (!url || typeof url !== "string") return "";
   const trimmed = url.trim();
   if (trimmed.startsWith("data:")) return ""; // Exclude heavy embedded base64 data URIs
+  if (!/^https?:\/\//i.test(trimmed) && !trimmed.startsWith("/")) return "";
   return trimmed;
 }
 
@@ -317,37 +318,47 @@ async function getHomepageProducts() {
 function getProductImage(images) {
   if (!images) return null;
 
-  let first = null;
+  let current = images;
 
-  try {
-    if (Array.isArray(images)) {
-      first = images[0] || null;
-    } else if (typeof images === "string") {
-      const parsed = JSON.parse(images);
-
-      if (Array.isArray(parsed)) {
-        first = parsed[0] || null;
-      } else if (typeof parsed === "string") {
-        first = parsed;
+  for (let i = 0; i < 3; i++) {
+    if (typeof current === "string") {
+      const trimmed = current.trim();
+      if (
+        (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
+        (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+        (trimmed.startsWith('"') && trimmed.endsWith('"'))
+      ) {
+        try {
+          current = JSON.parse(trimmed);
+        } catch {
+          if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+            current = null;
+          }
+          break;
+        }
+      } else {
+        break;
       }
-    }
-
-    if (!first && typeof images === "string") {
-      first = images
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean)[0] || null;
-    }
-  } catch {
-    if (typeof images === "string") {
-      first = images
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean)[0] || null;
+    } else {
+      break;
     }
   }
 
-  const clean = sanitizeImageUrl(first);
+  let candidate = null;
+
+  if (Array.isArray(current)) {
+    candidate = current[0];
+  } else if (typeof current === "string") {
+    candidate = current.split(",")[0];
+  }
+
+  if (typeof candidate === "string") {
+    candidate = candidate.trim().replace(/^['"\[]+|['"\]]+$/g, "").trim();
+  } else {
+    candidate = null;
+  }
+
+  const clean = sanitizeImageUrl(candidate);
   return clean && clean !== "[]" ? clean : null;
 }
 
