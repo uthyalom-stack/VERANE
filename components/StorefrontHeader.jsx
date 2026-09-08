@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+function getBrandDisplayName(brand) {
+  if (brand === "UTHY_LUXURY") return "UTHY LUXURY";
+  if (brand === "ALOMZIEE_FOOTIES") return "ALOMZIEE FOOTIES";
+  return brand || "VÉRANE";
+}
 
 function StorefrontHeaderInner() {
   const pathname = usePathname();
@@ -12,11 +18,17 @@ function StorefrontHeaderInner() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
   const [account, setAccount] = useState(null);
   const [settings, setSettings] = useState({});
   const [cartCount, setCartCount] = useState(0);
 
+  const searchDebounceRef = useRef(null);
+  const searchAbortControllerRef = useRef(null);
+
   const brandParam = searchParams?.get("brand") || "";
+  const urlSearchParam = searchParams?.get("search") || searchParams?.get("q") || "";
 
   useEffect(() => {
     loadSettings();
@@ -46,6 +58,12 @@ function StorefrontHeaderInner() {
   }, [pathname, searchParams]);
 
   useEffect(() => {
+    if (urlSearchParam && search !== urlSearchParam) {
+      setSearch(urlSearchParam);
+    }
+  }, [urlSearchParam]);
+
+  useEffect(() => {
     if (!menuOpen) return;
 
     const previousOverflow = document.body.style.overflow;
@@ -57,11 +75,13 @@ function StorefrontHeaderInner() {
   }, [menuOpen]);
 
   useEffect(() => {
-    if (!menuOpen) return;
-
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
-        setMenuOpen(false);
+        if (searchOpen) {
+          setSearchOpen(false);
+        } else if (menuOpen) {
+          setMenuOpen(false);
+        }
       }
     };
 
@@ -70,7 +90,75 @@ function StorefrontHeaderInner() {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [menuOpen]);
+  }, [menuOpen, searchOpen]);
+
+  /* -------------------------------------------------------
+     LIVE SEARCH DEBOUNCE & FETCH LOGIC
+  ------------------------------------------------------- */
+
+  useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    if (searchAbortControllerRef.current) {
+      searchAbortControllerRef.current.abort();
+      searchAbortControllerRef.current = null;
+    }
+
+    const query = search.trim();
+
+    if (!searchOpen || !query) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+
+    searchDebounceRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      searchAbortControllerRef.current = controller;
+
+      try {
+        const url = `/api/products?search=${encodeURIComponent(query)}&limit=5`;
+        const response = await fetch(url, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          setSearchResults([]);
+          return;
+        }
+
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setSearchResults(data);
+        } else {
+          setSearchResults([]);
+        }
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          console.error("Live search request failed:", error);
+          setSearchResults([]);
+        }
+      } finally {
+        if (searchAbortControllerRef.current === controller) {
+          setSearching(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+      if (searchAbortControllerRef.current) {
+        searchAbortControllerRef.current.abort();
+      }
+    };
+  }, [search, searchOpen]);
 
   async function loadSettings() {
     try {
@@ -133,7 +221,19 @@ function StorefrontHeaderInner() {
     setSearchOpen(false);
     setMenuOpen(false);
 
-    router.push(`/catalog?search=${encodeURIComponent(value)}`);
+    const params = new URLSearchParams();
+    params.set("search", value);
+    if (brandParam) {
+      params.set("brand", brandParam);
+    }
+
+    router.push(`/catalog?${params.toString()}`);
+  }
+
+  function handleSelectSearchResult(productId) {
+    setSearchOpen(false);
+    setMenuOpen(false);
+    router.push(`/product/${productId}`);
   }
 
   async function handleLogout() {
@@ -453,6 +553,84 @@ function StorefrontHeaderInner() {
                   Search
                 </button>
               </form>
+
+              {/* LIVE SEARCH RESULTS DROPDOWN CONTAINER */}
+              {search.trim() && (
+                <div className="max-w-3xl mx-auto mt-3 bg-neutral-950 border border-white/10 rounded-2xl p-3 shadow-2xl">
+                  {searching ? (
+                    <div className="py-4 text-center text-xs text-amber-400/90 font-medium tracking-wider flex items-center justify-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                      Searching collection...
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="py-4 text-center text-xs text-neutral-400 font-medium">
+                      No products found
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="px-2 py-1 text-[9px] font-bold uppercase tracking-[0.25em] text-neutral-500 flex items-center justify-between">
+                        <span>Matching Products</span>
+                        <span>{searchResults.length} {searchResults.length === 1 ? "result" : "results"}</span>
+                      </div>
+
+                      {searchResults.map((product) => {
+                        const img = Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : null;
+
+                        return (
+                          <div
+                            key={product.id}
+                            onClick={() => handleSelectSearchResult(product.id)}
+                            className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/[0.06] transition cursor-pointer group"
+                          >
+                            <div className="w-12 h-12 rounded-lg bg-neutral-900 overflow-hidden shrink-0 border border-white/10">
+                              {img ? (
+                                <img
+                                  src={img}
+                                  alt={product.name || "Product"}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-lg">
+                                  👔
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-amber-400 truncate">
+                                {getBrandDisplayName(product.brand)}
+                              </p>
+                              <h4 className="text-xs font-semibold text-white truncate group-hover:text-amber-300 transition">
+                                {product.name}
+                              </h4>
+                              {product.category && (
+                                <span className="text-[8px] uppercase tracking-wider text-neutral-500">
+                                  {product.category}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span className="text-xs font-bold text-white">
+                                ₦{Number(product.price || 0).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      <button
+                        type="button"
+                        onClick={handleSearchSubmit}
+                        className="w-full mt-2 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400 hover:text-amber-300 hover:bg-white/[0.04] rounded-lg transition text-center border-t border-white/5"
+                      >
+                        View all search results →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
             </div>
           )}
 

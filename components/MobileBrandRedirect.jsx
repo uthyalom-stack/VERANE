@@ -18,6 +18,9 @@ export default function MobileBrandRedirect() {
       const url = new URL(link.href, window.location.origin);
       if (url.pathname !== "/catalog") return;
 
+      const hasSearchParam = url.searchParams.has("search") || url.searchParams.has("q");
+      if (hasSearchParam) return;
+
       const brand = url.searchParams.get("brand");
       const destination = BRAND_ROUTES[brand];
       if (!destination) return;
