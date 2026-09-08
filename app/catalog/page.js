@@ -154,7 +154,7 @@ function CatalogContent({
   const [cartLoading, setCartLoading] = useState({});
 
   /*
-   * Read brand from URL.
+   * Read brand and search parameters from URL on mount / navigation.
    */
   useEffect(() => {
     try {
@@ -163,12 +163,27 @@ function CatalogContent({
       );
 
       const brand = params.get("brand");
+      const urlSearch = params.get("search") || params.get("q");
+      const category = params.get("category");
+      const collection = params.get("collection");
 
       if (
         brand === "UTHY_LUXURY" ||
         brand === "ALOMZIEE_FOOTIES"
       ) {
         setActiveBrand(brand);
+      }
+
+      if (urlSearch) {
+        setSearch(urlSearch);
+      }
+
+      if (category) {
+        setActiveCat(category);
+      }
+
+      if (collection) {
+        setActiveCollection(collection);
       }
     } catch (error) {
       console.error(
@@ -193,8 +208,8 @@ function CatalogContent({
             }),
 
             fetch("/api/collections", {
-  cache: "no-store",
-}),
+              cache: "no-store",
+            }),
           ]);
 
         if (!prodRes.ok) {
@@ -204,17 +219,17 @@ function CatalogContent({
         }
 
         if (!colRes.ok) {
-  console.error(
-    `Collections request failed: ${colRes.status}`
-  );
-}
+          console.error(
+            `Collections request failed: ${colRes.status}`
+          );
+        }
 
         const productsData =
           await prodRes.json();
 
-       const collectionsData = colRes.ok
-  ? await colRes.json()
-  : [];
+        const collectionsData = colRes.ok
+          ? await colRes.json()
+          : [];
 
         const loadedProducts =
           Array.isArray(productsData)
@@ -296,8 +311,8 @@ function CatalogContent({
    * Filter and sort products.
    */
   const filtered = useMemo(() => {
-    const searchTerm =
-      search.toLowerCase().trim();
+    const rawSearch = search.trim();
+    const tokens = rawSearch ? rawSearch.toLowerCase().split(/\s+/).filter(Boolean) : [];
 
     const result = products.filter(
       (product) => {
@@ -314,26 +329,33 @@ function CatalogContent({
           product.collectionId ===
             activeCollection;
 
-        const productName =
-          product.name?.toLowerCase() || "";
+        if (!matchBrand || !matchCat || !matchCollection) {
+          return false;
+        }
 
-        const productDescription =
-          product.description?.toLowerCase() ||
-          "";
+        if (tokens.length === 0) {
+          return true;
+        }
 
-        const matchSearch =
-          !searchTerm ||
-          productName.includes(searchTerm) ||
-          productDescription.includes(
-            searchTerm
+        const nameStr = (product.name || "").toLowerCase();
+        const descStr = (product.description || "").toLowerCase();
+        const brandStr = (product.brand || "").toLowerCase();
+        const brandDisplayStr = getBrandName(product.brand).toLowerCase();
+        const catStr = (product.category || "").toLowerCase();
+        const styleStr = (product.style || "").toLowerCase();
+        const occasionStr = (product.occasion || "").toLowerCase();
+
+        return tokens.every((token) => {
+          return (
+            nameStr.includes(token) ||
+            descStr.includes(token) ||
+            brandStr.includes(token) ||
+            brandDisplayStr.includes(token) ||
+            catStr.includes(token) ||
+            styleStr.includes(token) ||
+            occasionStr.includes(token)
           );
-
-        return (
-          matchBrand &&
-          matchCat &&
-          matchCollection &&
-          matchSearch
-        );
+        });
       }
     );
 

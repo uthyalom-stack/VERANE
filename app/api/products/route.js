@@ -1,16 +1,100 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function GET() {
+function extractPrimaryImage(images) {
+  if (!images) return "";
+
   try {
+    const parsed = typeof images === "string" ? JSON.parse(images) : images;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return String(parsed[0] || "");
+    }
+    if (typeof parsed === "string") return parsed;
+  } catch {
+    if (typeof images === "string") {
+      const parts = images.split(",").map((item) => item.trim()).filter(Boolean);
+      if (parts.length > 0) return parts[0];
+    }
+  }
+
+  return "";
+}
+
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const searchQuery = (searchParams.get("search") || searchParams.get("q") || "").trim();
+    const brandParam = (searchParams.get("brand") || "").trim();
+    const categoryParam = (searchParams.get("category") || "").trim();
+    const limitParam = searchParams.get("limit");
+
+    const isSearchMode = Boolean(searchQuery);
+
+    const whereClause = {
+      archivedAt: null,
+    };
+
+    if (brandParam && brandParam !== "all") {
+      whereClause.brand = brandParam;
+    }
+
+    if (categoryParam && categoryParam !== "all") {
+      whereClause.category = categoryParam;
+    }
+
+    if (searchQuery) {
+      const tokens = searchQuery.split(/\s+/).filter(Boolean);
+
+      if (tokens.length > 0) {
+        whereClause.AND = tokens.map((token) => ({
+          OR: [
+            { name: { contains: token, mode: "insensitive" } },
+            { description: { contains: token, mode: "insensitive" } },
+            { brand: { contains: token, mode: "insensitive" } },
+            { category: { contains: token, mode: "insensitive" } },
+            { style: { contains: token, mode: "insensitive" } },
+            { occasion: { contains: token, mode: "insensitive" } },
+            { categoryRef: { name: { contains: token, mode: "insensitive" } } },
+            { collection: { name: { contains: token, mode: "insensitive" } } },
+          ],
+        }));
+      }
+    }
+
+    if (isSearchMode) {
+      const limit = limitParam ? Math.max(1, parseInt(limitParam, 10)) : 5;
+
+      const products = await prisma.product.findMany({
+        where: whereClause,
+        take: limit,
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      const lightweightProducts = products.map((product) => {
+        const primaryImage = extractPrimaryImage(product.images);
+
+        return {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          brand: product.brand,
+          category: product.category,
+          images: primaryImage ? [primaryImage] : [],
+          inventory: Math.max(0, Number(product.inventory || 0)),
+          preOrderEnabled: Boolean(product.preOrderEnabled || product.isPreOrder),
+        };
+      });
+
+      return NextResponse.json(lightweightProducts);
+    }
+
     const products = await prisma.product.findMany({
-      where: {
-        archivedAt: null,
-      },
+      where: whereClause,
       orderBy: {
         createdAt: "desc",
       },
-
       include: {
         variants: {
           orderBy: {
@@ -20,13 +104,11 @@ export async function GET() {
             color: true,
           },
         },
-
         productColors: {
           orderBy: {
             createdAt: "asc",
           },
         },
-
         categoryRef: true,
         collection: true,
       },
@@ -63,7 +145,7 @@ export async function GET() {
         description: product.description,
         images: product.images,
         inventory: Math.max(0, Number(product.inventory || 0)),
-        preOrderEnabled: Boolean(product.preOrderEnabled),
+        preOrderEnabled: Boolean(product.preOrderEnabled || product.isPreOrder),
         customSizingEnabled: Boolean(product.customSizingEnabled),
         fulfillmentTime: product.fulfillmentTime || null,
         sizeType: product.sizeType || null,
