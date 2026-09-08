@@ -64,6 +64,29 @@ const mockPrisma = {
         if (where.brand) list = list.filter((p) => p.brand === where.brand);
         if (where.archivedAt === null) list = list.filter((p) => (p.archivedAt ?? null) === null);
         if (where.archivedAt && where.archivedAt.not !== undefined) list = list.filter((p) => p.archivedAt !== null);
+        if (where.OR && Array.isArray(where.OR)) {
+          list = list.filter((p) =>
+            where.OR.some((cond) => {
+              if (cond.name?.contains) {
+                const term = cond.name.contains.toLowerCase();
+                if (p.name?.toLowerCase().includes(term)) return true;
+              }
+              if (cond.category?.contains) {
+                const term = cond.category.contains.toLowerCase();
+                if (p.category?.toLowerCase().includes(term)) return true;
+              }
+              if (cond.brand?.contains) {
+                const term = cond.brand.contains.toLowerCase();
+                if (p.brand?.toLowerCase().includes(term)) return true;
+              }
+              if (cond.description?.contains) {
+                const term = cond.description.contains.toLowerCase();
+                if (p.description?.toLowerCase().includes(term)) return true;
+              }
+              return false;
+            })
+          );
+        }
       }
       return list;
     },
