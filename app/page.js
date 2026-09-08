@@ -475,7 +475,7 @@ function ProductCard({ product }) {
           </p>
         </Link>
 
-        <StorefrontProductActions product={product} initialWishlisted={false} />
+        <StorefrontProductActions product={product} />
       </div>
     </div>
   );
