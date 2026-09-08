@@ -3,68 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import StorefrontProductActions from "@/components/StorefrontProductActions";
-import { getProductStockStatus } from "@/lib/product-options";
+import ProductCard from "@/components/storefront/ProductCard";
 
 const VALID_BRANDS = ["UTHY_LUXURY", "ALOMZIEE_FOOTIES"];
-
-function formatPrice(price) {
-  return `₦${Number(price || 0).toLocaleString("en-NG")}`;
-}
-
-function getProductImage(images) {
-  if (!images) return "";
-  if (Array.isArray(images)) return images[0] || "";
-
-  try {
-    const parsed = JSON.parse(images);
-    return Array.isArray(parsed) ? parsed[0] || "" : "";
-  } catch {
-    return String(images).split(",")[0]?.trim() || "";
-  }
-}
-
-/**
- * Render a product card with its image, stock status, details, and actions.
- * @param {Object} product - The product data displayed in the card.
- * @return {JSX.Element} The rendered product card.
- */
-function ProductCard({ product }) {
-  const image = getProductImage(product.images);
-  const stockStatus = getProductStockStatus(product);
-
-  return (
-    <div className="group min-w-0">
-      <Link href={`/product/${product.id}`} className="block">
-        <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-white/[0.04]">
-          {image ? (
-            <img
-              src={image}
-              alt={product.name || "Product"}
-              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-2xl text-white/10">V</div>
-          )}
-
-          <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-1">
-            <span className={`rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] backdrop-blur-md ${stockStatus.colorClass}`}>
-              {stockStatus.label}
-            </span>
-          </div>
-        </div>
-      </Link>
-
-      <div className="px-1 pt-3">
-        <Link href={`/product/${product.id}`} className="block">
-          <p className="truncate text-sm font-medium text-white">{product.name || "Unnamed Product"}</p>
-          <p className="mt-1 text-xs text-white/40">{formatPrice(product.price)}</p>
-        </Link>
-        <StorefrontProductActions product={product} />
-      </div>
-    </div>
-  );
-}
 
 export default function StorefrontSectionPage() {
   const params = useParams();
@@ -158,7 +99,13 @@ export default function StorefrontSectionPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {products.map((product) => <ProductCard key={product.id} product={product} />)}
+            {products.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                variant={brand === "UTHY_LUXURY" ? "uthy" : brand === "ALOMZIEE_FOOTIES" ? "alomziee" : "standard"}
+              />
+            ))}
           </div>
         )}
       </div>

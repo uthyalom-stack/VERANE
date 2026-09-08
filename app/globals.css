@@ -1,16 +1,47 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&display=swap');
 
 @theme {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
 }
 
 :root {
-  --background: #070707;
-  --foreground: #f5f5f5;
-  --gold: #f5b942;
-  --gold-bright: #ffd166;
-  --primary: #f5b942;
+  /* Atelier Couture Darkness Tokens */
+  --bg-obsidian: #070707;
+  --bg-surface: #121212;
+  --bg-elevated: #1a1a1a;
+  --bg-glass: rgba(18, 18, 18, 0.75);
+
+  --text-primary: #f5f5f5;
+  --text-secondary: #a3a3a3;
+  --text-muted: #666666;
+
+  --accent-gold: #f5b942;
+  --accent-gold-bright: #ffd166;
+  --accent-gold-dim: #b7791f;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.15);
+  --border-gold: rgba(245, 185, 66, 0.3);
+
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-pill: 9999px;
+
+  --font-serif-editorial: 'Cormorant Garamond', Georgia, serif;
+
+  --background: var(--bg-obsidian);
+  --foreground: var(--text-primary);
+  --gold: var(--accent-gold);
+  --gold-bright: var(--accent-gold-bright);
+  --primary: var(--accent-gold);
+}
+
+.font-editorial {
+  font-family: var(--font-serif-editorial);
 }
 
 html {
