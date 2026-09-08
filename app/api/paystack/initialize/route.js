@@ -148,7 +148,11 @@ export async function POST(request) {
       reference,
     });
   } catch (error) {
-    console.error("Paystack initialize error:", error);
+    console.error("Paystack initialize error:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+    });
     return NextResponse.json(
       {
         success: false,
