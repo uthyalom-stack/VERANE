@@ -163,7 +163,6 @@ export default function AdminLayout({ children }) {
     { href: "/admin/collaborations", label: "Collaborations", show: isStoreAdmin },
     { href: "/admin/marketing", label: "Marketing", show: isStoreAdmin },
     { href: "/admin/analytics", label: "Analytics", show: isStoreAdmin },
-    { href: "/admin/delivery", label: "Delivery & Logistics", show: isSuperAdmin },
     { href: "/admin/homepage", label: "Homepage", show: isSuperAdmin },
     { href: "/admin/navigation", label: "Navigation", show: isSuperAdmin },
     { href: "/admin/footer", label: "Footer", show: isSuperAdmin },
