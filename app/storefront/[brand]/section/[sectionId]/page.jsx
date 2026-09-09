@@ -3,68 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import StorefrontProductActions from "@/components/StorefrontProductActions";
-import { getProductStockStatus } from "@/lib/product-options";
+import ProductCard from "@/components/storefront/ProductCard";
 
 const VALID_BRANDS = ["UTHY_LUXURY", "ALOMZIEE_FOOTIES"];
-
-function formatPrice(price) {
-  return `₦${Number(price || 0).toLocaleString("en-NG")}`;
-}
-
-function getProductImage(images) {
-  if (!images) return "";
-  if (Array.isArray(images)) return images[0] || "";
-
-  try {
-    const parsed = JSON.parse(images);
-    return Array.isArray(parsed) ? parsed[0] || "" : "";
-  } catch {
-    return String(images).split(",")[0]?.trim() || "";
-  }
-}
-
-/**
- * Render a product card with its image, stock status, details, and actions.
- * @param {Object} product - The product data displayed in the card.
- * @return {JSX.Element} The rendered product card.
- */
-function ProductCard({ product }) {
-  const image = getProductImage(product.images);
-  const stockStatus = getProductStockStatus(product);
-
-  return (
-    <div className="group min-w-0">
-      <Link href={`/product/${product.id}`} className="block">
-        <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-white/[0.04]">
-          {image ? (
-            <img
-              src={image}
-              alt={product.name || "Product"}
-              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-2xl text-white/10">V</div>
-          )}
-
-          <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-col gap-1">
-            <span className={`rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] backdrop-blur-md ${stockStatus.colorClass}`}>
-              {stockStatus.label}
-            </span>
-          </div>
-        </div>
-      </Link>
-
-      <div className="px-1 pt-3">
-        <Link href={`/product/${product.id}`} className="block">
-          <p className="truncate text-sm font-medium text-white">{product.name || "Unnamed Product"}</p>
-          <p className="mt-1 text-xs text-white/40">{formatPrice(product.price)}</p>
-        </Link>
-        <StorefrontProductActions product={product} />
-      </div>
-    </div>
-  );
-}
 
 export default function StorefrontSectionPage() {
   const params = useParams();
@@ -85,7 +26,9 @@ export default function StorefrontSectionPage() {
 
         if (!VALID_BRANDS.includes(brand)) throw new Error("Invalid store.");
 
-        const response = await fetch(`/api/storefront/${encodeURIComponent(brand)}`, { cache: "no-store" });
+        const response = await fetch(`/api/storefront/${encodeURIComponent(brand)}`, {
+          cache: "no-store",
+        });
         const data = await response.json().catch(() => null);
 
         if (!response.ok) throw new Error(data?.error || "Failed to load section.");
@@ -110,16 +53,26 @@ export default function StorefrontSectionPage() {
   }, [brand, sectionId]);
 
   if (loading) {
-    return <main className="flex min-h-screen items-center justify-center bg-black text-white"><div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-amber-400" /></main>;
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-[#070707] text-white">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/10 border-t-amber-400" />
+        <p className="mt-4 text-xs font-bold uppercase tracking-luxury text-amber-400">
+          Loading Section...
+        </p>
+      </main>
+    );
   }
 
   if (error || !section) {
     return (
-      <main className="min-h-screen bg-black px-6 py-24 text-white">
-        <div className="mx-auto max-w-xl rounded-3xl border border-white/10 bg-white/[0.03] p-10 text-center">
-          <p className="text-sm text-red-400">{error || "Section not found."}</p>
+      <main className="min-h-screen bg-[#070707] px-6 py-28 text-white">
+        <div className="mx-auto max-w-xl rounded-3xl border border-white/10 bg-neutral-950 p-10 text-center">
+          <p className="text-sm text-red-400 mb-6">{error || "Section not found."}</p>
           {brand && (
-            <Link href={`/storefront/${encodeURIComponent(brand)}`} className="mt-6 inline-flex rounded-full bg-white px-6 py-3 text-xs font-bold uppercase tracking-[0.15em] text-black">
+            <Link
+              href={`/storefront/${encodeURIComponent(brand)}`}
+              className="inline-flex rounded-full bg-white px-8 py-3 text-xs font-bold uppercase tracking-luxury text-black hover:bg-amber-400 transition"
+            >
               Back to Store
             </Link>
           )}
@@ -129,36 +82,73 @@ export default function StorefrontSectionPage() {
   }
 
   const products = Array.isArray(section.products) ? section.products : [];
+  const cardVariant =
+    brand === "UTHY_LUXURY" ? "uthy" : brand === "ALOMZIEE_FOOTIES" ? "alomziee" : "standard";
 
   return (
-    <main className="min-h-screen bg-black text-white">
-      <section className="border-b border-white/10">
-        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:px-10 lg:py-24">
-          <Link href={`/storefront/${encodeURIComponent(brand)}`} className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/40 hover:text-white">
-            ← {brandName}
+    <main className="min-h-screen bg-[#070707] text-[#f5f5f5] pb-24">
+      {/* SECTION HERO HEADER */}
+      <section className="relative border-b border-white/[0.08] bg-gradient-to-b from-neutral-950 via-black to-[#070707] px-5 py-16 sm:px-8 lg:px-12 lg:py-20 overflow-hidden">
+        <div className="pointer-events-none absolute left-1/2 top-0 h-[300px] w-[600px] -translate-x-1/2 rounded-full bg-amber-500/10 blur-[120px]" />
+
+        <div className="mx-auto max-w-7xl">
+          <Link
+            href={`/storefront/${encodeURIComponent(brand)}`}
+            className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-luxury text-neutral-400 hover:text-white transition mb-6"
+          >
+            <span>←</span> Back to {brandName || "Store"}
           </Link>
 
           {section.image && (
-            <div className="mt-8 overflow-hidden rounded-[28px] border border-white/10 bg-neutral-950">
-              <img src={section.image} alt={section.title || "Section"} className="max-h-[560px] w-full object-cover" />
+            <div className="mb-10 overflow-hidden rounded-3xl border border-white/10 bg-neutral-950 max-h-[480px]">
+              <img
+                src={section.image}
+                alt={section.title || "Section"}
+                className="h-full w-full object-cover"
+              />
             </div>
           )}
 
-          <p className="mt-10 text-[9px] font-bold uppercase tracking-[0.35em] text-amber-400">{brandName}</p>
-          <h1 className="mt-4 text-5xl font-semibold tracking-[-0.05em] sm:text-7xl">{section.title || "Featured"}</h1>
-          {section.description && <p className="mt-5 max-w-2xl text-sm leading-7 text-white/40">{section.description}</p>}
+          <div className="max-w-3xl">
+            <p className="text-[10px] font-bold uppercase tracking-couture text-amber-400 mb-3">
+              {brandName || "ATELIER SECTION"}
+            </p>
+            <h1 className="text-4xl sm:text-6xl font-editorial font-light tracking-tight text-white">
+              {section.title || "Featured Edition"}
+            </h1>
+            {section.description && (
+              <p className="mt-4 text-sm sm:text-base font-light text-neutral-400 leading-relaxed">
+                {section.description}
+              </p>
+            )}
+          </div>
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10">
+      {/* SECTION PRODUCTS GRID */}
+      <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-12">
         {products.length === 0 ? (
-          <div className="py-20 text-center">
-            <p className="text-sm text-white/30">There are no products in this section yet.</p>
-            <Link href={`/catalog?brand=${encodeURIComponent(brand)}`} className="mt-6 inline-flex rounded-full bg-white px-6 py-3 text-xs font-bold uppercase tracking-[0.15em] text-black">Browse Catalog</Link>
+          <div className="py-20 text-center rounded-2xl border border-dashed border-white/10 bg-neutral-950/40 p-8">
+            <p className="text-sm text-neutral-400 font-light">
+              There are no pieces in this section yet.
+            </p>
+            <Link
+              href={`/catalog?brand=${encodeURIComponent(brand)}`}
+              className="mt-6 inline-flex rounded-full bg-white px-8 py-3 text-xs font-bold uppercase tracking-luxury text-black hover:bg-amber-400 transition"
+            >
+              Browse Full Catalog
+            </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {products.map((product) => <ProductCard key={product.id} product={product} />)}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 lg:gap-8">
+            {products.map((product, idx) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                variant={cardVariant}
+                priority={idx < 4}
+              />
+            ))}
           </div>
         )}
       </div>

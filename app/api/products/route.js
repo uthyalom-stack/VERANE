@@ -29,7 +29,8 @@ function extractPrimaryImage(images) {
 
 export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url);
+    const rawUrl = request?.url || "http://localhost:3000/api/products";
+    const { searchParams } = new URL(rawUrl);
     const searchQuery = (searchParams.get("search") || searchParams.get("q") || "").trim();
     const brandParam = (searchParams.get("brand") || "").trim();
     const categoryParam = (searchParams.get("category") || "").trim();
