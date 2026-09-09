@@ -16,6 +16,8 @@ export default function AdminOrderDetailsPage({ params }) {
   const [loading, setLoading] = useState(true);
   const [updating, setSaving] = useState(false);
   const [trackingUpdating, setTrackingUpdating] = useState(false);
+  const [dispatching, setDispatching] = useState(false);
+  const [rateIncreaseModal, setRateIncreaseModal] = useState(null);
   const [status, setStatus] = useState("pending");
 
   useEffect(() => {
@@ -80,6 +82,33 @@ export default function AdminOrderDetailsPage({ params }) {
       console.error("Update tracking error:", err);
     } finally {
       setTrackingUpdating(false);
+    }
+  }
+
+  async function handleDispatch(authorizeRateIncrease = false) {
+    setDispatching(true);
+    setRateIncreaseModal(null);
+    try {
+      const res = await fetch(`/api/admin/orders/${id}/dispatch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authorizeRateIncrease }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 409 && data.rateIncreased) {
+        setRateIncreaseModal(data);
+      } else if (res.ok && data.success) {
+        fetchSessionAndOrder();
+      } else {
+        alert(data.error || "Failed to dispatch shipment.");
+      }
+    } catch (err) {
+      console.error("Dispatch shipment error:", err);
+      alert("Failed to dispatch shipment due to a server error.");
+    } finally {
+      setDispatching(false);
     }
   }
 
@@ -372,6 +401,78 @@ export default function AdminOrderDetailsPage({ params }) {
               </div>
             )}
 
+            {/* FULFILLMENT & SHIPBUBBLE MANAGEMENT */}
+            <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-3">
+                Fulfillment Management
+              </h2>
+
+              <div className="space-y-3 text-xs">
+                <div className="flex justify-between text-neutral-400">
+                  <span>Method</span>
+                  <span className="font-bold text-white uppercase">{order.fulfillmentMethod || "DELIVERY"}</span>
+                </div>
+
+                <div className="flex justify-between text-neutral-400">
+                  <span>Fulfillment Status</span>
+                  <span className="font-bold text-amber-400">{order.fulfillmentStatus || "UNFULFILLED"}</span>
+                </div>
+
+                {(order.fulfillmentMethod || "DELIVERY") === "DELIVERY" ? (
+                  <>
+                    <div className="border-t border-white/10 pt-3 space-y-2">
+                      <div className="flex justify-between text-neutral-400">
+                        <span>Selected Courier</span>
+                        <span className="font-bold text-white">{order.shippingCourier || "Standard"}</span>
+                      </div>
+                      <div className="flex justify-between text-neutral-400">
+                        <span>Customer Paid Fee</span>
+                        <span className="font-bold text-emerald-400">{formatMoney(order.shippingFee)}</span>
+                      </div>
+                      {order.courierActualCost !== null && order.courierActualCost !== undefined && (
+                        <div className="flex justify-between text-neutral-400">
+                          <span>Shipbubble Wallet Cost</span>
+                          <span className="font-bold text-amber-400">{formatMoney(order.courierActualCost)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* DISPATCH ACTION BUTTON */}
+                    {order.paymentStatus === "paid" && !order.shipbubbleOrderId && (
+                      <button
+                        type="button"
+                        onClick={() => handleDispatch(false)}
+                        disabled={dispatching}
+                        className="mt-4 w-full bg-amber-400 text-black font-bold uppercase text-xs py-3 rounded-xl hover:bg-amber-300 transition shadow-lg shadow-amber-400/10 disabled:opacity-50"
+                      >
+                        {dispatching ? "Generating Waybill..." : "Confirm & Generate Waybill →"}
+                      </button>
+                    )}
+
+                    {order.shipbubbleWaybillUrl && (
+                      <div className="mt-4 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 space-y-2">
+                        <p className="text-[10px] text-emerald-400 font-bold uppercase">Shipment Dispatched</p>
+                        <p className="text-xs text-neutral-300">Tracking Code: <strong className="text-white">{order.shipbubbleTrackingCode || "N/A"}</strong></p>
+                        <a
+                          href={order.shipbubbleWaybillUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block mt-2 bg-emerald-400 text-black text-[10px] font-bold uppercase px-4 py-2 rounded-lg hover:bg-emerald-300 transition"
+                        >
+                          Download Waybill Label PDF ↗
+                        </a>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="border-t border-white/10 pt-3 space-y-2">
+                    <p className="text-xs text-neutral-300">Pickup Location: <strong className="text-white">{order.pickupLocationId || "UTHY Flagship Store"}</strong></p>
+                    <p className="text-[10px] text-neutral-400">Customer will collect directly at studio.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* PAYMENT SUMMARY */}
             <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6">
               <h2 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-3">Payment Summary</h2>
@@ -386,6 +487,40 @@ export default function AdminOrderDetailsPage({ params }) {
                 </div>
               </div>
             </div>
+
+            {/* RATE INCREASE AUTHORIZATION MODAL */}
+            {rateIncreaseModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-5 backdrop-blur-sm">
+                <div className="w-full max-w-md rounded-2xl border border-amber-400/40 bg-neutral-950 p-6 space-y-4">
+                  <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider">Courier Rate Shift Detected</h3>
+                  <p className="text-xs text-neutral-300 leading-relaxed">
+                    The quote token expired and the updated wallet cost for <strong className="text-white">{order.shippingCourier}</strong> has increased.
+                  </p>
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs space-y-1">
+                    <p className="text-neutral-400">Original Quoted Cost: <strong className="text-white">{formatMoney(rateIncreaseModal.originalCost)}</strong></p>
+                    <p className="text-neutral-400">New Wallet Cost: <strong className="text-amber-400">{formatMoney(rateIncreaseModal.newCost)}</strong></p>
+                    <p className="text-neutral-400">Difference (Merchant Absorbed): <strong className="text-red-400">+{formatMoney(rateIncreaseModal.difference)}</strong></p>
+                  </div>
+                  <p className="text-[10px] text-neutral-500 italic">Customer has already paid {formatMoney(order.shippingFee)} and will NOT be re-charged.</p>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setRateIncreaseModal(null)}
+                      className="flex-1 py-2.5 rounded-xl border border-white/10 text-neutral-400 text-xs font-bold uppercase hover:bg-white/5 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDispatch(true)}
+                      className="flex-1 py-2.5 rounded-xl bg-amber-400 text-black text-xs font-bold uppercase hover:bg-amber-300 transition"
+                    >
+                      Authorize & Dispatch →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
         </div>

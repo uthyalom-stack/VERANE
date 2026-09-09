@@ -34,19 +34,24 @@ function generateReference() {
 
 /**
  * Initializes a checkout and Paystack payment transaction.
- * @param {Request} request - The checkout request containing customer, delivery, and cart details.
+ * @param {Request} request - The checkout request containing customer, delivery, cart, and courier details.
  * @return {Promise<NextResponse>} A response containing the payment authorization URL and reference, or an error.
  */
 export async function POST(request) {
   try {
     const session = await getSession();
-
     const userId = session.user?.id || null;
 
     const body = await request.json();
 
     const {
       items: rawItems,
+      fulfillmentMethod,
+      pickupLocationId,
+      selectedCourierId,
+      selectedCourierCode,
+      selectedCourierName,
+      shipbubbleRateToken,
       firstName,
       lastName,
       email,
@@ -62,24 +67,50 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Cart is empty." }, { status: 400 });
     }
 
-    if (!email || !address || !state || !city) {
-      return NextResponse.json(
-        { success: false, error: "Missing required delivery or contact information." },
-        { status: 400 }
-      );
+    if (!email) {
+      return NextResponse.json({ success: false, error: "Contact email is required." }, { status: 400 });
     }
 
-    // 1. NEVER TRUST CLIENT MONEY: Recalculate merchandise subtotal, shipping fee, and total server-side
+    const method = (fulfillmentMethod || "DELIVERY").toUpperCase();
+
+    if (method === "DELIVERY") {
+      if (!address || !state || !city) {
+        return NextResponse.json(
+          { success: false, error: "Missing required delivery destination fields." },
+          { status: 400 }
+        );
+      }
+
+      if (!selectedCourierId) {
+        return NextResponse.json(
+          { success: false, error: "Please select a delivery courier option." },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 1. Recalculate merchandise subtotal and determine authoritative shipping fee server-side
     const calculation = await calculateOrderTotalsServer({
       items: rawItems,
+      fulfillmentMethod: method,
+      selectedCourierId,
+      selectedCourierCode,
+      selectedCourierName,
+      shipbubbleRateToken,
       country: country || "Nigeria",
       state,
       city,
       zone,
+      address,
+      firstName,
+      lastName,
+      email,
+      phone,
     });
 
     const trustedSubtotal = calculation.subtotal;
     const trustedShippingFee = calculation.shippingFee;
+    const trustedQuotedCost = calculation.quotedCost;
     const trustedGrandTotal = calculation.total;
     const validatedItems = calculation.items;
 
@@ -92,6 +123,13 @@ export async function POST(request) {
     // 2. Store server-calculated snapshot in pendingCheckoutData
     const pendingCheckoutData = JSON.stringify({
       items: validatedItems,
+      fulfillmentMethod: method,
+      pickupLocationId: method === "PICKUP" ? pickupLocationId || "uthy_flagship" : null,
+      selectedCourierId: method === "DELIVERY" ? selectedCourierId : null,
+      selectedCourierCode: method === "DELIVERY" ? selectedCourierCode : null,
+      selectedCourierName: method === "DELIVERY" ? selectedCourierName : null,
+      shipbubbleRateToken: method === "DELIVERY" ? shipbubbleRateToken : null,
+      shipbubbleQuotedCost: trustedQuotedCost,
       subtotal: trustedSubtotal,
       shippingFee: trustedShippingFee,
       total: trustedGrandTotal,
@@ -113,6 +151,14 @@ export async function POST(request) {
         paymentReference: reference,
         paymentStatus: "pending",
         status: "pending",
+        fulfillmentMethod: method,
+        fulfillmentStatus: "UNFULFILLED",
+        pickupLocationId: method === "PICKUP" ? pickupLocationId || "uthy_flagship" : null,
+        shippingCourier: method === "DELIVERY" ? selectedCourierName : null,
+        shippingCourierId: method === "DELIVERY" ? selectedCourierId : null,
+        shippingCourierCode: method === "DELIVERY" ? selectedCourierCode : null,
+        shipbubbleRateToken: method === "DELIVERY" ? shipbubbleRateToken : null,
+        shipbubbleQuotedCost: trustedQuotedCost,
         total: trustedGrandTotal,
         shippingFee: trustedShippingFee,
         firstName: firstName || null,
@@ -138,6 +184,7 @@ export async function POST(request) {
         reference,
         userId,
         email,
+        fulfillmentMethod: method,
         shippingFee: trustedShippingFee,
       },
     });
@@ -152,7 +199,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to initialize payment.",
+        error: error.message || "Failed to initialize payment.",
       },
       { status: 500 }
     );

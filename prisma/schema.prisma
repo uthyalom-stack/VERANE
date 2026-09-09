@@ -141,7 +141,7 @@ model SiteSetting {
 
 model Order {
   id                  String      @id @default(cuid())
-  userId              String
+  userId              String?
   status              String      @default("pending")
   paymentStatus       String      @default("pending")
   paymentReference    String?     @unique
@@ -161,10 +161,39 @@ model Order {
   address             String?
   createdAt           DateTime    @default(now())
   orderNumber         String      @unique
-  user                User        @relation(fields: [userId], references: [id])
+
+  // Fulfillment Method & Status
+  fulfillmentMethod      String    @default("DELIVERY") // "DELIVERY" | "PICKUP"
+  fulfillmentStatus      String    @default("UNFULFILLED") // "UNFULFILLED" | "READY_FOR_PICKUP" | "PICKED_UP" | "DISPATCH_PENDING" | "DISPATCHED" | "DELIVERED" | "DISPATCH_FAILED" | "CANCELLED"
+  pickupLocationId       String?   // "uthy_flagship" | "alomziee_flagship"
+  pickupBrand            String?   // "UTHY_LUXURY" | "ALOMZIEE_FOOTIES"
+
+  // Shipbubble Customer Quote & Rates
+  shippingCourier        String?   // Courier name (e.g., "CORA Express")
+  shippingCourierId      String?   // Courier ID (e.g., "cora")
+  shippingCourierCode    String?   // Service code (e.g., "cora_std")
+  shipbubbleRateToken    String?   // Shipbubble request_token
+  shipbubbleQuotedCost   Float?    // Quoted wallet cost from Shipbubble total at checkout
+
+  // Shipbubble Actual Dispatch Metadata
+  courierActualCost      Float?    // Actual wallet deduction when label generated
+  shipbubbleOrderId      String?   // Shipbubble shipment order_id (e.g., "SB-2CF48224272")
+  shipbubbleTrackingCode String?   // Courier tracking number
+  shipbubbleWaybillUrl   String?   // PDF Waybill label URL
+
+  // Fulfillment Lifecycle Timestamps
+  pickupReadyAt          DateTime?
+  pickupCollectedAt      DateTime?
+  shippedAt              DateTime?
+  deliveredAt            DateTime?
+
+  user                User?       @relation(fields: [userId], references: [id])
   items               OrderItem[]
   attribution         OrderAttribution?
   brandTrackings      OrderBrandTracking[]
+
+  @@index([fulfillmentMethod])
+  @@index([fulfillmentStatus])
 }
 
 model OrderBrandTracking {
