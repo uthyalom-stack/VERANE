@@ -94,11 +94,22 @@ export async function POST(request, { params }) {
       console.warn("Shipbubble reconciliation check failed:", recErr.message);
     }
 
-    // Lock in-flight dispatch
-    await prisma.order.update({
-      where: { id: order.id },
+    // Compare-and-Set Lock: Atomically transition from UNFULFILLED/DISPATCH_FAILED to DISPATCH_PENDING
+    const lockResult = await prisma.order.updateMany({
+      where: {
+        id: order.id,
+        fulfillmentStatus: { in: ["UNFULFILLED", "DISPATCH_FAILED"] },
+        shipbubbleOrderId: null,
+      },
       data: { fulfillmentStatus: "DISPATCH_PENDING" },
     });
+
+    if (lockResult.count === 0) {
+      return NextResponse.json(
+        { success: false, error: "Dispatch in progress or order already dispatched." },
+        { status: 409 }
+      );
+    }
 
     let rateTokenToUse = order.shipbubbleRateToken;
     let courierIdToUse = order.shippingCourierId;

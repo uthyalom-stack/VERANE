@@ -141,7 +141,7 @@ model SiteSetting {
 
 model Order {
   id                  String      @id @default(cuid())
-  userId              String?
+  userId              String
   status              String      @default("pending")
   paymentStatus       String      @default("pending")
   paymentReference    String?     @unique
@@ -187,7 +187,7 @@ model Order {
   shippedAt              DateTime?
   deliveredAt            DateTime?
 
-  user                User?       @relation(fields: [userId], references: [id])
+  user                User        @relation(fields: [userId], references: [id])
   items               OrderItem[]
   attribution         OrderAttribution?
   brandTrackings      OrderBrandTracking[]

@@ -14,8 +14,7 @@ ADD COLUMN     "shipbubbleWaybillUrl" TEXT,
 ADD COLUMN     "shippedAt" TIMESTAMP(3),
 ADD COLUMN     "shippingCourier" TEXT,
 ADD COLUMN     "shippingCourierCode" TEXT,
-ADD COLUMN     "shippingCourierId" TEXT,
-ALTER COLUMN "userId" DROP NOT NULL;
+ADD COLUMN     "shippingCourierId" TEXT;
 
 -- CreateIndex
 CREATE INDEX "Order_fulfillmentMethod_idx" ON "Order"("fulfillmentMethod");
