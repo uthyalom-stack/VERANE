@@ -83,31 +83,6 @@ function HeartIcon({ filled }) {
   );
 }
 
-function CartIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-        d="M6 6h15l-1.5 8.5H8L6 3H3"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-        d="M9 19.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM18 19.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"
-      />
-    </svg>
-  );
-}
-
 function SpinnerIcon() {
   return (
     <svg className="h-4 w-4 animate-spin text-current" viewBox="0 0 24 24" fill="none">
@@ -121,6 +96,9 @@ function SpinnerIcon() {
  * - `standard`: Balanced editorial product presentation
  * - `uthy`: Couture / fashion house presentation with portrait focus, serif display, and minimalist metadata
  * - `alomziee`: Handcrafted / footwear presentation with clean square silhouette focus and detail highlights
+ *
+ * All interactive controls (<button>) are positioned as sibling overlays OUTSIDE <Link> tags
+ * to avoid invalid nested interactive HTML elements.
  *
  * @param {Object} props
  * @param {Object} props.product - The product database object or DTO
@@ -149,8 +127,17 @@ export default function ProductCard({
       });
     }
 
+    const handleWishlistUpdated = (event) => {
+      if (event?.detail && event.detail.productId === product?.id && !cancelled) {
+        setWishlisted(Boolean(event.detail.wishlisted));
+      }
+    };
+
+    window.addEventListener("wishlist-updated", handleWishlistUpdated);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("wishlist-updated", handleWishlistUpdated);
     };
   }, [product?.id]);
 
@@ -164,7 +151,6 @@ export default function ProductCard({
 
   const toggleWishlist = async (event) => {
     event.preventDefault();
-    event.stopPropagation();
 
     if (!product?.id || wishlistLoading) return;
 
@@ -193,8 +179,14 @@ export default function ProductCard({
 
       const isNowWishlisted = Boolean(data.wishlisted);
       setWishlisted(isNowWishlisted);
-      // Invalidate shared promise so subsequent mounts get fresh data
       globalWishlistPromise = null;
+
+      // Broadcast wishlist state change to all mounted cards
+      window.dispatchEvent(
+        new CustomEvent("wishlist-updated", {
+          detail: { productId: product.id, wishlisted: isNowWishlisted },
+        })
+      );
     } catch (error) {
       console.error("Wishlist action error:", error);
       setWishlisted(previousState);
@@ -205,7 +197,6 @@ export default function ProductCard({
 
   const handleQuickAction = (event) => {
     event.preventDefault();
-    event.stopPropagation();
 
     if (!product?.id || isSoldOut || cartBusy) return;
 
@@ -266,7 +257,7 @@ export default function ProductCard({
     }
   };
 
-  // Determine Aspect Ratio & Variant-Specific Styling
+  // Aspect Ratio & Variant-Specific Styling
   const imageAspectClass =
     variant === "uthy"
       ? "aspect-[3/4]"
@@ -283,7 +274,7 @@ export default function ProductCard({
 
   return (
     <div className={`group relative flex flex-col justify-between h-full ${className}`}>
-      {/* CARD IMAGE & OVERLAYS */}
+      {/* IMAGE CONTAINER WITH NON-NESTED OVERLAYS */}
       <div className="relative w-full">
         <Link
           href={`/product/${product.id}`}
@@ -315,48 +306,48 @@ export default function ProductCard({
               {stockStatus.label}
             </span>
           </div>
+        </Link>
 
-          {/* Quick Action Button Overlays Top Right */}
-          <div className="absolute right-3 top-3 z-20 flex flex-col gap-2">
+        {/* Wishlist Button Overlay — SIBLING of <Link>, not a child */}
+        <div className="absolute right-3 top-3 z-20 pointer-events-auto">
+          <button
+            type="button"
+            onClick={toggleWishlist}
+            disabled={wishlistLoading}
+            aria-label={wishlisted ? "Remove from wishlist" : "Save to wishlist"}
+            className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-xl transition-all duration-300 ${
+              wishlisted
+                ? "border-white bg-white text-black scale-105"
+                : "border-white/15 bg-black/60 text-white/70 hover:border-white/40 hover:bg-black/90 hover:text-white"
+            } ${wishlistLoading ? "opacity-60 cursor-wait" : ""}`}
+          >
+            {wishlistLoading ? <SpinnerIcon /> : <HeartIcon filled={wishlisted} />}
+          </button>
+        </div>
+
+        {/* Desktop Quick Add Bar Overlay — SIBLING of <Link>, not a child */}
+        {!isSoldOut && (
+          <div className="absolute inset-x-3 bottom-3 z-20 hidden md:block opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 pointer-events-auto">
             <button
               type="button"
-              onClick={toggleWishlist}
-              disabled={wishlistLoading}
-              aria-label={wishlisted ? "Remove from wishlist" : "Save to wishlist"}
-              className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-xl transition-all duration-300 ${
-                wishlisted
-                  ? "border-white bg-white text-black scale-105"
-                  : "border-white/15 bg-black/60 text-white/70 hover:border-white/40 hover:bg-black/90 hover:text-white"
-              } ${wishlistLoading ? "opacity-60 cursor-wait" : ""}`}
+              onClick={handleQuickAction}
+              disabled={cartBusy}
+              className={`w-full py-2.5 px-4 rounded-full text-[9px] font-black uppercase tracking-luxury transition-all duration-300 shadow-xl ${
+                cartAdded
+                  ? "bg-emerald-400 text-black"
+                  : "bg-white text-black hover:bg-amber-400 hover:scale-[1.01]"
+              }`}
             >
-              {wishlistLoading ? <SpinnerIcon /> : <HeartIcon filled={wishlisted} />}
+              {cartBusy
+                ? "Processing..."
+                : cartAdded
+                ? "Added to Bag"
+                : requiresOptions
+                ? "CHECK OPTIONS"
+                : "QUICK ADD TO CART"}
             </button>
           </div>
-
-          {/* Desktop Hover Quick Action CTA Bar */}
-          {!isSoldOut && (
-            <div className="absolute inset-x-3 bottom-3 z-20 hidden md:block opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 pointer-events-auto">
-              <button
-                type="button"
-                onClick={handleQuickAction}
-                disabled={cartBusy}
-                className={`w-full py-2.5 px-4 rounded-full text-[9px] font-black uppercase tracking-luxury transition-all duration-300 shadow-xl ${
-                  cartAdded
-                    ? "bg-emerald-400 text-black"
-                    : "bg-white text-black hover:bg-amber-400 hover:scale-[1.01]"
-                }`}
-              >
-                {cartBusy
-                  ? "Processing..."
-                  : cartAdded
-                  ? "Added to Bag"
-                  : requiresOptions
-                  ? "CHECK OPTIONS"
-                  : "QUICK ADD TO CART"}
-              </button>
-            </div>
-          )}
-        </Link>
+        )}
       </div>
 
       {/* METADATA & INFORMATION */}
@@ -387,9 +378,9 @@ export default function ProductCard({
           </div>
         </Link>
 
-        {/* Mobile Quick Action Button */}
+        {/* Mobile Quick Action Button — OUTSIDE Link */}
         {!isSoldOut && (
-          <div className="mt-3 md:hidden">
+          <div className="mt-3 md:hidden pointer-events-auto">
             <button
               type="button"
               onClick={handleQuickAction}

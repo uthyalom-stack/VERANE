@@ -95,7 +95,7 @@ function CatalogContent({ defaultBrand = "all" }) {
   }, []);
 
   /*
-   * Filter and sort products.
+   * Filter and sort products (restores multi-field search: name, description, brand, category, style, occasion).
    */
   const filtered = useMemo(() => {
     const rawSearch = search.trim();
@@ -115,6 +115,7 @@ function CatalogContent({ defaultBrand = "all" }) {
       const brandStr = (product.brand || "").toLowerCase();
       const catStr = (product.category || "").toLowerCase();
       const styleStr = (product.style || "").toLowerCase();
+      const occasionStr = (product.occasion || "").toLowerCase();
 
       return tokens.every(
         (token) =>
@@ -122,7 +123,8 @@ function CatalogContent({ defaultBrand = "all" }) {
           descStr.includes(token) ||
           brandStr.includes(token) ||
           catStr.includes(token) ||
-          styleStr.includes(token)
+          styleStr.includes(token) ||
+          occasionStr.includes(token)
       );
     });
 
@@ -205,7 +207,7 @@ function CatalogContent({ defaultBrand = "all" }) {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, fabric, style..."
+              placeholder="Search by name, fabric, style, occasion..."
               className="w-full rounded-full border border-white/10 bg-neutral-900/80 px-5 py-3 text-sm text-white placeholder-neutral-600 outline-none transition focus:border-amber-400/50"
             />
             {search && (
