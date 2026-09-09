@@ -128,16 +128,116 @@ export default function ProductDetail() {
 
   const stockStatusClass =
     stockStatus === "Sold Out"
-      ? "text-red-400"
+      ? "text-red-400 border-red-500/30 bg-red-500/10"
       : stockStatus === "Few Left"
-      ? "text-orange-400"
+      ? "text-orange-400 border-orange-400/30 bg-orange-400/10"
       : stockStatus === "Almost Sold Out"
-      ? "text-amber-400"
-      : "text-emerald-400";
+      ? "text-amber-400 border-amber-400/30 bg-amber-400/10"
+      : "text-emerald-400 border-emerald-400/30 bg-emerald-400/10";
 
   const getColorValue = (color) => {
     if (!color) return "#ffffff";
     return color.hex || color.value || color.color || color.code || "#ffffff";
+  };
+
+  const addOrUpdateSelectedVariant = (colorId, sizeLabel) => {
+    if (!product) return;
+
+    const chosenColorObj =
+      colorId && productColors.length > 0
+        ? productColors.find((c) => String(c.id) === String(colorId))
+        : null;
+
+    const chosenColorName =
+      chosenColorObj?.name || chosenColorObj?.label || chosenColorObj?.value || null;
+
+    const exactVar =
+      variants.find((variant) => {
+        const vSize = variant.size || variant.name || variant.value || variant.label || null;
+        const sizeMatches = sizeLabel
+          ? Boolean(vSize) && String(vSize) === String(sizeLabel)
+          : !hasSizes
+          ? true
+          : !vSize;
+        const colorMatches = colorId
+          ? Boolean(variant.colorId) && String(variant.colorId) === String(colorId)
+          : !chosenColorObj
+          ? true
+          : !variant.colorId;
+        return sizeMatches && colorMatches;
+      }) || null;
+
+    const maxStock = exactVar ? (exactVar.stock ?? exactVar.inventory ?? 0) : inventory;
+
+    if (maxStock <= 0) {
+      alert("This item is currently out of stock.");
+      return;
+    }
+
+    const varKey = exactVar?.id ? String(exactVar.id) : "";
+    const key = [
+      product.id,
+      varKey,
+      chosenColorObj?.id || chosenColorName || "",
+      sizeLabel || "",
+    ].join("|");
+
+    setSelectedVariants((prev) => {
+      const existingIndex = prev.findIndex((item) => item.key === key);
+
+      if (existingIndex >= 0) {
+        const existingItem = prev[existingIndex];
+        const nextQty = existingItem.qty + 1;
+
+        if (maxStock > 0 && nextQty > maxStock) {
+          alert(`Cannot select more than available stock (${maxStock}).`);
+          return prev;
+        }
+
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...existingItem,
+          qty: nextQty,
+        };
+        return updated;
+      } else {
+        return [
+          ...prev,
+          {
+            key,
+            exactVariant: exactVar,
+            variantId: exactVar?.id || null,
+            colorId: chosenColorObj?.id || exactVar?.colorId || null,
+            colorName: chosenColorName,
+            colorHex: chosenColorObj ? getColorValue(chosenColorObj) : null,
+            size: sizeLabel || null,
+            qty: 1,
+            maxStock,
+          },
+        ];
+      }
+    });
+  };
+
+  const updateVariantQty = (key, delta) => {
+    setSelectedVariants((prev) =>
+      prev
+        .map((item) => {
+          if (item.key !== key) return item;
+          const newQty = item.qty + delta;
+          if (newQty <= 0) return null;
+          if (item.maxStock > 0 && newQty > item.maxStock) {
+            alert(`Cannot select more than available stock (${item.maxStock}).`);
+            return item;
+          }
+          return { ...item, qty: newQty };
+        })
+        .filter(Boolean)
+    );
+  };
+
+  const removeSelectedVariant = (key) => {
+    setSelectedVariants((prev) => prev.filter((item) => item.key !== key));
   };
 
   const toggleWishlist = async () => {
@@ -175,34 +275,65 @@ export default function ProductDetail() {
       return;
     }
 
-    if (needsSizeSelection && !selectedSize && selectedVariants.length === 0) {
-      alert(isFootwear ? "Please select your footwear size." : "Please select your size.");
-      return;
+    let itemsToAdd = [...selectedVariants];
+
+    if (itemsToAdd.length === 0) {
+      if (needsSizeSelection && !selectedSize) {
+        alert(isFootwear ? "Please select your footwear size." : "Please select your size.");
+        return;
+      }
+
+      if (productColors.length > 0 && !selectedColor) {
+        alert("Please select a color.");
+        return;
+      }
+
+      const chosenColorObj =
+        selectedColor && productColors.length > 0
+          ? productColors.find((c) => String(c.id) === String(selectedColor))
+          : null;
+
+      const chosenColorName =
+        chosenColorObj?.name || chosenColorObj?.label || chosenColorObj?.value || null;
+
+      const exactVar =
+        variants.find((variant) => {
+          const vSize = variant.size || variant.name || variant.value || variant.label || null;
+          const sizeMatches = selectedSize
+            ? Boolean(vSize) && String(vSize) === String(selectedSize)
+            : !hasSizes
+            ? true
+            : !vSize;
+          const colorMatches = selectedColor
+            ? Boolean(variant.colorId) && String(variant.colorId) === String(selectedColor)
+            : !chosenColorObj
+            ? true
+            : !variant.colorId;
+          return sizeMatches && colorMatches;
+        }) || null;
+
+      const varKey = exactVar?.id ? String(exactVar.id) : "";
+      const key = [
+        product.id,
+        varKey,
+        chosenColorObj?.id || chosenColorName || "",
+        selectedSize || "",
+      ].join("|");
+
+      itemsToAdd = [
+        {
+          key,
+          exactVariant: exactVar,
+          variantId: exactVar?.id || null,
+          colorId: chosenColorObj?.id || exactVar?.colorId || null,
+          colorName: chosenColorName,
+          colorHex: chosenColorObj ? getColorValue(chosenColorObj) : null,
+          size: selectedSize || null,
+          qty: qty || 1,
+          maxStock: exactVar ? (exactVar.stock ?? exactVar.inventory ?? 0) : inventory,
+        },
+      ];
     }
-
-    const chosenColorObj =
-      selectedColor && productColors.length > 0
-        ? productColors.find((c) => String(c.id) === String(selectedColor))
-        : null;
-
-    const chosenColorName = chosenColorObj?.name || chosenColorObj?.label || chosenColorObj?.value || null;
-
-    const exactVar =
-      variants.find((variant) => {
-        const vSize = variant.size || variant.name || variant.value || variant.label || null;
-        const sizeMatches = selectedSize ? Boolean(vSize) && String(vSize) === String(selectedSize) : true;
-        const colorMatches = selectedColor ? Boolean(variant.colorId) && String(variant.colorId) === String(selectedColor) : true;
-        return sizeMatches && colorMatches;
-      }) || null;
-
-    const variantKey = exactVar?.id ? String(exactVar.id) : "";
-    const cartItemKey = [
-      product.id,
-      variantKey,
-      chosenColorObj?.id || chosenColorName || "",
-      selectedSize || "",
-      customSizing.trim() || "",
-    ].join("|");
 
     let cart;
     try {
@@ -213,25 +344,37 @@ export default function ProductDetail() {
 
     if (!Array.isArray(cart.items)) cart.items = [];
 
-    const existing = cart.items.find((cItem) => cItem.cartItemKey === cartItemKey);
+    for (const item of itemsToAdd) {
+      const variantKey = item.variantId ? String(item.variantId) : "";
 
-    if (existing) {
-      existing.qty = Number(existing.qty || 0) + qty;
-    } else {
-      cart.items.push({
-        ...product,
-        variantId: exactVar?.id || null,
-        variant: exactVar || null,
-        variantInventory: exactVar ? (exactVar.stock ?? exactVar.inventory ?? null) : inventory,
-        qty,
-        cartItemKey,
-        selectedColor: chosenColorName,
-        selectedColorId: chosenColorObj?.id || null,
-        selectedSize: selectedSize || null,
-        customSizing: customSizing.trim() || null,
-        isPreOrder,
-        fulfillmentTime: fulfillmentTime || null,
-      });
+      const cartItemKey = [
+        product.id,
+        variantKey,
+        item.colorId || item.colorName || "",
+        item.size || "",
+        customSizing.trim() || "",
+      ].join("|");
+
+      const existing = cart.items.find((cItem) => cItem.cartItemKey === cartItemKey);
+
+      if (existing) {
+        existing.qty = Number(existing.qty || 0) + Number(item.qty || 1);
+      } else {
+        cart.items.push({
+          ...product,
+          variantId: item.variantId || null,
+          variant: item.exactVariant || null,
+          variantInventory: item.maxStock ?? null,
+          qty: item.qty,
+          cartItemKey,
+          selectedColor: item.colorName || null,
+          selectedColorId: item.colorId || null,
+          selectedSize: item.size || null,
+          customSizing: customSizing.trim() || null,
+          isPreOrder,
+          fulfillmentTime: fulfillmentTime || null,
+        });
+      }
     }
 
     cart.total = cart.items.reduce(
@@ -264,8 +407,12 @@ export default function ProductDetail() {
           <p className="text-amber-400 text-xs font-bold uppercase tracking-couture">
             PIECE NOT FOUND
           </p>
-          <h1 className="text-3xl font-editorial font-light text-white mt-2">Product Unavailable</h1>
-          <p className="text-neutral-400 font-light text-sm mt-3">This piece may have been archived or is no longer listed in our catalog.</p>
+          <h1 className="text-3xl font-editorial font-light text-white mt-2">
+            Product Unavailable
+          </h1>
+          <p className="text-neutral-400 font-light text-sm mt-3">
+            This piece may have been archived or is no longer listed in our catalog.
+          </p>
           <Link
             href="/catalog"
             className="inline-flex mt-6 bg-white text-black px-8 py-3 rounded-full text-xs font-bold uppercase tracking-luxury hover:bg-amber-400 transition"
@@ -276,6 +423,11 @@ export default function ProductDetail() {
       </main>
     );
   }
+
+  const totalSelectedQty =
+    selectedVariants.length > 0
+      ? selectedVariants.reduce((sum, item) => sum + item.qty, 0)
+      : qty;
 
   return (
     <main className="min-h-screen bg-[#070707] text-[#f5f5f5] pb-24">
@@ -314,7 +466,9 @@ export default function ProductDetail() {
               )}
 
               <div className="absolute top-5 left-5 flex flex-col gap-2">
-                <span className={`px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-couture border backdrop-blur-md ${stockStatusClass}`}>
+                <span
+                  className={`px-4 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-couture border backdrop-blur-md ${stockStatusClass}`}
+                >
                   {stockStatus}
                 </span>
                 {isPreOrder && (
@@ -368,8 +522,18 @@ export default function ProductDetail() {
                       : "border-white/10 bg-neutral-900/60 text-neutral-400 hover:text-white hover:border-white/30"
                   }`}
                 >
-                  <svg className="w-5 h-5" fill={wishlist ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={wishlist ? 1.5 : 1.8} d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z" />
+                  <svg
+                    className="w-5 h-5"
+                    fill={wishlist ? "currentColor" : "none"}
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={wishlist ? 1.5 : 1.8}
+                      d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"
+                    />
                   </svg>
                 </button>
               </div>
@@ -401,20 +565,35 @@ export default function ProductDetail() {
                     {productColors.map((color) => {
                       const colorId = color.id ?? color.name ?? color.value;
                       const colorName = color.name || color.label || color.value || "Color";
-                      const active = String(selectedColor) === String(colorId);
+                      const isSelectedInCollection = selectedVariants.some(
+                        (v) => String(v.colorId) === String(colorId)
+                      );
+                      const active =
+                        String(selectedColor) === String(colorId) ||
+                        (!hasSizes && isSelectedInCollection);
 
                       return (
                         <button
                           type="button"
                           key={String(colorId)}
-                          onClick={() => setSelectedColor(colorId)}
+                          onClick={() => {
+                            setSelectedColor(colorId);
+                            if (!hasSizes) {
+                              addOrUpdateSelectedVariant(colorId, null);
+                            } else if (selectedSize) {
+                              addOrUpdateSelectedVariant(colorId, selectedSize);
+                            }
+                          }}
                           className={`flex items-center gap-2.5 rounded-full border px-4 py-2.5 text-xs font-semibold transition ${
                             active
                               ? "border-amber-400 bg-amber-400/10 text-white"
                               : "border-white/10 bg-neutral-900/60 text-neutral-300 hover:border-white/20"
                           }`}
                         >
-                          <span className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0" style={{ backgroundColor: getColorValue(color) }} />
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0"
+                            style={{ backgroundColor: getColorValue(color) }}
+                          />
                           <span>{colorName}</span>
                         </button>
                       );
@@ -443,7 +622,11 @@ export default function ProductDetail() {
 
                   <div className="flex flex-wrap gap-2">
                     {Array.from(
-                      new Set(variants.map((v) => v.size || v.name || v.value || v.label).filter(Boolean))
+                      new Set(
+                        variants
+                          .map((v) => v.size || v.name || v.value || v.label)
+                          .filter(Boolean)
+                      )
                     ).map((sizeLabel) => {
                       const active = String(selectedSize) === String(sizeLabel);
 
@@ -451,7 +634,10 @@ export default function ProductDetail() {
                         <button
                           key={sizeLabel}
                           type="button"
-                          onClick={() => setSelectedSize(sizeLabel)}
+                          onClick={() => {
+                            setSelectedSize(sizeLabel);
+                            addOrUpdateSelectedVariant(selectedColor, sizeLabel);
+                          }}
                           className={`min-w-12 h-11 px-4 rounded-xl border text-xs font-bold transition ${
                             active
                               ? "border-amber-400 bg-amber-400 text-black shadow-md"
@@ -462,6 +648,85 @@ export default function ProductDetail() {
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {/* SELECTED VARIANTS LIST */}
+              {selectedVariants.length > 0 && (
+                <div className="mt-8 rounded-2xl border border-white/10 bg-neutral-950 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-[10px] font-bold uppercase tracking-couture text-amber-400">
+                      Selected Configurations ({totalSelectedQty})
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedVariants([])}
+                      className="text-[10px] font-bold text-neutral-500 hover:text-white uppercase tracking-luxury"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {selectedVariants.map((item) => (
+                      <div
+                        key={item.key}
+                        className="flex items-center justify-between gap-4 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-xs"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {item.colorHex && (
+                            <span
+                              className="w-4 h-4 rounded-full border border-white/20 shrink-0"
+                              style={{ backgroundColor: item.colorHex }}
+                            />
+                          )}
+                          <div className="truncate">
+                            <span className="font-bold text-white">
+                              {item.colorName || "Standard"}
+                            </span>
+                            {item.size && (
+                              <span className="text-neutral-400 font-semibold ml-2">
+                                / {item.size}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="inline-flex items-center gap-2 border border-white/10 rounded-full px-2 py-1 bg-black">
+                            <button
+                              type="button"
+                              onClick={() => updateVariantQty(item.key, -1)}
+                              className="w-5 h-5 rounded-full hover:bg-neutral-800 text-neutral-300 font-bold flex items-center justify-center"
+                              aria-label="Decrease quantity"
+                            >
+                              −
+                            </button>
+                            <span className="font-bold text-xs w-4 text-center text-white">
+                              {item.qty}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateVariantQty(item.key, 1)}
+                              className="w-5 h-5 rounded-full hover:bg-neutral-800 text-neutral-300 font-bold flex items-center justify-center"
+                              aria-label="Increase quantity"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeSelectedVariant(item.key)}
+                            className="text-neutral-500 hover:text-red-400 text-[10px] uppercase font-bold tracking-luxury"
+                            aria-label="Remove item"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -482,8 +747,8 @@ export default function ProductDetail() {
                 </div>
               )}
 
-              {/* QUANTITY CONTROL */}
-              {!isOutOfStock && (
+              {/* QUANTITY CONTROL FOR SINGLE ITEM */}
+              {!isOutOfStock && selectedVariants.length === 0 && (
                 <div className="mt-8">
                   <p className="text-[10px] font-bold uppercase tracking-luxury text-neutral-400 mb-3">
                     Quantity
@@ -507,6 +772,34 @@ export default function ProductDetail() {
                   </div>
                 </div>
               )}
+
+              {/* METADATA INFO */}
+              <div className="mt-10 border-t border-white/[0.08] pt-6 space-y-3 text-xs text-neutral-400">
+                {product.style && (
+                  <div className="flex justify-between py-1 border-b border-white/[0.04]">
+                    <span className="text-neutral-500 uppercase tracking-luxury font-bold text-[9px]">
+                      Style
+                    </span>
+                    <span className="text-white">{product.style}</span>
+                  </div>
+                )}
+                {product.occasion && (
+                  <div className="flex justify-between py-1 border-b border-white/[0.04]">
+                    <span className="text-neutral-500 uppercase tracking-luxury font-bold text-[9px]">
+                      Occasion
+                    </span>
+                    <span className="text-white">{product.occasion}</span>
+                  </div>
+                )}
+                {product.outfitLayer && (
+                  <div className="flex justify-between py-1 border-b border-white/[0.04]">
+                    <span className="text-neutral-500 uppercase tracking-luxury font-bold text-[9px]">
+                      Outfit Layer
+                    </span>
+                    <span className="text-white">{product.outfitLayer}</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* ADD TO BAG CTA */}
@@ -521,9 +814,36 @@ export default function ProductDetail() {
                     : "bg-amber-400 text-black hover:bg-amber-300 shadow-amber-400/10"
                 }`}
               >
-                {isOutOfStock ? "Sold Out" : `Add to Bag — ₦${(Number(product.price || 0) * qty).toLocaleString()}`}
+                {isOutOfStock
+                  ? "Sold Out"
+                  : `Add to Bag — ₦${(
+                      Number(product.price || 0) * totalSelectedQty
+                    ).toLocaleString()}`}
               </button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* OUTFIT BUILDER CTA BANNER */}
+      <section className="border-t border-white/[0.08] bg-neutral-950/60 mt-16">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 py-16">
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 p-8 sm:p-12 bg-gradient-to-r from-amber-500/10 via-transparent to-transparent">
+            <p className="text-[10px] font-bold uppercase tracking-couture text-amber-400 mb-3">
+              VÉRANE STUDIO
+            </p>
+            <h2 className="text-3xl sm:text-4xl font-editorial font-light text-white">
+              Complete the Full Atelier Look
+            </h2>
+            <p className="text-neutral-400 font-light text-sm mt-3 max-w-xl leading-relaxed">
+              Pair this piece with garments, footwear, and accessories from both VÉRANE houses in real-time.
+            </p>
+            <Link
+              href="/outfit-builder"
+              className="inline-block mt-6 bg-white text-black px-8 py-3.5 rounded-full text-xs font-bold uppercase tracking-luxury hover:bg-amber-400 transition"
+            >
+              Open Outfit Builder →
+            </Link>
           </div>
         </div>
       </section>
