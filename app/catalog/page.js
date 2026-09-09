@@ -25,6 +25,18 @@ const brands = [
   { id: "ALOMZIEE_FOOTIES", name: "ALOMZIEE FOOTIES" },
 ];
 
+function getBrandName(brand) {
+  if (brand === "UTHY_LUXURY") {
+    return "UTHY LUXURY";
+  }
+
+  if (brand === "ALOMZIEE_FOOTIES") {
+    return "ALOMZIEE FOOTIES";
+  }
+
+  return brand || "VÉRANE";
+}
+
 function CatalogContent({ defaultBrand = "all" }) {
   const [products, setProducts] = useState([]);
   const [collections, setCollections] = useState([]);
@@ -95,7 +107,7 @@ function CatalogContent({ defaultBrand = "all" }) {
   }, []);
 
   /*
-   * Filter and sort products (restores multi-field search: name, description, brand, category, style, occasion).
+   * Filter and sort products (includes name, description, raw brand, brand display name, category, style, occasion).
    */
   const filtered = useMemo(() => {
     const rawSearch = search.trim();
@@ -113,6 +125,7 @@ function CatalogContent({ defaultBrand = "all" }) {
       const nameStr = (product.name || "").toLowerCase();
       const descStr = (product.description || "").toLowerCase();
       const brandStr = (product.brand || "").toLowerCase();
+      const brandDisplayStr = getBrandName(product.brand).toLowerCase();
       const catStr = (product.category || "").toLowerCase();
       const styleStr = (product.style || "").toLowerCase();
       const occasionStr = (product.occasion || "").toLowerCase();
@@ -122,6 +135,7 @@ function CatalogContent({ defaultBrand = "all" }) {
           nameStr.includes(token) ||
           descStr.includes(token) ||
           brandStr.includes(token) ||
+          brandDisplayStr.includes(token) ||
           catStr.includes(token) ||
           styleStr.includes(token) ||
           occasionStr.includes(token)
