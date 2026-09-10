@@ -279,7 +279,7 @@ export default function CheckoutPage() {
   }
 
   const selectedCourierObj = couriers.find((c) => c.courier_id === selectedCourierId);
-  const shippingFee = fulfillmentType === "pickup" ? 0 : Number(selectedCourierObj?.total_charge || 0);
+  const shippingFee = fulfillmentType === "pickup" ? 0 : Number(selectedCourierObj?.rate_card_amount ?? selectedCourierObj?.total ?? 0);
   const grandTotal = cart.total + shippingFee;
 
   const getImages = (images) => {
@@ -763,7 +763,7 @@ export default function CheckoutPage() {
                               </div>
                               <div className="text-right">
                                 <span className="text-base font-bold text-amber-400">
-                                  ₦{Number(courier.total_charge).toLocaleString()}
+                                  ₦{Number(courier.rate_card_amount ?? courier.total ?? 0).toLocaleString()}
                                 </span>
                               </div>
                             </div>

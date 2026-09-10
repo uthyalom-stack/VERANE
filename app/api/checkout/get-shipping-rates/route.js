@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
-import { fetchShipbubbleRates } from "@/lib/shipbubble";
+import { fetchShipbubbleRates, getShipbubbleOriginAddressCode } from "@/lib/shipbubble";
 
 /**
  * POST /api/checkout/get-shipping-rates
  *
- * Server-side endpoint to fetch courier shipping rates from Shipbubble.
- * Never exposes API keys or internal secrets to client.
+ * Server-side endpoint to fetch courier shipping rates from Shipbubble using official v1 contract.
+ * Uses real configured sender_address_code and never exposes API keys to client.
  */
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { items, receiverAddress, senderAddress } = body || {};
+    const { items, receiverAddress } = body || {};
 
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ success: false, error: "Cart is empty." }, { status: 400 });
@@ -23,16 +23,7 @@ export async function POST(request) {
       );
     }
 
-    // Default sender address to Lagos, Nigeria if not explicitly provided
-    const sender = senderAddress || {
-      name: "VÉRANE Atelier",
-      phone: "+2348000000000",
-      email: "orders@verane.com",
-      address: "Victoria Island",
-      city: "Lagos",
-      state: "Lagos",
-      country: "Nigeria",
-    };
+    const senderAddressCode = await getShipbubbleOriginAddressCode();
 
     const receiver = {
       name: `${receiverAddress.firstName || ""} ${receiverAddress.lastName || ""}`.trim() || "Customer",
@@ -44,17 +35,19 @@ export async function POST(request) {
       country: receiverAddress.country || "Nigeria",
     };
 
+    const packageItems = items.map((it) => ({
+      name: it.name || "Apparel Item",
+      description: it.selectedSize || "Standard size",
+      unit_price: Math.round(Number(it.price || 0)),
+      quantity: Number(it.qty || 1),
+      weight: 1.0,
+    }));
+
     const rateResult = await fetchShipbubbleRates({
-      senderAddress: sender,
+      senderAddressCode,
       receiverAddress: receiver,
-      parcels: [
-        {
-          weight: Math.max(1, items.reduce((sum, item) => sum + Number(item.qty || item.quantity || 1), 0)),
-          length: 15,
-          width: 15,
-          height: 15,
-        },
-      ],
+      packageItems,
+      packageDimension: { length: 15, width: 15, height: 15 },
     });
 
     return NextResponse.json({

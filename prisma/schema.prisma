@@ -65,7 +65,11 @@ model Product {
   fulfillmentTime        String?
   preOrderEnabled        Boolean                @default(false)
   sizeType               String?
-sizeGuideImage String?
+  sizeGuideImage         String?
+  weight                 Float?                 @default(1.0)
+  packageLength          Float?                 @default(15)
+  packageWidth           Float?                 @default(15)
+  packageHeight          Float?                 @default(15)
   archivedAt             DateTime?
   collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")

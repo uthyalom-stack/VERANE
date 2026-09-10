@@ -1521,6 +1521,8 @@ function PickupSettingsSection({ primaryColor }) {
       const data = await res.json();
       if (res.ok && data.success) {
         setPickupData(data);
+      } else {
+        setError(data.error || "Pickup settings are restricted to brand administrators.");
       }
     } catch (err) {
       console.error(err);
@@ -1560,52 +1562,36 @@ function PickupSettingsSection({ primaryColor }) {
   }
 
   if (!pickupData) {
-    return <p className="text-xs text-red-400">Unable to load pickup configuration.</p>;
+    return <p className="text-xs text-red-400 p-4 rounded-xl border border-red-500/20 bg-red-500/10">{error || "Unable to load pickup configuration."}</p>;
   }
 
-  const isSuper = pickupData.role === "SUPERADMIN";
+  const role = pickupData.role;
+  const brandName = role === "UTHY" ? "UTHY LUXURY" : "ALOMZIEE FOOTIES";
+  const prefix = role === "UTHY" ? "uthy" : "alomziee";
 
   return (
     <div className="space-y-6">
       <SectionHeader
         eyebrow="CUSTOMER PICKUP"
-        title="Pickup Locations & Immediate Availability"
-        description="Configure brand atelier pickup addresses, availability, and customer collection instructions."
+        title={`${brandName} Pickup Location & Availability`}
+        description={`Configure ${brandName} atelier pickup address, immediate pickup availability, and collection instructions.`}
         color={primaryColor}
       />
 
       {msg && <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-xs text-emerald-300 font-bold">{msg}</div>}
       {error && <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/10 text-xs text-red-300 font-bold">{error}</div>}
 
-      {/* UTHY PICKUP PANEL */}
-      {(isSuper || pickupData.role === "UTHY") && (
-        <BrandPickupForm
-          brandName="UTHY LUXURY"
-          addressKey="uthyPickupAddress"
-          immediateKey="uthyImmediatePickupEnabled"
-          instructionsKey="uthyPickupInstructions"
-          initialAddress={isSuper ? pickupData.uthy?.pickupAddress : pickupData.pickupAddress}
-          initialImmediate={isSuper ? pickupData.uthy?.immediatePickupEnabled : pickupData.immediatePickupEnabled}
-          initialInstructions={isSuper ? pickupData.uthy?.pickupInstructions : pickupData.pickupInstructions}
-          onSave={handleSave}
-          saving={saving}
-        />
-      )}
-
-      {/* ALOMZIEE PICKUP PANEL */}
-      {(isSuper || pickupData.role === "ALOMZIEE") && (
-        <BrandPickupForm
-          brandName="ALOMZIEE FOOTIES"
-          addressKey="alomzieePickupAddress"
-          immediateKey="alomzieeImmediatePickupEnabled"
-          instructionsKey="alomzieePickupInstructions"
-          initialAddress={isSuper ? pickupData.alomziee?.pickupAddress : pickupData.pickupAddress}
-          initialImmediate={isSuper ? pickupData.alomziee?.immediatePickupEnabled : pickupData.immediatePickupEnabled}
-          initialInstructions={isSuper ? pickupData.alomziee?.pickupInstructions : pickupData.pickupInstructions}
-          onSave={handleSave}
-          saving={saving}
-        />
-      )}
+      <BrandPickupForm
+        brandName={brandName}
+        addressKey={`${prefix}PickupAddress`}
+        immediateKey={`${prefix}ImmediatePickupEnabled`}
+        instructionsKey={`${prefix}PickupInstructions`}
+        initialAddress={pickupData.pickupAddress || ""}
+        initialImmediate={Boolean(pickupData.immediatePickupEnabled)}
+        initialInstructions={pickupData.pickupInstructions || ""}
+        onSave={handleSave}
+        saving={saving}
+      />
     </div>
   );
 }
