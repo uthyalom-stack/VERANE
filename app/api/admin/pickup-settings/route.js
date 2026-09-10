@@ -12,13 +12,21 @@ const DEFAULT_PICKUP_SETTINGS = {
 };
 
 /**
- * Retrieves pickup settings for the authenticated administrator.
+ * Retrieves pickup settings for the authenticated brand administrator.
+ * SUPERADMIN is strictly forbidden from store pickup settings.
  */
 export async function GET(request) {
   try {
     const admin = await getAdminSession();
     if (!admin) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (admin.isSuperAdmin || (admin.role !== "UTHY" && admin.role !== "ALOMZIEE")) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden: SUPERADMIN does not manage store pickup settings." },
+        { status: 403 }
+      );
     }
 
     const rows = await prisma.siteSetting.findMany({
@@ -34,7 +42,6 @@ export async function GET(request) {
       settings[row.key] = row.value;
     });
 
-    // Brand isolation response
     if (admin.role === "UTHY") {
       return NextResponse.json({
         success: true,
@@ -55,22 +62,7 @@ export async function GET(request) {
       });
     }
 
-    // SUPERADMIN
-    return NextResponse.json({
-      success: true,
-      role: admin.role,
-      settings,
-      uthy: {
-        pickupAddress: settings.uthyPickupAddress,
-        immediatePickupEnabled: settings.uthyImmediatePickupEnabled === "true",
-        pickupInstructions: settings.uthyPickupInstructions,
-      },
-      alomziee: {
-        pickupAddress: settings.alomzieePickupAddress,
-        immediatePickupEnabled: settings.alomzieeImmediatePickupEnabled === "true",
-        pickupInstructions: settings.alomzieePickupInstructions,
-      },
-    });
+    return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
   } catch (error) {
     console.error("GET pickup settings error:", error);
     return NextResponse.json({ success: false, error: "Failed to load pickup settings" }, { status: 500 });
@@ -78,7 +70,8 @@ export async function GET(request) {
 }
 
 /**
- * Updates pickup settings with strict role authorization.
+ * Updates brand pickup settings with strict brand role authorization.
+ * SUPERADMIN is strictly forbidden from store pickup settings.
  */
 export async function PUT(request) {
   try {
@@ -87,18 +80,18 @@ export async function PUT(request) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
+    if (admin.isSuperAdmin || (admin.role !== "UTHY" && admin.role !== "ALOMZIEE")) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden: SUPERADMIN does not manage store pickup settings." },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
 
-    const allowedKeys = [];
-    if (admin.role === "UTHY") {
-      allowedKeys.push("uthyPickupAddress", "uthyImmediatePickupEnabled", "uthyPickupInstructions");
-    } else if (admin.role === "ALOMZIEE") {
-      allowedKeys.push("alomzieePickupAddress", "alomzieeImmediatePickupEnabled", "alomzieePickupInstructions");
-    } else if (admin.role === "SUPERADMIN") {
-      allowedKeys.push(...Object.keys(DEFAULT_PICKUP_SETTINGS));
-    } else {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
-    }
+    const allowedKeys = admin.role === "UTHY"
+      ? ["uthyPickupAddress", "uthyImmediatePickupEnabled", "uthyPickupInstructions"]
+      : ["alomzieePickupAddress", "alomzieeImmediatePickupEnabled", "alomzieePickupInstructions"];
 
     // Ensure client is not attempting to mutate unauthorized keys
     for (const key of Object.keys(body)) {
