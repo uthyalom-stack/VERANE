@@ -165,6 +165,41 @@ model Order {
   items               OrderItem[]
   attribution         OrderAttribution?
   brandTrackings      OrderBrandTracking[]
+  fulfillment         OrderFulfillment?
+}
+
+model OrderFulfillment {
+  id                  String    @id @default(cuid())
+  orderId             String    @unique
+  fulfillmentType     String    @default("delivery") // "delivery" | "pickup"
+  fulfillmentStatus   String    @default("unfulfilled") // "unfulfilled" | "fulfilled" | "cancelled"
+
+  // Delivery / Shipbubble Fields
+  courierId           String?
+  courierName         String?
+  serviceCode         String?
+  serviceName         String?
+  rateToken           String?
+  waybillNumber       String?
+  labelUrl            String?
+  trackingUrl         String?
+  waybillGeneratedAt  DateTime?
+
+  // Customer Pickup Fields
+  pickupBrand         String?   // "UTHY" | "ALOMZIEE"
+  pickupAddress       String?
+  pickupInstructions  String?
+  requestedPickupDate String?   // YYYY-MM-DD
+  isImmediatePickup   Boolean   @default(false)
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  order               Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([fulfillmentType])
+  @@index([fulfillmentStatus])
 }
 
 model OrderBrandTracking {
@@ -326,6 +361,7 @@ model Collaboration {
   description String?
   brandA      String
   brandB      String
+  creatorBrand String?               // The requesting/creator brand (e.g. "UTHY" or "ALOMZIEE")
   status      String                 @default("active")
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
@@ -334,6 +370,7 @@ model Collaboration {
 
   @@index([brandA])
   @@index([brandB])
+  @@index([creatorBrand])
   @@index([status])
 }
 

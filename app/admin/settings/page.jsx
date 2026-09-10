@@ -331,6 +331,15 @@ export default function SettingsPage() {
               />
 
               <SettingsTab
+                active={activeSection === "pickup"}
+                onClick={() =>
+                  setActiveSection("pickup")
+                }
+                title="Customer Pickup"
+                description="Address & Availability"
+              />
+
+              <SettingsTab
                 active={activeSection === "social"}
                 onClick={() =>
                   setActiveSection("social")
@@ -711,6 +720,15 @@ export default function SettingsPage() {
 
                 </div>
               </div>
+            )}
+
+            {/* =====================================================
+                CUSTOMER PICKUP SETTINGS
+            ===================================================== */}
+            {activeSection === "pickup" && (
+              <PickupSettingsSection
+                primaryColor={settings.primaryColor}
+              />
             )}
 
             {/* =====================================================
@@ -1485,3 +1503,189 @@ const inputClass = `
   focus:border-amber-400/40
   focus:bg-white/[0.02]
 `;
+
+function PickupSettingsSection({ primaryColor }) {
+  const [pickupData, setPickupData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetchPickupData();
+  }, []);
+
+  async function fetchPickupData() {
+    try {
+      const res = await fetch("/api/admin/pickup-settings", { cache: "no-store" });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPickupData(data);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load pickup settings.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSave(payload) {
+    setSaving(true);
+    setMsg("");
+    setError("");
+    try {
+      const res = await fetch("/api/admin/pickup-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMsg("Pickup settings updated successfully!");
+        fetchPickupData();
+      } else {
+        setError(data.error || "Failed to update pickup settings.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("An error occurred while saving.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return <p className="text-xs text-neutral-500 animate-pulse">Loading pickup settings...</p>;
+  }
+
+  if (!pickupData) {
+    return <p className="text-xs text-red-400">Unable to load pickup configuration.</p>;
+  }
+
+  const isSuper = pickupData.role === "SUPERADMIN";
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        eyebrow="CUSTOMER PICKUP"
+        title="Pickup Locations & Immediate Availability"
+        description="Configure brand atelier pickup addresses, availability, and customer collection instructions."
+        color={primaryColor}
+      />
+
+      {msg && <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-xs text-emerald-300 font-bold">{msg}</div>}
+      {error && <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/10 text-xs text-red-300 font-bold">{error}</div>}
+
+      {/* UTHY PICKUP PANEL */}
+      {(isSuper || pickupData.role === "UTHY") && (
+        <BrandPickupForm
+          brandName="UTHY LUXURY"
+          addressKey="uthyPickupAddress"
+          immediateKey="uthyImmediatePickupEnabled"
+          instructionsKey="uthyPickupInstructions"
+          initialAddress={isSuper ? pickupData.uthy?.pickupAddress : pickupData.pickupAddress}
+          initialImmediate={isSuper ? pickupData.uthy?.immediatePickupEnabled : pickupData.immediatePickupEnabled}
+          initialInstructions={isSuper ? pickupData.uthy?.pickupInstructions : pickupData.pickupInstructions}
+          onSave={handleSave}
+          saving={saving}
+        />
+      )}
+
+      {/* ALOMZIEE PICKUP PANEL */}
+      {(isSuper || pickupData.role === "ALOMZIEE") && (
+        <BrandPickupForm
+          brandName="ALOMZIEE FOOTIES"
+          addressKey="alomzieePickupAddress"
+          immediateKey="alomzieeImmediatePickupEnabled"
+          instructionsKey="alomzieePickupInstructions"
+          initialAddress={isSuper ? pickupData.alomziee?.pickupAddress : pickupData.pickupAddress}
+          initialImmediate={isSuper ? pickupData.alomziee?.immediatePickupEnabled : pickupData.immediatePickupEnabled}
+          initialInstructions={isSuper ? pickupData.alomziee?.pickupInstructions : pickupData.pickupInstructions}
+          onSave={handleSave}
+          saving={saving}
+        />
+      )}
+    </div>
+  );
+}
+
+function BrandPickupForm({
+  brandName,
+  addressKey,
+  immediateKey,
+  instructionsKey,
+  initialAddress,
+  initialImmediate,
+  initialInstructions,
+  onSave,
+  saving,
+}) {
+  const [address, setAddress] = useState(initialAddress || "");
+  const [immediate, setImmediate] = useState(Boolean(initialImmediate));
+  const [instructions, setInstructions] = useState(initialInstructions || "");
+
+  return (
+    <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+      <h3 className="text-lg font-black text-amber-400">{brandName} Pickup Configuration</h3>
+
+      <Field label="Pickup Location Address" description="The full physical address where customers will pick up their orders.">
+        <textarea
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          rows={3}
+          placeholder="Enter pickup address..."
+          className={`${inputClass} resize-none`}
+        />
+      </Field>
+
+      <Field label="Immediate Pickup Availability" description="When enabled, customers can request same-day / immediate pickup at checkout.">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setImmediate(true)}
+            className={`px-5 py-2.5 rounded-full text-xs font-bold transition ${
+              immediate ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
+            }`}
+          >
+            Immediate Pickup ON
+          </button>
+          <button
+            type="button"
+            onClick={() => setImmediate(false)}
+            className={`px-5 py-2.5 rounded-full text-xs font-bold transition ${
+              !immediate ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
+            }`}
+          >
+            Immediate Pickup OFF
+          </button>
+        </div>
+      </Field>
+
+      <Field label="Pickup Instructions" description="Instructions provided to customers after selecting pickup.">
+        <textarea
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          rows={2}
+          placeholder="Enter pickup instructions..."
+          className={`${inputClass} resize-none`}
+        />
+      </Field>
+
+      <button
+        type="button"
+        disabled={saving}
+        onClick={() =>
+          onSave({
+            [addressKey]: address,
+            [immediateKey]: String(immediate),
+            [instructionsKey]: instructions,
+          })
+        }
+        className="bg-amber-400 text-black px-6 py-3 rounded-full text-xs font-black uppercase hover:bg-amber-300 transition disabled:opacity-50"
+      >
+        {saving ? "Saving..." : `Save ${brandName} Pickup Settings`}
+      </button>
+    </div>
+  );
+}

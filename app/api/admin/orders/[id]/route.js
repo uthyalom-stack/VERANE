@@ -61,6 +61,7 @@ export async function GET(request, { params }) {
       include: {
         user: true,
         brandTrackings: true,
+        fulfillment: true,
         items: {
           where: brandItemWhereClause,
           include: {

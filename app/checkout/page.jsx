@@ -11,6 +11,21 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState({ items: [], total: 0 });
   const [loaded, setLoaded] = useState(false);
 
+  // Fulfillment Mode: "delivery" | "pickup"
+  const [fulfillmentType, setFulfillmentType] = useState("delivery");
+
+  // Delivery / Shipbubble State
+  const [fetchingRates, setFetchingRates] = useState(false);
+  const [couriers, setCouriers] = useState([]);
+  const [requestToken, setRequestToken] = useState("");
+  const [selectedCourierId, setSelectedCourierId] = useState("");
+  const [ratesError, setRatesError] = useState("");
+
+  // Customer Pickup State
+  const [loadingPickupInfo, setLoadingPickupInfo] = useState(false);
+  const [pickupDetails, setPickupDetails] = useState(null);
+  const [selectedPickupDate, setSelectedPickupDate] = useState("");
+
   // Customer session & saved addresses state
   const [customer, setCustomer] = useState(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -24,8 +39,6 @@ export default function CheckoutPage() {
     states: NIGERIAN_STATES,
     cities: [],
   });
-
-  const shippingFee = 0;
 
   const [form, setForm] = useState({
     firstName: "",
@@ -59,6 +72,35 @@ export default function CheckoutPage() {
 
     loadCustomerSessionAndAddresses();
   }, []);
+
+  // Automatically load pickup details when switching to pickup mode or cart loads
+  useEffect(() => {
+    if (fulfillmentType === "pickup" && cart.items.length > 0) {
+      loadPickupInfo();
+    }
+  }, [fulfillmentType, cart.items]);
+
+  async function loadPickupInfo() {
+    try {
+      setLoadingPickupInfo(true);
+      const res = await fetch("/api/checkout/pickup-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: cart.items }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPickupDetails(data);
+        if (data.availableDates && data.availableDates.length > 0) {
+          setSelectedPickupDate(data.availableDates[0].value);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load pickup details:", err);
+    } finally {
+      setLoadingPickupInfo(false);
+    }
+  }
 
   async function loadCustomerSessionAndAddresses() {
     try {
@@ -170,7 +212,6 @@ export default function CheckoutPage() {
     }
   }, [form.country, form.state]);
 
-
   const updateField = (event) => {
     const { name, value } = event.target;
 
@@ -189,6 +230,58 @@ export default function CheckoutPage() {
     });
   };
 
+  async function handleFetchShippingRates() {
+    if (!form.state || !form.city || !form.address) {
+      setRatesError("Please enter your complete State, City, and Address before calculating rates.");
+      return;
+    }
+
+    setFetchingRates(true);
+    setRatesError("");
+    setCouriers([]);
+    setSelectedCourierId("");
+
+    try {
+      const res = await fetch("/api/checkout/get-shipping-rates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: cart.items,
+          receiverAddress: {
+            firstName: form.firstName,
+            lastName: form.lastName,
+            email: form.email,
+            phone: form.phone,
+            country: form.country,
+            state: form.state,
+            city: form.city,
+            zone: form.zone,
+            address: form.address,
+          },
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success && Array.isArray(data.couriers) && data.couriers.length > 0) {
+        setCouriers(data.couriers);
+        setRequestToken(data.requestToken || "");
+        setSelectedCourierId(data.couriers[0].courier_id);
+      } else {
+        setRatesError(data.error || "No shipping rates available for this location.");
+      }
+    } catch (err) {
+      console.error("Failed to fetch rates:", err);
+      setRatesError("Failed to fetch shipping rates. Please try again.");
+    } finally {
+      setFetchingRates(false);
+    }
+  }
+
+  const selectedCourierObj = couriers.find((c) => c.courier_id === selectedCourierId);
+  const shippingFee = fulfillmentType === "pickup" ? 0 : Number(selectedCourierObj?.total_charge || 0);
+  const grandTotal = cart.total + shippingFee;
+
   const getImages = (images) => {
     if (!images) return [];
     try {
@@ -202,18 +295,32 @@ export default function CheckoutPage() {
     }
   };
 
-  const grandTotal = cart.total + shippingFee;
-
   const placeOrder = async () => {
-    if (!form.firstName || !form.email || !form.address || !form.state || !form.city) {
-      alert("Please fill in all required contact and delivery fields (State and City/LGA are required).");
+    if (!form.firstName || !form.email) {
+      alert("Please fill in your contact name and email address.");
+      return;
+    }
+
+    if (fulfillmentType === "delivery") {
+      if (!form.address || !form.state || !form.city) {
+        alert("Please fill in all required delivery destination fields.");
+        return;
+      }
+      if (!selectedCourierObj) {
+        alert("Please calculate and select a courier delivery option.");
+        return;
+      }
+    }
+
+    if (fulfillmentType === "pickup" && !selectedPickupDate) {
+      alert("Please select your preferred pickup date.");
       return;
     }
 
     try {
       setProcessing(true);
 
-      if (addressMode === "manual" && customer && saveNewAddressToAccount) {
+      if (fulfillmentType === "delivery" && addressMode === "manual" && customer && saveNewAddressToAccount) {
         try {
           await fetch("/api/account/addresses", {
             method: "POST",
@@ -233,24 +340,37 @@ export default function CheckoutPage() {
         }
       }
 
+      const payload = {
+        items: cart.items,
+        fulfillmentType,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        phone: form.phone,
+      };
+
+      if (fulfillmentType === "delivery") {
+        payload.country = form.country;
+        payload.state = form.state;
+        payload.city = form.city;
+        payload.zone = form.zone;
+        payload.address = form.address;
+        payload.selectedCourier = {
+          courier_id: selectedCourierObj.courier_id,
+          courier_name: selectedCourierObj.courier_name,
+          service_code: selectedCourierObj.service_code,
+          service_type: selectedCourierObj.service_type,
+          total_charge: selectedCourierObj.total_charge,
+          request_token: requestToken,
+        };
+      } else {
+        payload.requestedPickupDate = selectedPickupDate;
+      }
+
       const response = await fetch("/api/paystack/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: cart.items,
-          subtotal: cart.total,
-          shippingFee,
-          total: grandTotal,
-          firstName: form.firstName,
-          lastName: form.lastName,
-          email: form.email,
-          phone: form.phone,
-          country: form.country,
-          state: form.state,
-          city: form.city,
-          zone: form.zone,
-          address: form.address,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -315,87 +435,39 @@ export default function CheckoutPage() {
             SECURE ATELIER CHECKOUT
           </p>
           <h1 className="text-4xl sm:text-6xl font-editorial font-light tracking-tight text-white mt-1">
-            Order & Shipping Details
+            Order Fulfillment & Logistics
           </h1>
+        </div>
+
+        {/* FULFILLMENT TAB SWITCHER */}
+        <div className="mb-8 flex flex-col sm:flex-row gap-4 p-1.5 rounded-3xl bg-neutral-900/80 border border-white/10 max-w-2xl">
+          <button
+            type="button"
+            onClick={() => setFulfillmentType("delivery")}
+            className={`flex-1 py-4 px-6 rounded-2xl text-xs font-bold uppercase tracking-luxury transition ${
+              fulfillmentType === "delivery"
+                ? "bg-amber-400 text-black shadow-lg shadow-amber-400/20"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            Doorstep Delivery (Shipbubble)
+          </button>
+          <button
+            type="button"
+            onClick={() => setFulfillmentType("pickup")}
+            className={`flex-1 py-4 px-6 rounded-2xl text-xs font-bold uppercase tracking-luxury transition ${
+              fulfillmentType === "pickup"
+                ? "bg-amber-400 text-black shadow-lg shadow-amber-400/20"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            Customer Pickup (Atelier)
+          </button>
         </div>
 
         <div className="grid lg:grid-cols-[1fr_420px] gap-10 lg:gap-14">
           <section className="space-y-8">
             <div className="rounded-3xl border border-white/[0.08] bg-neutral-950/70 p-6 sm:p-8 space-y-8 backdrop-blur-md">
-              {/* SAVED ADDRESS SELECTOR */}
-              {customer && savedAddresses.length > 0 && (
-                <div className="p-6 rounded-2xl bg-black/60 border border-amber-400/30 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
-                    <div>
-                      <p className="text-[9px] font-bold text-amber-400 uppercase tracking-couture">
-                        SAVED ATELIER ADDRESSES
-                      </p>
-                      <h2 className="text-sm font-semibold text-white mt-0.5">
-                        Select destination from your account
-                      </h2>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleSwitchToSaved}
-                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-luxury transition ${
-                          addressMode === "saved"
-                            ? "bg-amber-400 text-black shadow-md"
-                            : "bg-neutral-900 text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        Saved
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSwitchToManual}
-                        className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-luxury transition ${
-                          addressMode === "manual"
-                            ? "bg-amber-400 text-black shadow-md"
-                            : "bg-neutral-900 text-neutral-400 hover:text-white"
-                        }`}
-                      >
-                        New Address
-                      </button>
-                    </div>
-                  </div>
-
-                  {addressMode === "saved" && (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-1 gap-3">
-                        {savedAddresses.map((addr) => {
-                          const isSelected = addr.id === selectedAddressId;
-                          return (
-                            <div
-                              key={addr.id}
-                              onClick={() => handleSelectSavedAddress(addr.id)}
-                              className={`p-4 rounded-xl border cursor-pointer transition ${
-                                isSelected
-                                  ? "border-amber-400 bg-amber-400/10 text-white"
-                                  : "border-white/10 bg-neutral-900/60 text-neutral-300 hover:border-white/20"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold">{addr.fullName}</span>
-                                {addr.isDefault && (
-                                  <span className="text-[8px] font-black uppercase tracking-luxury bg-amber-400 text-black px-2 py-0.5 rounded-full">
-                                    DEFAULT
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[11px] text-neutral-400 mt-1">{addr.phone}</p>
-                              <p className="text-xs text-neutral-300 mt-1.5 font-light">
-                                {addr.streetAddress}, {addr.city}, {addr.state}, {addr.country}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* CONTACT DETAILS */}
               <div>
@@ -438,133 +510,354 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* DELIVERY LOCATION */}
-              <div>
-                <p className="text-[10px] text-amber-400 uppercase tracking-couture font-bold mb-4">
-                  2. DELIVERY DESTINATION
-                </p>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
-                      Country *
-                    </label>
-                    <select
-                      name="country"
-                      value={form.country}
-                      onChange={updateField}
-                      className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none focus:border-amber-400/50"
-                    >
-                      {deliveryOptions.countries.map((c) => (
-                        <option key={c} value={c} className="bg-neutral-900">
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+              {/* MODE A: DELIVERY MODE */}
+              {fulfillmentType === "delivery" && (
+                <div className="space-y-6">
+                  {/* SAVED ADDRESS SELECTOR */}
+                  {customer && savedAddresses.length > 0 && (
+                    <div className="p-6 rounded-2xl bg-black/60 border border-amber-400/30 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                        <div>
+                          <p className="text-[9px] font-bold text-amber-400 uppercase tracking-couture">
+                            SAVED ATELIER ADDRESSES
+                          </p>
+                          <h2 className="text-sm font-semibold text-white mt-0.5">
+                            Select destination from your account
+                          </h2>
+                        </div>
 
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
-                        State / Region *
-                      </label>
-                      {deliveryOptions.states.length > 0 ? (
-                        <select
-                          name="state"
-                          value={form.state}
-                          onChange={updateField}
-                          className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none focus:border-amber-400/50"
-                        >
-                          <option value="">Select State</option>
-                          {deliveryOptions.states.map((s) => (
-                            <option key={s} value={s} className="bg-neutral-900">
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          name="state"
-                          value={form.state}
-                          onChange={updateField}
-                          placeholder="State / Region *"
-                          className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50"
-                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSwitchToSaved}
+                            className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-luxury transition ${
+                              addressMode === "saved"
+                                ? "bg-amber-400 text-black shadow-md"
+                                : "bg-neutral-900 text-neutral-400 hover:text-white"
+                            }`}
+                          >
+                            Saved
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSwitchToManual}
+                            className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-luxury transition ${
+                              addressMode === "manual"
+                                ? "bg-amber-400 text-black shadow-md"
+                                : "bg-neutral-900 text-neutral-400 hover:text-white"
+                            }`}
+                          >
+                            New Address
+                          </button>
+                        </div>
+                      </div>
+
+                      {addressMode === "saved" && (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 gap-3">
+                            {savedAddresses.map((addr) => {
+                              const isSelected = addr.id === selectedAddressId;
+                              return (
+                                <div
+                                  key={addr.id}
+                                  onClick={() => handleSelectSavedAddress(addr.id)}
+                                  className={`p-4 rounded-xl border cursor-pointer transition ${
+                                    isSelected
+                                      ? "border-amber-400 bg-amber-400/10 text-white"
+                                      : "border-white/10 bg-neutral-900/60 text-neutral-300 hover:border-white/20"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold">{addr.fullName}</span>
+                                    {addr.isDefault && (
+                                      <span className="text-[8px] font-black uppercase tracking-luxury bg-amber-400 text-black px-2 py-0.5 rounded-full">
+                                        DEFAULT
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-neutral-400 mt-1">{addr.phone}</p>
+                                  <p className="text-xs text-neutral-300 mt-1.5 font-light">
+                                    {addr.streetAddress}, {addr.city}, {addr.state}, {addr.country}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
                     </div>
+                  )}
 
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
-                        City / LGA *
-                      </label>
-                      {deliveryOptions.cities.length > 0 ? (
+                  {/* DELIVERY DESTINATION FORM */}
+                  <div>
+                    <p className="text-[10px] text-amber-400 uppercase tracking-couture font-bold mb-4">
+                      2. DELIVERY DESTINATION
+                    </p>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
+                          Country *
+                        </label>
                         <select
-                          name="city"
-                          value={form.city}
+                          name="country"
+                          value={form.country}
                           onChange={updateField}
                           className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none focus:border-amber-400/50"
                         >
-                          <option value="">Select City / LGA</option>
-                          {deliveryOptions.cities.map((c) => (
+                          {deliveryOptions.countries.map((c) => (
                             <option key={c} value={c} className="bg-neutral-900">
                               {c}
                             </option>
                           ))}
                         </select>
-                      ) : (
+                      </div>
+
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
+                            State / Region *
+                          </label>
+                          {deliveryOptions.states.length > 0 ? (
+                            <select
+                              name="state"
+                              value={form.state}
+                              onChange={updateField}
+                              className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none focus:border-amber-400/50"
+                            >
+                              <option value="">Select State</option>
+                              {deliveryOptions.states.map((s) => (
+                                <option key={s} value={s} className="bg-neutral-900">
+                                  {s}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              name="state"
+                              value={form.state}
+                              onChange={updateField}
+                              placeholder="State / Region *"
+                              className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50"
+                            />
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
+                            City / LGA *
+                          </label>
+                          {deliveryOptions.cities.length > 0 ? (
+                            <select
+                              name="city"
+                              value={form.city}
+                              onChange={updateField}
+                              className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none focus:border-amber-400/50"
+                            >
+                              <option value="">Select City / LGA</option>
+                              {deliveryOptions.cities.map((c) => (
+                                <option key={c} value={c} className="bg-neutral-900">
+                                  {c}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              name="city"
+                              value={form.city}
+                              onChange={updateField}
+                              placeholder="City / LGA *"
+                              className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50"
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
+                          Zone / Neighborhood (Optional)
+                        </label>
                         <input
-                          name="city"
-                          value={form.city}
+                          name="zone"
+                          value={form.zone}
                           onChange={updateField}
-                          placeholder="City / LGA *"
+                          placeholder="e.g. Lekki Phase 1, Victoria Island..."
                           className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50"
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
+                          Complete Physical Address *
+                        </label>
+                        <textarea
+                          name="address"
+                          value={form.address}
+                          onChange={updateField}
+                          rows={3}
+                          placeholder="Street address, house number, suite, or apartment..."
+                          className="w-full rounded-2xl border border-white/10 bg-neutral-900/90 p-4 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50 resize-none"
+                        />
+                      </div>
+
+                      {customer && addressMode === "manual" && (
+                        <div className="flex items-center gap-2 pt-2">
+                          <input
+                            type="checkbox"
+                            id="saveNewAddressToAccountCheck"
+                            checked={saveNewAddressToAccount}
+                            onChange={(e) => setSaveNewAddressToAccount(e.target.checked)}
+                            className="accent-amber-400"
+                          />
+                          <label htmlFor="saveNewAddressToAccountCheck" className="text-xs text-neutral-300">
+                            Save this address to my account for future orders
+                          </label>
+                        </div>
                       )}
                     </div>
                   </div>
 
+                  {/* SHIPBUBBLE COURIER RATES SELECTOR */}
                   <div>
-                    <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
-                      Zone / Neighborhood (Optional)
-                    </label>
-                    <input
-                      name="zone"
-                      value={form.zone}
-                      onChange={updateField}
-                      placeholder="e.g. Lekki Phase 1, Victoria Island..."
-                      className="w-full rounded-full border border-white/10 bg-neutral-900/90 px-5 py-3.5 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
-                      Complete Physical Address *
-                    </label>
-                    <textarea
-                      name="address"
-                      value={form.address}
-                      onChange={updateField}
-                      rows={3}
-                      placeholder="Street address, house number, suite, or apartment..."
-                      className="w-full rounded-2xl border border-white/10 bg-neutral-900/90 p-4 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50 resize-none"
-                    />
-                  </div>
-
-                  {customer && addressMode === "manual" && (
-                    <div className="flex items-center gap-2 pt-2">
-                      <input
-                        type="checkbox"
-                        id="saveNewAddressToAccountCheck"
-                        checked={saveNewAddressToAccount}
-                        onChange={(e) => setSaveNewAddressToAccount(e.target.checked)}
-                        className="accent-amber-400"
-                      />
-                      <label htmlFor="saveNewAddressToAccountCheck" className="text-xs text-neutral-300">
-                        Save this address to my account for future orders
-                      </label>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-[10px] text-amber-400 uppercase tracking-couture font-bold">
+                        3. SELECT SHIPBUBBLE COURIER SERVICE
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleFetchShippingRates}
+                        disabled={fetchingRates}
+                        className="bg-amber-400/10 border border-amber-400/40 text-amber-400 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-luxury hover:bg-amber-400/20 transition disabled:opacity-50"
+                      >
+                        {fetchingRates ? "Calculating Rates..." : "Fetch Courier Rates"}
+                      </button>
                     </div>
-                  )}
+
+                    {ratesError && (
+                      <p className="text-xs text-red-400 p-3 rounded-xl border border-red-500/20 bg-red-500/10 mb-4">
+                        {ratesError}
+                      </p>
+                    )}
+
+                    {couriers.length > 0 ? (
+                      <div className="space-y-3">
+                        {couriers.map((courier) => {
+                          const isSelected = courier.courier_id === selectedCourierId;
+                          return (
+                            <div
+                              key={courier.courier_id}
+                              onClick={() => setSelectedCourierId(courier.courier_id)}
+                              className={`p-4 rounded-2xl border cursor-pointer transition flex items-center justify-between ${
+                                isSelected
+                                  ? "border-amber-400 bg-amber-400/10 text-white"
+                                  : "border-white/10 bg-neutral-900/60 text-neutral-300 hover:border-white/20"
+                              }`}
+                            >
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-white">{courier.courier_name}</span>
+                                  <span className="text-[10px] font-semibold text-amber-400 uppercase bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/30">
+                                    {courier.service_type}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-neutral-400 mt-1">ETA: {courier.eta_days}</p>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-base font-bold text-amber-400">
+                                  ₦{Number(courier.total_charge).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-6 rounded-2xl border border-dashed border-white/10 bg-neutral-900/40 text-center text-xs text-neutral-400 font-light">
+                        Fill in your State and City, then click &quot;Fetch Courier Rates&quot; to view available door-step shipping choices.
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* MODE B: CUSTOMER PICKUP MODE */}
+              {fulfillmentType === "pickup" && (
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-[10px] text-amber-400 uppercase tracking-couture font-bold mb-4">
+                      2. ATELIER PICKUP LOCATION
+                    </p>
+
+                    {loadingPickupInfo ? (
+                      <div className="p-8 text-center text-xs text-amber-400 font-bold uppercase tracking-luxury animate-pulse">
+                        Resolving Brand Atelier Location...
+                      </div>
+                    ) : pickupDetails ? (
+                      <div className="p-6 rounded-2xl border border-amber-400/30 bg-amber-400/5 space-y-4">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                          <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                            {pickupDetails.pickupBrandDisplayName}
+                          </span>
+                          <span className="text-[10px] font-black uppercase tracking-luxury bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full border border-emerald-500/30">
+                            FREE ATELIER PICKUP (₦0)
+                          </span>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-neutral-400 font-medium">Pickup Address:</p>
+                          <p className="text-sm font-semibold text-white mt-1 leading-relaxed">
+                            {pickupDetails.pickupAddress}
+                          </p>
+                        </div>
+
+                        {pickupDetails.pickupInstructions && (
+                          <p className="text-xs text-neutral-300 bg-black/40 p-3 rounded-xl border border-white/5 font-light">
+                            <strong className="text-amber-400 font-semibold">Note:</strong> {pickupDetails.pickupInstructions}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-red-400">Unable to load pickup location details.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] text-amber-400 uppercase tracking-couture font-bold mb-4">
+                      3. SELECT PREFERRED PICKUP DAY
+                    </p>
+
+                    {pickupDetails?.availableDates && pickupDetails.availableDates.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {pickupDetails.availableDates.map((dateChoice) => {
+                          const isSelected = selectedPickupDate === dateChoice.value;
+                          return (
+                            <div
+                              key={dateChoice.value}
+                              onClick={() => setSelectedPickupDate(dateChoice.value)}
+                              className={`p-4 rounded-xl border cursor-pointer transition ${
+                                isSelected
+                                  ? "border-amber-400 bg-amber-400/10 text-white"
+                                  : "border-white/10 bg-neutral-900/60 text-neutral-300 hover:border-white/20"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold">{dateChoice.label}</span>
+                                {dateChoice.isImmediate && (
+                                  <span className="text-[8px] font-black uppercase tracking-luxury bg-amber-400 text-black px-2 py-0.5 rounded-full">
+                                    IMMEDIATE
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-neutral-500">Loading available pickup dates...</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
             </div>
           </section>
 
@@ -618,9 +911,15 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="flex justify-between text-neutral-300">
-                  <span>Logistics / Shipping</span>
+                  <span>
+                    {fulfillmentType === "pickup" ? "Customer Pickup" : "Logistics / Shipping"}
+                  </span>
                   <span className="font-bold text-amber-400">
-                    {shippingFee > 0 ? `₦${shippingFee.toLocaleString()}` : "Calculated at dispatch"}
+                    {fulfillmentType === "pickup"
+                      ? "FREE (₦0)"
+                      : shippingFee > 0
+                      ? `₦${shippingFee.toLocaleString()}`
+                      : "Calculated at quote"}
                   </span>
                 </div>
 

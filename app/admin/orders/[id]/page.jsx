@@ -16,6 +16,8 @@ export default function AdminOrderDetailsPage({ params }) {
   const [loading, setLoading] = useState(true);
   const [updating, setSaving] = useState(false);
   const [trackingUpdating, setTrackingUpdating] = useState(false);
+  const [generatingWaybill, setGeneratingWaybill] = useState(false);
+  const [waybillMsg, setWaybillMsg] = useState("");
   const [status, setStatus] = useState("pending");
 
   useEffect(() => {
@@ -80,6 +82,28 @@ export default function AdminOrderDetailsPage({ params }) {
       console.error("Update tracking error:", err);
     } finally {
       setTrackingUpdating(false);
+    }
+  }
+
+  async function handleGenerateWaybill() {
+    setGeneratingWaybill(true);
+    setWaybillMsg("");
+    try {
+      const res = await fetch(`/api/admin/orders/${id}/generate-waybill`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setWaybillMsg(`Waybill generated successfully! Number: ${data.waybillNumber}`);
+        fetchSessionAndOrder();
+      } else {
+        alert(data.error || "Failed to generate waybill.");
+      }
+    } catch (err) {
+      console.error("Generate waybill error:", err);
+      alert("An error occurred generating waybill.");
+    } finally {
+      setGeneratingWaybill(false);
     }
   }
 
@@ -293,9 +317,120 @@ export default function AdminOrderDetailsPage({ params }) {
               <p className="text-xs text-neutral-400 mt-1">{order.phone || "No phone provided"}</p>
             </div>
 
+            {/* FULFILLMENT & LOGISTICS PANEL */}
+            <div className="rounded-2xl border border-amber-400/30 bg-neutral-950 p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                  Fulfillment & Logistics
+                </h2>
+                <span className="text-[9px] font-black uppercase tracking-widest bg-amber-400/10 border border-amber-400/40 text-amber-400 px-2.5 py-1 rounded-full">
+                  {order.fulfillment?.fulfillmentType === "pickup" ? "Customer Pickup" : "Doorstep Delivery"}
+                </span>
+              </div>
+
+              {waybillMsg && (
+                <div className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-xs text-emerald-300 font-bold">
+                  {waybillMsg}
+                </div>
+              )}
+
+              {/* IF DELIVERY MODE */}
+              {order.fulfillment?.fulfillmentType !== "pickup" ? (
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <span className="text-neutral-400 font-medium">Selected Courier:</span>
+                    <p className="font-bold text-white mt-0.5">
+                      {order.fulfillment?.courierName || "Shipbubble Courier"} ({order.fulfillment?.serviceName || "Standard"})
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="text-neutral-400 font-medium">Destination:</span>
+                    <p className="text-neutral-300 font-light mt-0.5">
+                      {order.address ? `${order.address}, ${order.city}, ${order.state}, ${order.country}` : "No address specified"}
+                    </p>
+                  </div>
+
+                  {order.fulfillment?.waybillNumber ? (
+                    <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 space-y-2">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                        Shipbubble Waybill Generated ✓
+                      </p>
+                      <p className="text-xs font-mono font-bold text-white">
+                        Waybill #: {order.fulfillment.waybillNumber}
+                      </p>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {order.fulfillment.labelUrl && (
+                          <a
+                            href={order.fulfillment.labelUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-amber-400 text-black px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-amber-300 transition"
+                          >
+                            View Label PDF
+                          </a>
+                        )}
+                        {order.fulfillment.trackingUrl && (
+                          <a
+                            href={order.fulfillment.trackingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-neutral-800 text-neutral-200 border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase hover:bg-neutral-700 transition"
+                          >
+                            Track Package
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={handleGenerateWaybill}
+                        disabled={generatingWaybill}
+                        className="w-full bg-amber-400 text-black py-3 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-amber-300 transition disabled:opacity-50"
+                      >
+                        {generatingWaybill ? "Generating Label..." : "Confirm & Generate Waybill"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* IF PICKUP MODE */
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <span className="text-neutral-400 font-medium">Atelier Location:</span>
+                    <p className="font-bold text-amber-400 mt-0.5">
+                      {order.fulfillment?.pickupBrand === "ALOMZIEE" ? "ALOMZIEE FOOTIES Boutique" : "UTHY LUXURY Atelier"}
+                    </p>
+                    <p className="text-neutral-300 font-light mt-1">
+                      {order.fulfillment?.pickupAddress}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-white/5 pt-2">
+                    <span className="text-neutral-400 font-medium">Requested Pickup Date:</span>
+                    <span className="font-bold text-white">
+                      {order.fulfillment?.isImmediatePickup ? (
+                        <span className="bg-amber-400 text-black px-2 py-0.5 rounded-md font-black text-[10px]">IMMEDIATE</span>
+                      ) : (
+                        order.fulfillment?.requestedPickupDate || "Not specified"
+                      )}
+                    </span>
+                  </div>
+
+                  {order.fulfillment?.pickupInstructions && (
+                    <p className="text-[11px] text-neutral-400 bg-white/[0.02] p-3 rounded-xl border border-white/5 leading-relaxed">
+                      <strong className="text-amber-400">Instructions:</strong> {order.fulfillment.pickupInstructions}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* DELIVERY ADDRESS */}
             <div className="rounded-2xl border border-white/10 bg-neutral-950 p-6">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-3">Delivery Location & Address</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-3">Customer Contact & Address</h2>
               <p className="text-xs text-neutral-300 font-bold">{order.country || "Nigeria"}</p>
               <p className="text-xs text-neutral-400 mt-1">{order.city}, {order.state}</p>
               {order.zone && <p className="text-xs text-neutral-400 mt-0.5">Zone: {order.zone}</p>}

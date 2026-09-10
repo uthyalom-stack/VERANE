@@ -47,6 +47,9 @@ export async function POST(request) {
 
     const {
       items: rawItems,
+      fulfillmentType = "delivery",
+      selectedCourier,
+      requestedPickupDate,
       firstName,
       lastName,
       email,
@@ -62,20 +65,39 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Cart is empty." }, { status: 400 });
     }
 
-    if (!email || !address || !state || !city) {
+    if (!email) {
       return NextResponse.json(
-        { success: false, error: "Missing required delivery or contact information." },
+        { success: false, error: "Missing required contact email address." },
         { status: 400 }
       );
     }
 
-    // 1. NEVER TRUST CLIENT MONEY: Recalculate merchandise subtotal, shipping fee, and total server-side
+    const isPickup = String(fulfillmentType || "").toLowerCase() === "pickup";
+
+    if (!isPickup && (!address || !state || !city)) {
+      return NextResponse.json(
+        { success: false, error: "Missing required delivery address information." },
+        { status: 400 }
+      );
+    }
+
+    // 1. NEVER TRUST CLIENT MONEY OR SHIPPING: Recalculate merchandise subtotal, shipping fee, and total server-side
     const calculation = await calculateOrderTotalsServer({
       items: rawItems,
-      country: country || "Nigeria",
-      state,
-      city,
-      zone,
+      fulfillmentType,
+      selectedCourier,
+      requestedPickupDate,
+      receiverAddress: {
+        firstName,
+        lastName,
+        email,
+        phone,
+        country: country || "Nigeria",
+        state,
+        city,
+        zone,
+        address,
+      },
     });
 
     const trustedSubtotal = calculation.subtotal;
@@ -95,15 +117,17 @@ export async function POST(request) {
       subtotal: trustedSubtotal,
       shippingFee: trustedShippingFee,
       total: trustedGrandTotal,
+      fulfillmentType: calculation.fulfillmentType,
+      fulfillmentDetails: calculation.fulfillmentDetails,
       firstName,
       lastName,
       email,
       phone,
       country: country || "Nigeria",
-      state,
-      city,
-      zone,
-      address,
+      state: state || null,
+      city: city || null,
+      zone: zone || null,
+      address: address || null,
     });
 
     await prisma.order.create({
