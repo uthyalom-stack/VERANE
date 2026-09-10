@@ -517,6 +517,26 @@ export async function PUT(request, { params }) {
                 body.sizeType.trim()
                   ? body.sizeType.trim()
                   : null,
+
+              weight:
+                Number(body.weight) > 0
+                  ? Number(body.weight)
+                  : existingProduct.weight || null,
+
+              packageLength:
+                Number(body.packageLength) > 0
+                  ? Number(body.packageLength)
+                  : existingProduct.packageLength || 15,
+
+              packageWidth:
+                Number(body.packageWidth) > 0
+                  ? Number(body.packageWidth)
+                  : existingProduct.packageWidth || 15,
+
+              packageHeight:
+                Number(body.packageHeight) > 0
+                  ? Number(body.packageHeight)
+                  : existingProduct.packageHeight || 15,
             },
           });
 

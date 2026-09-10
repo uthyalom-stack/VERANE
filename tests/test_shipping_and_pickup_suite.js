@@ -1,7 +1,8 @@
 import assert from "assert";
 import { resolveOrderPickupBrand, calculatePickupDates, getPickupDetailsForCart } from "../lib/pickup-resolver.js";
-import { fetchShipbubbleRates, generateShipbubbleLabel, getShipbubbleOriginAddressCode } from "../lib/shipbubble.js";
+import { fetchShipbubbleRates, generateShipbubbleLabel } from "../lib/shipbubble.js";
 import { calculateOrderTotalsServer } from "../lib/paystack.js";
+import { getDefaultProductWeight, calculateParcelPackageDetails } from "../lib/shipping-weights.js";
 import { db } from "./mock_prisma.js";
 
 async function runTests() {
@@ -11,17 +12,18 @@ async function runTests() {
   process.env.NODE_ENV = "test";
   process.env.SHIPBUBBLE_MOCK_MODE = "true";
 
-  // Seed mock DB product
+  // Seed mock DB product with authoritative weight
   db.products.push({
     id: "test_prod",
     name: "VÉRANE Atelier Jacket",
     price: 50000,
+    weight: 0.60, // 0.60 KG for Jacket preset
     inventory: 10,
     preOrderEnabled: false,
     variants: [],
   });
 
-  // Seed site setting for pickup address
+  // Seed site setting for pickup address and Shipbubble origin
   db.siteSettings.push(
     { key: "uthyPickupAddress", value: "UTHY LUXURY Atelier, Victoria Island, Lagos" },
     { key: "uthyImmediatePickupEnabled", value: "true" },
@@ -32,8 +34,24 @@ async function runTests() {
     { key: "shipbubbleSenderAddressCode", value: "addr_origin_verane_01" }
   );
 
-  // 1. Pickup Rule Precedence Tests
-  console.log("\n--- TEST 1: Pickup Precedence Rules ---");
+  // 1. Weight Preset Helper Tests
+  console.log("\n--- TEST 1: Category Weight Presets & Parcel Calculator ---");
+
+  assert.strictEqual(getDefaultProductWeight("Clothing", "Silk T-Shirt"), 0.25, "T-shirt weight preset is 0.25 KG");
+  assert.strictEqual(getDefaultProductWeight("Footwear", "Leather Boots"), 1.00, "Boots weight preset is 1.00 KG");
+  assert.strictEqual(getDefaultProductWeight("Outerwear", "Tailored Jacket"), 0.60, "Jacket weight preset is 0.60 KG");
+
+  const parcelDetails = calculateParcelPackageDetails([
+    { product: { weight: 0.60 }, qty: 2 },
+    { product: { weight: 0.25 }, qty: 1 },
+  ]);
+
+  assert.strictEqual(parcelDetails.weight, 1.45, "Parcel weight sum = 2 * 0.60 + 1 * 0.25 = 1.45 KG");
+
+  console.log("✓ Weight preset resolution and parcel calculation verified");
+
+  // 2. Pickup Rule Precedence Tests
+  console.log("\n--- TEST 2: Pickup Precedence Rules ---");
 
   const brandUthy = await resolveOrderPickupBrand([{ productId: "prod_1", brand: "UTHY" }]);
   assert.strictEqual(brandUthy, "UTHY", "UTHY-only order resolves to UTHY");
@@ -49,8 +67,8 @@ async function runTests() {
 
   console.log("✓ All Pickup precedence rules verified");
 
-  // 2. Pickup Dates & Immediate Flag
-  console.log("\n--- TEST 2: Pickup Dates & Immediate Flag ---");
+  // 3. Pickup Dates & Immediate Flag
+  console.log("\n--- TEST 3: Pickup Dates & Immediate Flag ---");
   const baseDate = new Date("2026-10-01T10:00:00Z");
 
   const datesNoImmediate = calculatePickupDates(false, 2, baseDate);
@@ -64,13 +82,13 @@ async function runTests() {
 
   console.log("✓ Pickup date calculations and immediate options verified");
 
-  // 3. Shipbubble Rates API Integration (using rate_card_amount)
-  console.log("\n--- TEST 3: Shipbubble Rates API ---");
+  // 4. Shipbubble Rates API Integration (using rate_card_amount)
+  console.log("\n--- TEST 4: Shipbubble Rates API ---");
   const ratesRes = await fetchShipbubbleRates({
     senderAddressCode: "addr_origin_verane_01",
     receiverAddress: { state: "Lagos", city: "Ikeja" },
-    packageItems: [{ name: "Dress", unit_price: 50000, quantity: 1, weight: 1.0 }],
-    packageDimension: { length: 15, width: 15, height: 15 },
+    packageItems: [{ name: "Dress", unit_price: 50000, quantity: 1, weight: 0.60 }],
+    packageDimension: { length: 20, width: 20, height: 10 },
   });
 
   assert.strictEqual(ratesRes.success, true, "Rates call should succeed");
@@ -82,8 +100,8 @@ async function runTests() {
 
   console.log("✓ Shipbubble rates API returns valid quotes with rate_card_amount");
 
-  // 4. Shipbubble Label Generation
-  console.log("\n--- TEST 4: Shipbubble Label Generation ---");
+  // 5. Shipbubble Label Generation
+  console.log("\n--- TEST 5: Shipbubble Label Generation ---");
   const labelRes = await generateShipbubbleLabel({
     requestToken: ratesRes.request_token,
     serviceCode: firstCourier.service_code,
@@ -96,8 +114,8 @@ async function runTests() {
 
   console.log("✓ Shipbubble label generation creates waybill and tracking details");
 
-  // 5. Paystack Financial Calculation Verification (Server Authority & rate_card_amount)
-  console.log("\n--- TEST 5: Paystack Server-Authoritative Totals ---");
+  // 6. Paystack Financial Calculation Verification (Server Authority & rate_card_amount)
+  console.log("\n--- TEST 6: Paystack Server-Authoritative Totals ---");
 
   const pickupDetails = await getPickupDetailsForCart([{ id: "test_prod", qty: 1 }]);
   const validDate = pickupDetails.availableDates[0].value;
