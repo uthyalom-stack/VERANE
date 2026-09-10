@@ -18,15 +18,14 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [saveNewAddressToAccount, setSaveNewAddressToAccount] = useState(false);
 
-  // Delivery options & calculation state
+  // Delivery options & form state
   const [deliveryOptions, setDeliveryOptions] = useState({
     countries: ["Nigeria", "International"],
     states: NIGERIAN_STATES,
     cities: [],
   });
 
-  const [shippingFee, setShippingFee] = useState(0);
-  const [matchedLocationName, setMatchedLocationName] = useState("");
+  const shippingFee = 0;
 
   const [form, setForm] = useState({
     firstName: "",
@@ -171,40 +170,6 @@ export default function CheckoutPage() {
     }
   }, [form.country, form.state]);
 
-  useEffect(() => {
-    async function loadDeliveryFee() {
-      if (!form.country) return;
-
-      try {
-        const params = new URLSearchParams({
-          country: form.country,
-          state: form.state || "",
-          city: form.city || "",
-          zone: form.zone || "",
-        });
-
-        const res = await fetch(`/api/delivery?${params.toString()}`);
-        const data = await res.json();
-
-        if (data.success) {
-          setShippingFee(Number(data.fee || 0));
-          if (data.matchedLocationName) {
-            setMatchedLocationName(data.matchedLocationName);
-          }
-          if (data.options?.countries?.length) {
-            setDeliveryOptions((prev) => ({
-              ...prev,
-              countries: data.options.countries,
-            }));
-          }
-        }
-      } catch (err) {
-        console.error("Delivery rate calculation error:", err);
-      }
-    }
-
-    loadDeliveryFee();
-  }, [form.country, form.state, form.city, form.zone]);
 
   const updateField = (event) => {
     const { name, value } = event.target;
@@ -655,15 +620,9 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-neutral-300">
                   <span>Logistics / Shipping</span>
                   <span className="font-bold text-amber-400">
-                    {shippingFee > 0 ? `₦${shippingFee.toLocaleString()}` : "Select State & City"}
+                    {shippingFee > 0 ? `₦${shippingFee.toLocaleString()}` : "Calculated at dispatch"}
                   </span>
                 </div>
-
-                {matchedLocationName && (
-                  <p className="text-[10px] text-neutral-500 italic">
-                    Calculated for: {matchedLocationName}
-                  </p>
-                )}
 
                 <div className="border-t border-white/10 pt-4 flex justify-between items-baseline">
                   <span className="font-editorial text-lg text-white">Grand Total</span>

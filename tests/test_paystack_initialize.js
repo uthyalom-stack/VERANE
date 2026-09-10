@@ -31,14 +31,6 @@ async function runTests() {
     brand: "UTHY",
   });
 
-  db.deliveryStates.push({
-    id: "ds_lagos",
-    state: "Lagos",
-    enabled: true,
-    pricingMode: "STATE_DEFAULT",
-    defaultFee: 5000,
-    cities: [],
-  });
 
   // Import route handler dynamically using loader
   const { POST: initializeHandler } = await import("../app/api/paystack/initialize/route.js");
