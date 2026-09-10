@@ -155,16 +155,32 @@ const sizeType = allowedSizeTypes.includes(
       );
     }
 
+    let shippingWeight = 0.50;
+    if (body.shippingWeight !== undefined && body.shippingWeight !== null && body.shippingWeight !== "") {
+      const parsedWeight = Number(body.shippingWeight);
+      if (isNaN(parsedWeight) || parsedWeight < 0.15 || parsedWeight > 1.50) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Category shipping weight must be between 0.15 kg and 1.50 kg.",
+          },
+          { status: 400 }
+        );
+      }
+      shippingWeight = Math.round(parsedWeight * 100) / 100;
+    }
+
     const category = await prisma.category.create({
       data: {
-  brand: admin.brand,
-  name,
-  slug,
-  description: description || null,
-  sizeType,
-  enabled,
-  sortOrder,
-},
+        brand: admin.brand,
+        name,
+        slug,
+        description: description || null,
+        sizeType,
+        shippingWeight,
+        enabled,
+        sortOrder,
+      },
     });
 
     return NextResponse.json(category, {

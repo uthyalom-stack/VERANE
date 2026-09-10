@@ -2,7 +2,7 @@ import assert from "assert";
 import { resolveOrderPickupBrand, calculatePickupDates, getPickupDetailsForCart } from "../lib/pickup-resolver.js";
 import { fetchShipbubbleRates, generateShipbubbleLabel } from "../lib/shipbubble.js";
 import { calculateOrderTotalsServer } from "../lib/paystack.js";
-import { getDefaultProductWeight, calculateParcelPackageDetails } from "../lib/shipping-weights.js";
+import { resolveItemUnitWeight, calculateParcelPackageDetails } from "../lib/shipping-weights.js";
 import { db } from "./mock_prisma.js";
 
 async function runTests() {
@@ -12,14 +12,27 @@ async function runTests() {
   process.env.NODE_ENV = "test";
   process.env.SHIPBUBBLE_MOCK_MODE = "true";
 
-  // Seed mock DB product with authoritative weight
+  // Seed mock DB product with authoritative weight override
   db.products.push({
-    id: "test_prod",
-    name: "VÉRANE Atelier Jacket",
-    price: 50000,
-    weight: 0.60, // 0.60 KG for Jacket preset
+    id: "test_prod_override",
+    name: "Heavy Heavy Coat",
+    price: 90000,
+    weight: 1.20, // Override: 1.20 KG
     inventory: 10,
     preOrderEnabled: false,
+    categoryRef: { shippingWeight: 0.60 },
+    variants: [],
+  });
+
+  // Seed mock DB product without override (uses category weight)
+  db.products.push({
+    id: "test_prod_category",
+    name: "Category Weight Jeans",
+    price: 45000,
+    weight: null,
+    inventory: 10,
+    preOrderEnabled: false,
+    categoryRef: { shippingWeight: 0.70 },
     variants: [],
   });
 
@@ -34,21 +47,26 @@ async function runTests() {
     { key: "shipbubbleSenderAddressCode", value: "addr_origin_verane_01" }
   );
 
-  // 1. Weight Preset Helper Tests
-  console.log("\n--- TEST 1: Category Weight Presets & Parcel Calculator ---");
+  // 1. Category Shipping Weight Resolution & Overrides
+  console.log("\n--- TEST 1: Category Shipping Weight Resolution & Product Overrides ---");
 
-  assert.strictEqual(getDefaultProductWeight("Clothing", "Silk T-Shirt"), 0.25, "T-shirt weight preset is 0.25 KG");
-  assert.strictEqual(getDefaultProductWeight("Footwear", "Leather Boots"), 1.00, "Boots weight preset is 1.00 KG");
-  assert.strictEqual(getDefaultProductWeight("Outerwear", "Tailored Jacket"), 0.60, "Jacket weight preset is 0.60 KG");
+  // Product override takes precedence
+  const overrideWeight = resolveItemUnitWeight(db.products[0]);
+  assert.strictEqual(overrideWeight, 1.20, "Product.weight (1.20 KG) takes precedence over Category.shippingWeight (0.60 KG)");
 
+  // Product without override uses Category.shippingWeight
+  const categoryWeight = resolveItemUnitWeight(db.products[1]);
+  assert.strictEqual(categoryWeight, 0.70, "Product without weight override uses Category.shippingWeight (0.70 KG)");
+
+  // Total parcel weight multiplication by quantity
   const parcelDetails = calculateParcelPackageDetails([
-    { product: { weight: 0.60 }, qty: 2 },
-    { product: { weight: 0.25 }, qty: 1 },
+    { product: db.products[0], qty: 2 }, // 2 * 1.20 = 2.40 KG
+    { product: db.products[1], qty: 3 }, // 3 * 0.70 = 2.10 KG
   ]);
 
-  assert.strictEqual(parcelDetails.weight, 1.45, "Parcel weight sum = 2 * 0.60 + 1 * 0.25 = 1.45 KG");
+  assert.strictEqual(parcelDetails.weight, 4.50, "Total weight = 2*1.20 + 3*0.70 = 4.50 KG");
 
-  console.log("✓ Weight preset resolution and parcel calculation verified");
+  console.log("✓ Category shipping weight resolution, product overrides, and total parcel multiplication verified");
 
   // 2. Pickup Rule Precedence Tests
   console.log("\n--- TEST 2: Pickup Precedence Rules ---");
@@ -117,23 +135,23 @@ async function runTests() {
   // 6. Paystack Financial Calculation Verification (Server Authority & rate_card_amount)
   console.log("\n--- TEST 6: Paystack Server-Authoritative Totals ---");
 
-  const pickupDetails = await getPickupDetailsForCart([{ id: "test_prod", qty: 1 }]);
+  const pickupDetails = await getPickupDetailsForCart([{ id: "test_prod_override", qty: 1 }]);
   const validDate = pickupDetails.availableDates[0].value;
 
   // For Pickup: Shipping fee MUST be strictly 0
   const pickupCalc = await calculateOrderTotalsServer({
-    items: [{ id: "test_prod", qty: 1, price: 50000 }],
+    items: [{ id: "test_prod_override", qty: 1, price: 90000 }],
     fulfillmentType: "pickup",
     requestedPickupDate: validDate,
   });
 
   assert.strictEqual(pickupCalc.shippingFee, 0, "Pickup shipping fee must be strictly 0");
-  assert.strictEqual(pickupCalc.total, 50000, "Pickup grand total must equal subtotal");
+  assert.strictEqual(pickupCalc.total, 90000, "Pickup grand total must equal subtotal");
   assert.strictEqual(pickupCalc.fulfillmentType, "pickup", "Fulfillment mode must be pickup");
 
   // For Delivery: Shipping fee MUST be derived from server rate_card_amount
   const deliveryCalc = await calculateOrderTotalsServer({
-    items: [{ id: "test_prod", qty: 1, price: 50000 }],
+    items: [{ id: "test_prod_override", qty: 1, price: 90000 }],
     fulfillmentType: "delivery",
     selectedCourier: {
       courier_id: "cour_gig_01",
@@ -146,7 +164,7 @@ async function runTests() {
 
   // Server re-quote matches cour_gig_01 (3500) and overrides client manipulation!
   assert.strictEqual(deliveryCalc.shippingFee, 3500, "Server must override client manipulated shipping fee with server rate_card_amount");
-  assert.strictEqual(deliveryCalc.total, 53500, "Delivery grand total must equal subtotal + server rate_card_amount");
+  assert.strictEqual(deliveryCalc.total, 93500, "Delivery grand total must equal subtotal + server rate_card_amount");
 
   console.log("✓ Paystack server financial verification enforces zero fee for pickup and server rate_card_amount for delivery");
 

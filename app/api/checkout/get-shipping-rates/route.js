@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { fetchShipbubbleRates, getShipbubbleOriginAddressCode } from "@/lib/shipbubble";
-import { calculateParcelPackageDetails } from "@/lib/shipping-weights";
+import { calculateParcelPackageDetails, resolveItemUnitWeight } from "@/lib/shipping-weights";
 
 /**
  * POST /api/checkout/get-shipping-rates
  *
  * Server-side endpoint to fetch courier shipping rates from Shipbubble using official v1 contract.
- * Calculates server-authoritative parcel weight SUM(product.weight * quantity) and package dimensions.
+ * Calculates server-authoritative parcel weight SUM(resolvedWeight * quantity) using Category.shippingWeight or Product.weight.
  */
 export async function POST(request) {
   try {
@@ -37,14 +37,17 @@ export async function POST(request) {
       country: receiverAddress.country || "Nigeria",
     };
 
-    // Load DB product references for authoritative weight and dimensions
+    // Load DB product references including categoryRef for authoritative weight resolution
     const itemsWithProducts = await Promise.all(
       items.map(async (it) => {
         const prodId = it.productId || it.id;
         let dbProd = null;
         if (prodId) {
           try {
-            dbProd = await prisma.product.findUnique({ where: { id: prodId } });
+            dbProd = await prisma.product.findUnique({
+              where: { id: prodId },
+              include: { categoryRef: true },
+            });
           } catch {
             dbProd = null;
           }
@@ -58,13 +61,16 @@ export async function POST(request) {
 
     const parcelDetails = calculateParcelPackageDetails(itemsWithProducts);
 
-    const packageItems = itemsWithProducts.map((it) => ({
-      name: it.product?.name || it.name || "Apparel Item",
-      description: it.selectedSize || "Standard size",
-      unit_price: Math.round(Number(it.price || it.product?.price || 0)),
-      quantity: Number(it.qty || 1),
-      weight: Number(it.product?.weight) > 0 ? Number(it.product.weight) : 0.5,
-    }));
+    const packageItems = itemsWithProducts.map((it) => {
+      const unitWeight = resolveItemUnitWeight(it.product || it);
+      return {
+        name: it.product?.name || it.name || "Apparel Item",
+        description: it.selectedSize || "Standard size",
+        unit_price: Math.round(Number(it.price || it.product?.price || 0)),
+        quantity: Number(it.qty || 1),
+        weight: unitWeight,
+      };
+    });
 
     const rateResult = await fetchShipbubbleRates({
       senderAddressCode,
