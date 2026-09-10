@@ -124,7 +124,7 @@ const sizeType = allowedSizeTypes.includes(
       );
     }
 
-    let shippingWeight = existing.shippingWeight ?? 0.50;
+    let shippingWeight = existing.shippingWeight;
     if (body.shippingWeight !== undefined && body.shippingWeight !== null && body.shippingWeight !== "") {
       const parsedWeight = Number(body.shippingWeight);
       if (isNaN(parsedWeight) || parsedWeight < 0.15 || parsedWeight > 1.50) {

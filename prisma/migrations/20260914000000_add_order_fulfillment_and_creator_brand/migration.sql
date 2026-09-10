@@ -1,11 +1,20 @@
 -- Migration: 20260914000000_add_order_fulfillment_and_creator_brand
--- Safely add OrderFulfillment table and Collaboration.creatorBrand column.
+-- Safely add OrderFulfillment table, Collaboration.creatorBrand, Collaboration.creatorRole, Category.shippingWeight, Product.weight.
 
--- 1. Add creatorBrand to Collaboration
+-- 1. Add creatorBrand and creatorRole to Collaboration
 ALTER TABLE "Collaboration" ADD COLUMN IF NOT EXISTS "creatorBrand" TEXT;
+ALTER TABLE "Collaboration" ADD COLUMN IF NOT EXISTS "creatorRole" TEXT;
 CREATE INDEX IF NOT EXISTS "Collaboration_creatorBrand_idx" ON "Collaboration"("creatorBrand");
+CREATE INDEX IF NOT EXISTS "Collaboration_creatorRole_idx" ON "Collaboration"("creatorRole");
 
--- 2. Create OrderFulfillment table
+-- 2. Add shippingWeight to Category and weight to Product if missing, and remove default values
+ALTER TABLE "Category" ADD COLUMN IF NOT EXISTS "shippingWeight" DOUBLE PRECISION;
+ALTER TABLE "Category" ALTER COLUMN "shippingWeight" DROP DEFAULT;
+
+ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "weight" DOUBLE PRECISION;
+ALTER TABLE "Product" ALTER COLUMN "weight" DROP DEFAULT;
+
+-- 3. Create OrderFulfillment table
 CREATE TABLE IF NOT EXISTS "OrderFulfillment" (
     "id" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,

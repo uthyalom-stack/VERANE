@@ -6,9 +6,14 @@ const DEFAULT_PICKUP_SETTINGS = {
   uthyPickupAddress: "UTHY LUXURY Atelier, Victoria Island, Lagos, Nigeria",
   uthyImmediatePickupEnabled: "false",
   uthyPickupInstructions: "Please present your order confirmation email and a valid photo ID upon arrival.",
+  uthyPickupLeadDays: "2",
+  uthyPickupAllowedDays: '["MON", "TUE", "WED", "THU", "FRI", "SAT"]',
+
   alomzieePickupAddress: "ALOMZIEE FOOTIES Boutique, Ikoyi, Lagos, Nigeria",
   alomzieeImmediatePickupEnabled: "false",
   alomzieePickupInstructions: "Please present your order confirmation email and a valid photo ID upon arrival.",
+  alomzieePickupLeadDays: "2",
+  alomzieePickupAllowedDays: '["MON", "TUE", "WED", "THU", "FRI", "SAT"]',
 };
 
 /**
@@ -43,22 +48,40 @@ export async function GET(request) {
     });
 
     if (admin.role === "UTHY") {
+      let allowedDays = ["MON", "TUE", "WED", "THU", "FRI", "SAT"];
+      try {
+        allowedDays = JSON.parse(settings.uthyPickupAllowedDays);
+      } catch {
+        // Fallback to array if parse fails
+      }
+
       return NextResponse.json({
         success: true,
         role: admin.role,
         pickupAddress: settings.uthyPickupAddress,
         immediatePickupEnabled: settings.uthyImmediatePickupEnabled === "true",
         pickupInstructions: settings.uthyPickupInstructions,
+        leadDays: Number(settings.uthyPickupLeadDays || 2),
+        allowedDaysOfWeek: allowedDays,
       });
     }
 
     if (admin.role === "ALOMZIEE") {
+      let allowedDays = ["MON", "TUE", "WED", "THU", "FRI", "SAT"];
+      try {
+        allowedDays = JSON.parse(settings.alomzieePickupAllowedDays);
+      } catch {
+        // Fallback to array if parse fails
+      }
+
       return NextResponse.json({
         success: true,
         role: admin.role,
         pickupAddress: settings.alomzieePickupAddress,
         immediatePickupEnabled: settings.alomzieeImmediatePickupEnabled === "true",
         pickupInstructions: settings.alomzieePickupInstructions,
+        leadDays: Number(settings.alomzieePickupLeadDays || 2),
+        allowedDaysOfWeek: allowedDays,
       });
     }
 
@@ -90,8 +113,8 @@ export async function PUT(request) {
     const body = await request.json();
 
     const allowedKeys = admin.role === "UTHY"
-      ? ["uthyPickupAddress", "uthyImmediatePickupEnabled", "uthyPickupInstructions"]
-      : ["alomzieePickupAddress", "alomzieeImmediatePickupEnabled", "alomzieePickupInstructions"];
+      ? ["uthyPickupAddress", "uthyImmediatePickupEnabled", "uthyPickupInstructions", "uthyPickupLeadDays", "uthyPickupAllowedDays"]
+      : ["alomzieePickupAddress", "alomzieeImmediatePickupEnabled", "alomzieePickupInstructions", "alomzieePickupLeadDays", "alomzieePickupAllowedDays"];
 
     // Ensure client is not attempting to mutate unauthorized keys
     for (const key of Object.keys(body)) {
@@ -106,10 +129,14 @@ export async function PUT(request) {
     // Update authorized keys in database
     for (const key of Object.keys(body)) {
       if (allowedKeys.includes(key)) {
+        let valStr = String(body[key]);
+        if (typeof body[key] === "object") {
+          valStr = JSON.stringify(body[key]);
+        }
         await prisma.siteSetting.upsert({
           where: { key },
-          update: { value: String(body[key]) },
-          create: { key, value: String(body[key]) },
+          update: { value: valStr },
+          create: { key, value: valStr },
         });
       }
     }

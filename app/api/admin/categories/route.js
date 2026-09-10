@@ -155,7 +155,7 @@ const sizeType = allowedSizeTypes.includes(
       );
     }
 
-    let shippingWeight = 0.50;
+    let shippingWeight = null;
     if (body.shippingWeight !== undefined && body.shippingWeight !== null && body.shippingWeight !== "") {
       const parsedWeight = Number(body.shippingWeight);
       if (isNaN(parsedWeight) || parsedWeight < 0.15 || parsedWeight > 1.50) {
@@ -168,6 +168,14 @@ const sizeType = allowedSizeTypes.includes(
         );
       }
       shippingWeight = Math.round(parsedWeight * 100) / 100;
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Category shipping weight is required (0.15 kg to 1.50 kg).",
+        },
+        { status: 400 }
+      );
     }
 
     const category = await prisma.category.create({

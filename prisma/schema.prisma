@@ -66,7 +66,7 @@ model Product {
   preOrderEnabled        Boolean                @default(false)
   sizeType               String?
   sizeGuideImage         String?
-  weight                 Float?                 @default(1.0)
+  weight                 Float?
   packageLength          Float?                 @default(15)
   packageWidth           Float?                 @default(15)
   packageHeight          Float?                 @default(15)
@@ -94,7 +94,7 @@ model Category {
   slug          String
   description   String?
   sizeType      String    @default("none")
-  shippingWeight Float?   @default(0.50)
+  shippingWeight Float?
   enabled       Boolean   @default(true)
   sortOrder     Int       @default(0)
   createdAt     DateTime  @default(now())
@@ -367,6 +367,7 @@ model Collaboration {
   brandA      String
   brandB      String
   creatorBrand String?               // The requesting/creator brand (e.g. "UTHY" or "ALOMZIEE")
+  creatorRole  String?               // Explicit creator identity/role ("UTHY" | "ALOMZIEE")
   status      String                 @default("active")
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
@@ -376,6 +377,7 @@ model Collaboration {
   @@index([brandA])
   @@index([brandB])
   @@index([creatorBrand])
+  @@index([creatorRole])
   @@index([status])
 }
 
