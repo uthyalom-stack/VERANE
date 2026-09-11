@@ -113,44 +113,44 @@ async function runTests() {
   // 2. Pickup Precedence & Creator Identity
   console.log("\n--- TEST GROUP 2: Collaboration Creator & Pickup Precedence ---");
 
-  // TEST 2.1: Collaboration resolves to actual creator pickup location via creatorRole
-  const collabItemsUthyCreator = [
+  // TEST 2.1: Collaboration resolves to actual creator pickup location via creatorBrand
+  const collabItemsAlomzieeCreator = [
     {
       isCollaboration: true,
       collaborationProductId: "collab_prod_01",
     },
   ];
 
-  // Mock collab product with UTHY creatorRole
+  // Mock collab product with ALOMZIEE creatorBrand even if brandA is UTHY
   db.collaborationProducts = [
     {
       id: "collab_prod_01",
       collaboration: {
         id: "collab_01",
         name: "Capsule A",
-        brandA: "ALOMZIEE",
-        brandB: "UTHY",
-        creatorRole: "UTHY", // Actual creator is UTHY despite brandA being ALOMZIEE
+        brandA: "UTHY",
+        brandB: "ALOMZIEE",
+        creatorBrand: "ALOMZIEE", // Explicit creatorBrand is ALOMZIEE
+        creatorRole: "UTHY", // creatorRole alone MUST NOT override creatorBrand
       },
     },
   ];
 
-  const collabBrandRes = await resolveOrderPickupBrand(collabItemsUthyCreator);
-  assert.strictEqual(collabBrandRes, "UTHY", "Collaboration resolves to actual creator UTHY regardless of brandA");
-  console.log("✓ 2.1 Collaboration resolves to actual creator pickup location");
+  const collabBrandRes = await resolveOrderPickupBrand(collabItemsAlomzieeCreator);
+  assert.strictEqual(collabBrandRes, "ALOMZIEE", "creatorBrand: ALOMZIEE resolves to ALOMZIEE even if brandA is UTHY");
+  console.log("✓ 2.1 creatorBrand: ALOMZIEE resolves to ALOMZIEE even if brandA is UTHY");
 
-  // TEST 2.2: Collaboration does not use brandA as creator fallback
-  db.collaborationProducts[0].collaboration.creatorRole = null;
+  // TEST 2.2: Missing creatorBrand rejects pickup resolution
   db.collaborationProducts[0].collaboration.creatorBrand = null;
   await assert.rejects(
-    async () => resolveOrderPickupBrand(collabItemsUthyCreator),
-    /does not have an explicit creator registered/,
-    "Unregistered creator throws explicit error and rejects brandA fallback"
+    async () => resolveOrderPickupBrand(collabItemsAlomzieeCreator),
+    /does not have an explicit creatorBrand registered/,
+    "Missing creatorBrand rejects pickup resolution despite creatorRole being set"
   );
-  console.log("✓ 2.2 Collaboration does not use brandA as creator fallback");
+  console.log("✓ 2.2 Missing creatorBrand rejects pickup resolution, ignoring creatorRole");
 
-  // Restore valid creator for remaining tests
-  db.collaborationProducts[0].collaboration.creatorRole = "UTHY";
+  // Restore valid creatorBrand for remaining tests
+  db.collaborationProducts[0].collaboration.creatorBrand = "UTHY";
 
   // Add standalone products to mock DB for standalone brand tests
   db.products.push(
@@ -226,21 +226,31 @@ async function runTests() {
   assert.ok(dynamicOrigin.city, "Dynamic origin city loaded correctly");
   console.log("✓ 4.3 Physical delivery origin address loaded dynamically from SiteSetting");
 
-  // TEST 4.2: Client cannot override delivery shipping amount
+  // TEST 4.2: Client cannot override delivery shipping amount or package unit_price
   const deliveryCalc = await calculateOrderTotalsServer({
-    items: [{ id: "prod_u", productId: "prod_u", qty: 1, price: 100000 }],
+    items: [{ id: "prod_u", productId: "prod_u", qty: 1, price: 50 }], // Client claims price is 50 Naira!
     fulfillmentType: "delivery",
     selectedCourier: {
       courier_id: "cour_gig_01",
       service_code: "gig_express",
-      total_charge: 50, // Client tries to claim 50 Naira!
+      total_charge: 50, // Client tries to claim 50 Naira shipping!
     },
-    receiverAddress: { state: "Lagos", city: "Ikeja" },
+    receiverAddress: {
+      firstName: "Jane",
+      lastName: "Doe",
+      phone: "+2348123456789",
+      email: "jane@example.com",
+      address: "45 Allen Avenue",
+      city: "Ikeja",
+      state: "Lagos",
+      country: "Nigeria",
+    },
   });
 
-  assert.strictEqual(deliveryCalc.shippingFee, 3500, "Server overrides client manipulated price with re-quoted rate_card_amount (3500)");
-  assert.strictEqual(deliveryCalc.total, 103500, "Total equals product subtotal + server rate_card_amount");
-  console.log("✓ 4.2 Client cannot override delivery shipping amount");
+  assert.strictEqual(deliveryCalc.items[0].price, 100000, "Server DB price (100,000) overrides client-supplied item price (50)");
+  assert.strictEqual(deliveryCalc.shippingFee, 3500, "Server overrides client manipulated shipping price with re-quoted rate_card_amount (3500)");
+  assert.strictEqual(deliveryCalc.total, 103500, "Total equals server product subtotal + server rate_card_amount");
+  console.log("✓ 4.2 Client cannot override delivery shipping amount or product unit_price");
 
   console.log("\n==================================================");
   console.log("ALL VÉRANE SHIPPING & PICKUP TESTS PASSED SUCCESSFULLY!");
