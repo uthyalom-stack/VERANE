@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { fetchShipbubbleRates, getShipbubbleOriginAddressCode } from "@/lib/shipbubble";
+import { fetchShipbubbleRates, getShipbubbleOriginAddress } from "@/lib/shipbubble";
 import { calculateParcelPackageDetails, resolveItemUnitWeight } from "@/lib/shipping-weights";
 
 /**
  * POST /api/checkout/get-shipping-rates
  *
  * Server-side endpoint to fetch courier shipping rates from Shipbubble using official v1 contract.
+ * Uses configured physical delivery origin address dynamically from SiteSetting.
  * Calculates server-authoritative parcel weight SUM(resolvedWeight * quantity) using Category.shippingWeight or Product.weight.
  */
 export async function POST(request) {
@@ -25,7 +26,7 @@ export async function POST(request) {
       );
     }
 
-    const senderAddressCode = await getShipbubbleOriginAddressCode();
+    const senderAddress = await getShipbubbleOriginAddress();
 
     const receiver = {
       name: `${receiverAddress.firstName || ""} ${receiverAddress.lastName || ""}`.trim() || "Customer",
@@ -41,8 +42,37 @@ export async function POST(request) {
     const itemsWithProducts = await Promise.all(
       items.map(async (it) => {
         const prodId = it.productId || it.id;
+        const collabId = it.collaborationProductId || (it.isCollaboration ? it.id : null);
+
         let dbProd = null;
-        if (prodId) {
+        if (collabId) {
+          try {
+            const collabProd = await prisma.collaborationProduct.findUnique({
+              where: { id: collabId },
+              include: {
+                productA: { include: { categoryRef: true } },
+                productB: { include: { categoryRef: true } },
+              },
+            });
+
+            if (collabProd) {
+              const weightA = collabProd.productA?.weight ?? collabProd.productA?.categoryRef?.shippingWeight;
+              const weightB = collabProd.productB?.weight ?? collabProd.productB?.categoryRef?.shippingWeight;
+              const resolvedCollabWeight = weightA ?? weightB ?? 0.5;
+
+              dbProd = {
+                name: collabProd.name,
+                price: collabProd.price,
+                weight: resolvedCollabWeight,
+                packageLength: collabProd.productA?.packageLength || 20,
+                packageWidth: collabProd.productA?.packageWidth || 20,
+                packageHeight: collabProd.productA?.packageHeight || 5,
+              };
+            }
+          } catch {
+            dbProd = null;
+          }
+        } else if (prodId) {
           try {
             dbProd = await prisma.product.findUnique({
               where: { id: prodId },
@@ -73,7 +103,7 @@ export async function POST(request) {
     });
 
     const rateResult = await fetchShipbubbleRates({
-      senderAddressCode,
+      senderAddress,
       receiverAddress: receiver,
       packageItems,
       packageDimension: {

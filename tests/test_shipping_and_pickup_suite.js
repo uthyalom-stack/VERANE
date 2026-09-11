@@ -1,6 +1,6 @@
 import assert from "assert";
 import { resolveOrderPickupBrand, calculatePickupDates, getPickupDetailsForCart } from "../lib/pickup-resolver.js";
-import { fetchShipbubbleRates, generateShipbubbleLabel } from "../lib/shipbubble.js";
+import { fetchShipbubbleRates, generateShipbubbleLabel, getShipbubbleOriginAddress } from "../lib/shipbubble.js";
 import { calculateOrderTotalsServer } from "../lib/paystack.js";
 import { resolveItemUnitWeight, calculateParcelPackageDetails, isValidCategoryShippingWeight } from "../lib/shipping-weights.js";
 import { db } from "./mock_prisma.js";
@@ -65,7 +65,13 @@ async function runTests() {
     { key: "alomzieePickupLeadDays", value: "2" },
     { key: "alomzieePickupAllowedDays", value: '["MON", "TUE", "WED", "THU", "FRI", "SAT"]' },
 
-    { key: "shipbubbleSenderAddressCode", value: "addr_origin_verane_01" }
+    { key: "shipbubbleOriginName", value: "VÉRANE Atelier" },
+    { key: "shipbubbleOriginEmail", value: "orders@verane.com" },
+    { key: "shipbubbleOriginPhone", value: "+2348000000000" },
+    { key: "shipbubbleOriginCountry", value: "Nigeria" },
+    { key: "shipbubbleOriginState", value: "Lagos" },
+    { key: "shipbubbleOriginCity", value: "Victoria Island" },
+    { key: "shipbubbleOriginStreet", value: "Suite 4, Victoria Island, Lagos" }
   );
 
   // 1. Weight Tests
@@ -213,6 +219,12 @@ async function runTests() {
   assert.strictEqual(pickupCalc.shippingFee, 0, "Pickup shipping fee must be strictly ₦0");
   assert.strictEqual(pickupCalc.total, 100000, "Pickup grand total equals product total");
   console.log("✓ 4.1 Pickup shipping fee is ₦0");
+
+  // TEST 4.3: Physical delivery origin address loading
+  const dynamicOrigin = await getShipbubbleOriginAddress();
+  assert.strictEqual(dynamicOrigin.state, "Lagos", "Dynamic origin state loaded correctly");
+  assert.strictEqual(dynamicOrigin.city, "Victoria Island", "Dynamic origin city loaded correctly");
+  console.log("✓ 4.3 Physical delivery origin address loaded dynamically from SiteSetting");
 
   // TEST 4.2: Client cannot override delivery shipping amount
   const deliveryCalc = await calculateOrderTotalsServer({
