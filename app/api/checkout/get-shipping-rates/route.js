@@ -116,11 +116,12 @@ export async function POST(request) {
     const parcelDetails = calculateParcelPackageDetails(itemsWithProducts);
 
     const packageItems = itemsWithProducts.map((it) => {
-      const unitWeight = resolveItemUnitWeight(it.product || it);
+      const dbProduct = it.product;
+      const unitWeight = resolveItemUnitWeight(dbProduct);
       return {
-        name: it.product?.name || it.name || "Apparel Item",
+        name: dbProduct.name,
         description: it.selectedSize || "Standard size",
-        unit_price: Math.round(Number(it.price || it.product?.price || 0)),
+        unit_price: Math.round(Number(dbProduct.price)),
         quantity: Number(it.qty || 1),
         weight: unitWeight,
       };
@@ -146,18 +147,12 @@ export async function POST(request) {
   } catch (error) {
     console.error("Get shipping rates server error:", error);
 
-    // Return safe user-facing error message
-    const isClientError = error?.message?.includes("not found") || error?.message?.includes("missing") || error?.message?.includes("configured");
-    const safeMessage = isClientError
-      ? error.message
-      : "Unable to calculate shipping rates. Please check your delivery address and try again.";
-
     return NextResponse.json(
       {
         success: false,
-        error: safeMessage,
+        error: "Unable to calculate shipping rates. Please try again.",
       },
-      { status: isClientError ? 400 : 500 }
+      { status: 500 }
     );
   }
 }
