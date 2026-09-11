@@ -19,9 +19,16 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Cart is empty." }, { status: 400 });
     }
 
-    if (!receiverAddress || !receiverAddress.state || !receiverAddress.city) {
+    const customerName = `${receiverAddress?.firstName || ""} ${receiverAddress?.lastName || ""}`.trim();
+    const customerPhone = String(receiverAddress?.phone || "").trim();
+    const customerEmail = String(receiverAddress?.email || "").trim();
+    const customerStreet = String(receiverAddress?.address || receiverAddress?.streetAddress || "").trim();
+    const customerCity = String(receiverAddress?.city || "").trim();
+    const customerState = String(receiverAddress?.state || "").trim();
+
+    if (!customerName || !customerPhone || !customerEmail || !customerStreet || !customerCity || !customerState) {
       return NextResponse.json(
-        { success: false, error: "Complete delivery address (State and City/LGA) is required." },
+        { success: false, error: "Complete delivery contact and destination details (Name, Phone, Email, Address, City, State) are required." },
         { status: 400 }
       );
     }
@@ -29,71 +36,76 @@ export async function POST(request) {
     const senderAddress = await getShipbubbleOriginAddress();
 
     const receiver = {
-      name: `${receiverAddress.firstName || ""} ${receiverAddress.lastName || ""}`.trim() || "Customer",
-      phone: receiverAddress.phone || "+2348000000000",
-      email: receiverAddress.email || "customer@example.com",
-      address: receiverAddress.address || receiverAddress.streetAddress || "Delivery Address",
-      city: receiverAddress.city,
-      state: receiverAddress.state,
-      country: receiverAddress.country || "Nigeria",
+      name: customerName,
+      phone: customerPhone,
+      email: customerEmail,
+      address: customerStreet,
+      city: customerCity,
+      state: customerState,
+      country: String(receiverAddress?.country || "Nigeria").trim(),
     };
 
-    // Load DB product references including categoryRef for authoritative weight resolution
+    // Server-authoritative DB product/collaboration product resolution
     const itemsWithProducts = await Promise.all(
       items.map(async (it) => {
         const prodId = it.productId || it.id;
         const collabId = it.collaborationProductId || (it.isCollaboration ? it.id : null);
 
-        let dbProd = null;
         if (collabId) {
-          try {
-            const collabProd = await prisma.collaborationProduct.findUnique({
-              where: { id: collabId },
-              include: {
-                productA: { include: { categoryRef: true } },
-                productB: { include: { categoryRef: true } },
-              },
-            });
+          const collabProd = await prisma.collaborationProduct.findUnique({
+            where: { id: collabId },
+            include: {
+              productA: { include: { categoryRef: true } },
+              productB: { include: { categoryRef: true } },
+            },
+          });
 
-            if (collabProd) {
-              let resolvedCollabWeight = null;
-              if (collabProd.productA) {
-                try {
-                  resolvedCollabWeight = resolveItemUnitWeight(collabProd.productA);
-                } catch {
-                  // Keep checking productB if productA weight is unconfigured
-                }
-              }
-              if (!resolvedCollabWeight && collabProd.productB) {
-                resolvedCollabWeight = resolveItemUnitWeight(collabProd.productB);
-              }
+          if (!collabProd) {
+            throw new Error(`Collaboration product with ID "${collabId}" not found in database.`);
+          }
 
-              if (!resolvedCollabWeight) {
-                throw new Error(`Shipping weight configuration missing for collaboration product "${collabProd.name}".`);
-              }
-
-              dbProd = {
-                name: collabProd.name,
-                price: collabProd.price,
-                weight: resolvedCollabWeight,
-                packageLength: collabProd.productA?.packageLength || 20,
-                packageWidth: collabProd.productA?.packageWidth || 20,
-                packageHeight: collabProd.productA?.packageHeight || 5,
-              };
+          let resolvedCollabWeight = null;
+          if (collabProd.productA) {
+            try {
+              resolvedCollabWeight = resolveItemUnitWeight(collabProd.productA);
+            } catch {
+              // Check productB if productA weight is unconfigured
             }
-          } catch {
-            dbProd = null;
           }
-        } else if (prodId) {
-          try {
-            dbProd = await prisma.product.findUnique({
-              where: { id: prodId },
-              include: { categoryRef: true },
-            });
-          } catch {
-            dbProd = null;
+          if (!resolvedCollabWeight && collabProd.productB) {
+            resolvedCollabWeight = resolveItemUnitWeight(collabProd.productB);
           }
+
+          if (!resolvedCollabWeight) {
+            throw new Error(`Shipping weight configuration missing for collaboration product "${collabProd.name}".`);
+          }
+
+          return {
+            ...it,
+            product: {
+              name: collabProd.name,
+              price: collabProd.price,
+              weight: resolvedCollabWeight,
+              packageLength: collabProd.productA?.packageLength || 20,
+              packageWidth: collabProd.productA?.packageWidth || 20,
+              packageHeight: collabProd.productA?.packageHeight || 5,
+            },
+          };
         }
+
+        if (!prodId) {
+          throw new Error("Product ID is required for shipping calculation.");
+        }
+
+        const dbProd = await prisma.product.findUnique({
+          where: { id: prodId },
+          include: { categoryRef: true },
+        });
+
+        if (!dbProd) {
+          throw new Error(`Product with ID "${prodId}" not found in database.`);
+        }
+
         return {
           ...it,
           product: dbProd,
@@ -132,13 +144,20 @@ export async function POST(request) {
       parcelDetails,
     });
   } catch (error) {
-    console.error("Get shipping rates error:", error);
+    console.error("Get shipping rates server error:", error);
+
+    // Return safe user-facing error message
+    const isClientError = error?.message?.includes("not found") || error?.message?.includes("missing") || error?.message?.includes("configured");
+    const safeMessage = isClientError
+      ? error.message
+      : "Unable to calculate shipping rates. Please check your delivery address and try again.";
+
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || "Failed to calculate shipping rates.",
+        error: safeMessage,
       },
-      { status: 500 }
+      { status: isClientError ? 400 : 500 }
     );
   }
 }

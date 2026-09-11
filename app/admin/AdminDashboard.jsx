@@ -165,6 +165,14 @@ export default function AdminDashboard({ admin }) {
                   router.push("/admin/analytics")
                 }
               />
+
+              <AdminLink
+                title="Pickup Settings"
+                description="Manage atelier pickup location & scheduling"
+                onClick={() =>
+                  router.push("/admin/pickup-settings")
+                }
+              />
             </div>
           </section>
         )}

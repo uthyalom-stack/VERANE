@@ -113,7 +113,7 @@ export async function POST(request, { params }) {
   } catch (error) {
     console.error("Generate waybill error:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Failed to generate waybill." },
+      { success: false, error: "Unable to generate the shipping label. Please try again." },
       { status: 500 }
     );
   }
