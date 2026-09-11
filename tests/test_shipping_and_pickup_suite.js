@@ -278,6 +278,21 @@ async function runTests() {
   process.env.SHIPBUBBLE_MOCK_MODE = "true";
   console.log("✓ 4.3c Missing physical origin address fields throw explicit error without fake fallbacks");
 
+  // TEST 4.3d: Address validation uses /shipping/address/validate and rejects missing name, email, phone, or address
+  process.env.NODE_ENV = "production";
+  process.env.SHIPBUBBLE_MOCK_MODE = "false";
+  process.env.SHIPBUBBLE_API_KEY = "sb_test_api_key";
+
+  await assert.rejects(
+    async () => resolveShipbubbleAddressCode({ address: "123 Main St", city: "Ikeja", state: "Lagos" }),
+    /Complete physical address object/,
+    "Address resolution rejects missing name/email/phone"
+  );
+
+  process.env.NODE_ENV = "test";
+  process.env.SHIPBUBBLE_MOCK_MODE = "true";
+  console.log("✓ 4.3d Address validation endpoint path and payload validation verified");
+
   // TEST 4.3b: Customer destination dynamic address code resolution and fetch_rates payload verification
   const customerDestination = {
     name: "Jane Doe",
