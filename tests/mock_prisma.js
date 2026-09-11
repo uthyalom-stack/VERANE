@@ -229,12 +229,6 @@ const mockPrisma = {
     },
   },
   siteSetting: {
-    findUnique: async ({ where }) => {
-      if (where?.key) {
-        return db.siteSettings.find((s) => s.key === where.key) || null;
-      }
-      return null;
-    },
     findMany: async () => {
       return db.siteSettings || [];
     },

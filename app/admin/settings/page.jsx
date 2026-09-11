@@ -16,16 +16,9 @@ const DEFAULT_SETTINGS = {
   facebook: "",
   tiktok: "",
 
-  // Shipping & Shipbubble Origin
+  // Shipping
   shippingFee: "",
   freeShippingThreshold: "",
-  shipbubbleOriginName: "",
-  shipbubbleOriginEmail: "",
-  shipbubbleOriginPhone: "",
-  shipbubbleOriginCountry: "Nigeria",
-  shipbubbleOriginState: "",
-  shipbubbleOriginCity: "",
-  shipbubbleOriginStreet: "",
 
   // Announcement
   announcementEnabled: "false",
@@ -335,15 +328,6 @@ export default function SettingsPage() {
                 }
                 title="Shipping"
                 description="Delivery & shipping"
-              />
-
-              <SettingsTab
-                active={activeSection === "pickup"}
-                onClick={() =>
-                  setActiveSection("pickup")
-                }
-                title="Customer Pickup"
-                description="Address & Availability"
               />
 
               <SettingsTab
@@ -717,59 +701,16 @@ export default function SettingsPage() {
                         </p>
 
                         <p className="mt-1 text-[11px] leading-5 text-neutral-600">
-                          Shipbubble courier rates are calculated dynamically from your physical origin address configured below to the customer destination.
+                          Customers will pay the flat shipping fee
+                          unless their order reaches the configured
+                          free-shipping threshold.
                         </p>
                       </div>
                     </div>
                   </div>
 
                 </div>
-
-                {/* SHIPBUBBLE DELIVERY ORIGIN */}
-                <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
-                  <h3 className="text-lg font-black text-amber-400">Shipbubble Delivery Origin Address</h3>
-                  <p className="text-xs text-neutral-500">The physical dispatch origin address used to fetch live Shipbubble courier rates and generate waybill labels.</p>
-
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <Field label="Business / Pickup Name">
-                      <input value={settings.shipbubbleOriginName || ""} onChange={(e) => updateSetting("shipbubbleOriginName", e.target.value)} placeholder="VÉRANE Atelier" className={inputClass} />
-                    </Field>
-
-                    <Field label="Contact Phone">
-                      <input value={settings.shipbubbleOriginPhone || ""} onChange={(e) => updateSetting("shipbubbleOriginPhone", e.target.value)} placeholder="+234..." className={inputClass} />
-                    </Field>
-
-                    <Field label="Contact Email">
-                      <input value={settings.shipbubbleOriginEmail || ""} onChange={(e) => updateSetting("shipbubbleOriginEmail", e.target.value)} placeholder="orders@verane.com" className={inputClass} />
-                    </Field>
-
-                    <Field label="Country">
-                      <input value={settings.shipbubbleOriginCountry || "Nigeria"} onChange={(e) => updateSetting("shipbubbleOriginCountry", e.target.value)} placeholder="Nigeria" className={inputClass} />
-                    </Field>
-
-                    <Field label="State">
-                      <input value={settings.shipbubbleOriginState || ""} onChange={(e) => updateSetting("shipbubbleOriginState", e.target.value)} placeholder="Lagos" className={inputClass} />
-                    </Field>
-
-                    <Field label="City / LGA">
-                      <input value={settings.shipbubbleOriginCity || ""} onChange={(e) => updateSetting("shipbubbleOriginCity", e.target.value)} placeholder="Victoria Island" className={inputClass} />
-                    </Field>
-                  </div>
-
-                  <Field label="Street / Physical Address">
-                    <textarea value={settings.shipbubbleOriginStreet || ""} onChange={(e) => updateSetting("shipbubbleOriginStreet", e.target.value)} rows={2} placeholder="Suite 4, Victoria Island, Lagos" className={`${inputClass} resize-none`} />
-                  </Field>
-                </div>
               </div>
-            )}
-
-            {/* =====================================================
-                CUSTOMER PICKUP SETTINGS
-            ===================================================== */}
-            {activeSection === "pickup" && (
-              <PickupSettingsSection
-                primaryColor={settings.primaryColor}
-              />
             )}
 
             {/* =====================================================
@@ -1544,235 +1485,3 @@ const inputClass = `
   focus:border-amber-400/40
   focus:bg-white/[0.02]
 `;
-
-function PickupSettingsSection({ primaryColor }) {
-  const [pickupData, setPickupData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    fetchPickupData();
-  }, []);
-
-  async function fetchPickupData() {
-    try {
-      const res = await fetch("/api/admin/pickup-settings", { cache: "no-store" });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setPickupData(data);
-      } else {
-        setError(data.error || "Pickup settings are restricted to brand administrators.");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load pickup settings.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSave(payload) {
-    setSaving(true);
-    setMsg("");
-    setError("");
-    try {
-      const res = await fetch("/api/admin/pickup-settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setMsg("Pickup settings updated successfully!");
-        fetchPickupData();
-      } else {
-        setError(data.error || "Failed to update pickup settings.");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("An error occurred while saving.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (loading) {
-    return <p className="text-xs text-neutral-500 animate-pulse">Loading pickup settings...</p>;
-  }
-
-  if (!pickupData) {
-    return <p className="text-xs text-red-400 p-4 rounded-xl border border-red-500/20 bg-red-500/10">{error || "Unable to load pickup configuration."}</p>;
-  }
-
-  const role = pickupData.role;
-  const brandName = role === "UTHY" ? "UTHY LUXURY" : "ALOMZIEE FOOTIES";
-  const prefix = role === "UTHY" ? "uthy" : "alomziee";
-
-  return (
-    <div className="space-y-6">
-      <SectionHeader
-        eyebrow="CUSTOMER PICKUP"
-        title={`${brandName} Pickup Location & Availability`}
-        description={`Configure ${brandName} atelier pickup address, lead times, permitted operating days, immediate pickup, and collection instructions.`}
-        color={primaryColor}
-      />
-
-      {msg && <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-xs text-emerald-300 font-bold">{msg}</div>}
-      {error && <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/10 text-xs text-red-300 font-bold">{error}</div>}
-
-      <BrandPickupForm
-        brandName={brandName}
-        prefix={prefix}
-        initialAddress={pickupData.pickupAddress || ""}
-        initialImmediate={Boolean(pickupData.immediatePickupEnabled)}
-        initialInstructions={pickupData.pickupInstructions || ""}
-        initialLeadDays={pickupData.leadDays || 2}
-        initialAllowedDays={pickupData.allowedDaysOfWeek || ["MON", "TUE", "WED", "THU", "FRI", "SAT"]}
-        onSave={handleSave}
-        saving={saving}
-      />
-    </div>
-  );
-}
-
-function BrandPickupForm({
-  brandName,
-  prefix,
-  initialAddress,
-  initialImmediate,
-  initialInstructions,
-  initialLeadDays,
-  initialAllowedDays,
-  onSave,
-  saving,
-}) {
-  const [address, setAddress] = useState(initialAddress || "");
-  const [immediate, setImmediate] = useState(Boolean(initialImmediate));
-  const [instructions, setInstructions] = useState(initialInstructions || "");
-  const [leadDays, setLeadDays] = useState(Number(initialLeadDays || 2));
-  const [allowedDays, setAllowedDays] = useState(
-    Array.isArray(initialAllowedDays) ? initialAllowedDays : ["MON", "TUE", "WED", "THU", "FRI", "SAT"]
-  );
-
-  const allDays = [
-    { code: "MON", label: "Monday" },
-    { code: "TUE", label: "Tuesday" },
-    { code: "WED", label: "Wednesday" },
-    { code: "THU", label: "Thursday" },
-    { code: "FRI", label: "Friday" },
-    { code: "SAT", label: "Saturday" },
-    { code: "SUN", label: "Sunday" },
-  ];
-
-  function toggleDay(code) {
-    if (allowedDays.includes(code)) {
-      if (allowedDays.length <= 1) return; // Must keep at least one day
-      setAllowedDays(allowedDays.filter((d) => d !== code));
-    } else {
-      setAllowedDays([...allowedDays, code]);
-    }
-  }
-
-  return (
-    <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
-      <h3 className="text-lg font-black text-amber-400">{brandName} Pickup Configuration</h3>
-
-      <Field label="Pickup Location Address" description="The full physical address where customers will pick up their orders.">
-        <textarea
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          rows={3}
-          placeholder="Enter pickup address..."
-          className={`${inputClass} resize-none`}
-        />
-      </Field>
-
-      <div className="grid gap-6 sm:grid-cols-2">
-        <Field label="Normal Pickup Lead Time (Days)" description="Number of days after order before normal pickup choices start (default 2 days).">
-          <input
-            type="number"
-            min="1"
-            max="14"
-            value={leadDays}
-            onChange={(e) => setLeadDays(Math.max(1, Number(e.target.value)))}
-            className={inputClass}
-          />
-        </Field>
-
-        <Field label="Immediate Pickup Availability" description="When enabled, customers can request same-day / immediate pickup at checkout.">
-          <div className="flex items-center gap-3 pt-1">
-            <button
-              type="button"
-              onClick={() => setImmediate(true)}
-              className={`px-5 py-2.5 rounded-full text-xs font-bold transition ${
-                immediate ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
-              }`}
-            >
-              Immediate Pickup ON
-            </button>
-            <button
-              type="button"
-              onClick={() => setImmediate(false)}
-              className={`px-5 py-2.5 rounded-full text-xs font-bold transition ${
-                !immediate ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
-              }`}
-            >
-              Immediate Pickup OFF
-            </button>
-          </div>
-        </Field>
-      </div>
-
-      <Field label="Permitted Operating Pickup Days" description="Select which days of the week customers are allowed to schedule pickup collections.">
-        <div className="flex flex-wrap gap-2 pt-1">
-          {allDays.map((day) => {
-            const active = allowedDays.includes(day.code);
-            return (
-              <button
-                key={day.code}
-                type="button"
-                onClick={() => toggleDay(day.code)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${
-                  active
-                    ? "border-amber-400/50 bg-amber-400/10 text-amber-300"
-                    : "border-white/10 bg-black/40 text-neutral-600 hover:text-white"
-                }`}
-              >
-                {day.label} ({day.code}) {active ? "✓" : ""}
-              </button>
-            );
-          })}
-        </div>
-      </Field>
-
-      <Field label="Pickup Instructions" description="Instructions provided to customers after selecting pickup.">
-        <textarea
-          value={instructions}
-          onChange={(e) => setInstructions(e.target.value)}
-          rows={2}
-          placeholder="Enter pickup instructions..."
-          className={`${inputClass} resize-none`}
-        />
-      </Field>
-
-      <button
-        type="button"
-        disabled={saving}
-        onClick={() =>
-          onSave({
-            [`${prefix}PickupAddress`]: address,
-            [`${prefix}ImmediatePickupEnabled`]: String(immediate),
-            [`${prefix}PickupInstructions`]: instructions,
-            [`${prefix}PickupLeadDays`]: String(leadDays),
-            [`${prefix}PickupAllowedDays`]: allowedDays,
-          })
-        }
-        className="bg-amber-400 text-black px-6 py-3 rounded-full text-xs font-black uppercase hover:bg-amber-300 transition disabled:opacity-50"
-      >
-        {saving ? "Saving..." : `Save ${brandName} Pickup Settings`}
-      </button>
-    </div>
-  );
-}

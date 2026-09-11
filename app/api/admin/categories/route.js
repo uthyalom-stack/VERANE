@@ -7,50 +7,22 @@ export async function GET() {
     const admin = await getAdminSession();
 
     if (!admin) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized.",
-        },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: "Unauthorized." }, { status: 401 });
     }
 
     if (admin.isSuperAdmin) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Super Admin does not manage store categories.",
-        },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: "Super Admin does not manage store categories." }, { status: 403 });
     }
 
     const categories = await prisma.category.findMany({
-      where: {
-        brand: admin.brand,
-      },
-      orderBy: [
-        {
-          sortOrder: "asc",
-        },
-        {
-          createdAt: "desc",
-        },
-      ],
+      where: { brand: admin.brand },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     });
 
     return NextResponse.json(categories);
   } catch (error) {
     console.error("GET /api/admin/categories error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to load categories.",
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Failed to load categories." }, { status: 500 });
   }
 }
 
@@ -59,100 +31,38 @@ export async function POST(request) {
     const admin = await getAdminSession();
 
     if (!admin) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Unauthorized.",
-        },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: "Unauthorized." }, { status: 401 });
     }
 
     if (admin.isSuperAdmin) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Super Admin does not manage store categories.",
-        },
-        { status: 403 }
-      );
+      return NextResponse.json({ success: false, error: "Super Admin does not manage store categories." }, { status: 403 });
     }
 
     const body = await request.json();
 
-    const name =
-      typeof body.name === "string"
-        ? body.name.trim()
-        : "";
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const description = typeof body.description === "string" ? body.description.trim() : "";
 
-    const description =
-      typeof body.description === "string"
-        ? body.description.trim()
-        : "";
+    const allowedSizeTypes = ["none", "clothing", "footwear", "waist"];
+    const sizeType = allowedSizeTypes.includes(body.sizeType) ? body.sizeType : "none";
 
-const allowedSizeTypes = [
-  "none",
-  "clothing",
-  "footwear",
-  "waist",
-];
-
-const sizeType = allowedSizeTypes.includes(
-  body.sizeType
-)
-  ? body.sizeType
-  : "none";
-
-    const slug =
-      typeof body.slug === "string"
-        ? body.slug.trim().toLowerCase()
-        : name
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "");
+    const slug = typeof body.slug === "string" && body.slug.trim()
+      ? body.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+      : name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
     const enabled = body.enabled !== false;
+    const sortOrder = Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : 0;
 
-    const sortOrder = Number.isFinite(Number(body.sortOrder))
-      ? Number(body.sortOrder)
-      : 0;
-
-    if (!name) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Category name is required.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!slug) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "A valid category name is required.",
-        },
-        { status: 400 }
-      );
+    if (!name || !slug) {
+      return NextResponse.json({ success: false, error: "A valid category name is required." }, { status: 400 });
     }
 
     const existing = await prisma.category.findFirst({
-      where: {
-        brand: admin.brand,
-        slug,
-      },
+      where: { brand: admin.brand, slug },
     });
 
     if (existing) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "A category with this name already exists.",
-        },
-        { status: 409 }
-      );
+      return NextResponse.json({ success: false, error: "A category with this name already exists." }, { status: 409 });
     }
 
     let shippingWeight = null;
@@ -160,20 +70,14 @@ const sizeType = allowedSizeTypes.includes(
       const parsedWeight = Number(body.shippingWeight);
       if (isNaN(parsedWeight) || parsedWeight < 0.15 || parsedWeight > 1.50) {
         return NextResponse.json(
-          {
-            success: false,
-            error: "Category shipping weight must be between 0.15 kg and 1.50 kg.",
-          },
+          { success: false, error: "Category shipping weight must be between 0.15 kg and 1.50 kg." },
           { status: 400 }
         );
       }
       shippingWeight = Math.round(parsedWeight * 100) / 100;
     } else {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Category shipping weight is required (0.15 kg to 1.50 kg).",
-        },
+        { success: false, error: "Category shipping weight is required (0.15 kg to 1.50 kg)." },
         { status: 400 }
       );
     }
@@ -191,18 +95,9 @@ const sizeType = allowedSizeTypes.includes(
       },
     });
 
-    return NextResponse.json(category, {
-      status: 201,
-    });
+    return NextResponse.json(category, { status: 201 });
   } catch (error) {
     console.error("POST /api/admin/categories error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to create category.",
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Failed to create category." }, { status: 500 });
   }
 }

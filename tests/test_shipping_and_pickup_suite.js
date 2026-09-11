@@ -1,6 +1,6 @@
 import assert from "assert";
 import { resolveOrderPickupBrand, calculatePickupDates, getPickupDetailsForCart } from "../lib/pickup-resolver.js";
-import { fetchShipbubbleRates, generateShipbubbleLabel, getShipbubbleOriginAddress } from "../lib/shipbubble.js";
+import { fetchShipbubbleRates, generateShipbubbleLabel, getShipbubbleOriginAddress, resolveShipbubbleAddressCode } from "../lib/shipbubble.js";
 import { calculateOrderTotalsServer } from "../lib/paystack.js";
 import { resolveItemUnitWeight, calculateParcelPackageDetails, isValidCategoryShippingWeight } from "../lib/shipping-weights.js";
 import { db } from "./mock_prisma.js";
@@ -149,6 +149,42 @@ async function runTests() {
   );
   console.log("✓ 2.2 Missing creatorBrand rejects pickup resolution, ignoring creatorRole");
 
+  // TEST 2.2b: Conflicting collaboration creator brands in a single cart throw explicit error
+  db.collaborationProducts.push(
+    {
+      id: "collab_prod_uthy_creator",
+      collaboration: {
+        id: "collab_02",
+        name: "Capsule B",
+        brandA: "UTHY",
+        brandB: "ALOMZIEE",
+        creatorBrand: "UTHY", // Conflicting creatorBrand
+      },
+    },
+    {
+      id: "collab_prod_alomziee_creator",
+      collaboration: {
+        id: "collab_03",
+        name: "Capsule C",
+        brandA: "UTHY",
+        brandB: "ALOMZIEE",
+        creatorBrand: "ALOMZIEE", // Conflicting creatorBrand
+      },
+    }
+  );
+
+  const conflictingCollabCart = [
+    { isCollaboration: true, collaborationProductId: "collab_prod_uthy_creator" },
+    { isCollaboration: true, collaborationProductId: "collab_prod_alomziee_creator" },
+  ];
+
+  await assert.rejects(
+    async () => resolveOrderPickupBrand(conflictingCollabCart),
+    /Conflicting collaboration creators in pickup cart/,
+    "Conflicting collaboration creators in single cart throw explicit rejection"
+  );
+  console.log("✓ 2.2b Conflicting collaboration creator brands in single cart are rejected cleanly");
+
   // Restore valid creatorBrand for remaining tests
   db.collaborationProducts[0].collaboration.creatorBrand = "UTHY";
 
@@ -203,8 +239,8 @@ async function runTests() {
   assert.strictEqual(customDates[2].value, "2026-10-09", "Third permitted date is Fri Oct 9");
   console.log("✓ 3.1 Customer only receives admin-permitted operating days");
 
-  // 4. Financial Reconciliation & Waybill Safety
-  console.log("\n--- TEST GROUP 4: Paystack Totals & Waybill Safety ---");
+  // 4. Financial Reconciliation, Dynamic Address Resolution & Waybill Safety
+  console.log("\n--- TEST GROUP 4: Paystack Totals, Dynamic Address Codes & Waybill Safety ---");
 
   // TEST 4.1: Pickup shipping fee is ₦0
   const pickupDetails = await getPickupDetailsForCart([{ productId: "prod_u", brand: "UTHY", qty: 1 }]);
@@ -220,11 +256,39 @@ async function runTests() {
   assert.strictEqual(pickupCalc.total, 100000, "Pickup grand total equals product total");
   console.log("✓ 4.1 Pickup shipping fee is ₦0");
 
-  // TEST 4.3: Physical delivery origin address loading
+  // TEST 4.3: Physical delivery origin address loading & dynamic address code resolution
   const dynamicOrigin = await getShipbubbleOriginAddress();
   assert.strictEqual(dynamicOrigin.state, "Lagos", "Dynamic origin state loaded correctly");
   assert.ok(dynamicOrigin.city, "Dynamic origin city loaded correctly");
-  console.log("✓ 4.3 Physical delivery origin address loaded dynamically from SiteSetting");
+
+  const originAddressCode = await resolveShipbubbleAddressCode(dynamicOrigin);
+  assert.ok(originAddressCode.startsWith("addr_"), "Dynamic origin physical address resolves to Shipbubble address_code");
+  console.log("✓ 4.3 Physical delivery origin address resolves dynamically to address_code");
+
+  // TEST 4.3b: Customer destination dynamic address code resolution and fetch_rates payload verification
+  const customerDestination = {
+    name: "Jane Doe",
+    email: "jane@example.com",
+    phone: "+2348123456789",
+    address: "45 Allen Avenue",
+    city: "Ikeja",
+    state: "Lagos",
+    country: "Nigeria",
+  };
+
+  const recieverAddressCode = await resolveShipbubbleAddressCode(customerDestination);
+  assert.ok(recieverAddressCode.startsWith("addr_"), "Customer destination resolves dynamically to reciever_address_code");
+
+  const rateResult = await fetchShipbubbleRates({
+    senderAddress: dynamicOrigin,
+    receiverAddress: customerDestination,
+    packageItems: [{ name: "Test Dress", unit_price: 100000, quantity: 1, weight: 0.5 }],
+    packageDimension: { length: 20, width: 20, height: 10 },
+  });
+
+  assert.ok(rateResult.sender_address_code.startsWith("addr_"), "fetch_rates receives resolved sender_address_code");
+  assert.ok(rateResult.reciever_address_code.startsWith("addr_"), "fetch_rates receives resolved reciever_address_code");
+  console.log("✓ 4.3b Customer destination resolves dynamically to reciever_address_code and fetch_rates receives both codes");
 
   // TEST 4.2: Client cannot override delivery shipping amount or package unit_price
   const deliveryCalc = await calculateOrderTotalsServer({
@@ -235,16 +299,7 @@ async function runTests() {
       service_code: "gig_express",
       total_charge: 50, // Client tries to claim 50 Naira shipping!
     },
-    receiverAddress: {
-      firstName: "Jane",
-      lastName: "Doe",
-      phone: "+2348123456789",
-      email: "jane@example.com",
-      address: "45 Allen Avenue",
-      city: "Ikeja",
-      state: "Lagos",
-      country: "Nigeria",
-    },
+    receiverAddress: customerDestination,
   });
 
   assert.strictEqual(deliveryCalc.items[0].price, 100000, "Server DB price (100,000) overrides client-supplied item price (50)");
@@ -253,7 +308,6 @@ async function runTests() {
   console.log("✓ 4.2 Client cannot override delivery shipping amount or product unit_price");
 
   // TEST 4.4: Collaboration product price manipulation prevention
-  // Seed mock collaboration product in DB with price = 150000
   db.collaborationProducts.push({
     id: "collab_prod_price_test",
     name: "Luxury Capsule Jacket",
@@ -281,16 +335,7 @@ async function runTests() {
       service_code: "gig_express",
       total_charge: 50,
     },
-    receiverAddress: {
-      firstName: "Jane",
-      lastName: "Doe",
-      phone: "+2348123456789",
-      email: "jane@example.com",
-      address: "45 Allen Avenue",
-      city: "Ikeja",
-      state: "Lagos",
-      country: "Nigeria",
-    },
+    receiverAddress: customerDestination,
   });
 
   assert.strictEqual(collabDeliveryCalc.items[0].price, 150000, "Server DB collaboration price (150,000) overrides client-supplied price (50)");

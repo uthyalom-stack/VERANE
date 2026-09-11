@@ -367,7 +367,7 @@ model Collaboration {
   brandA      String
   brandB      String
   creatorBrand String?               // The requesting/creator brand (e.g. "UTHY" or "ALOMZIEE")
-  creatorRole  String?               // Explicit creator identity/role ("UTHY" | "ALOMZIEE")
+  creatorRole  String?               // Creator role ("UTHY" | "ALOMZIEE")
   status      String                 @default("active")
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt

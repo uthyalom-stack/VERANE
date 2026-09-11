@@ -16,10 +16,6 @@ const DEFAULT_PICKUP_SETTINGS = {
   alomzieePickupAllowedDays: '["MON", "TUE", "WED", "THU", "FRI", "SAT"]',
 };
 
-/**
- * Retrieves pickup settings for the authenticated brand administrator.
- * SUPERADMIN is strictly forbidden from store pickup settings.
- */
 export async function GET(request) {
   try {
     const admin = await getAdminSession();
@@ -52,7 +48,7 @@ export async function GET(request) {
       try {
         allowedDays = JSON.parse(settings.uthyPickupAllowedDays);
       } catch {
-        // Fallback to array if parse fails
+        // Fallback
       }
 
       return NextResponse.json({
@@ -71,7 +67,7 @@ export async function GET(request) {
       try {
         allowedDays = JSON.parse(settings.alomzieePickupAllowedDays);
       } catch {
-        // Fallback to array if parse fails
+        // Fallback
       }
 
       return NextResponse.json({
@@ -92,10 +88,6 @@ export async function GET(request) {
   }
 }
 
-/**
- * Updates brand pickup settings with strict brand role authorization.
- * SUPERADMIN is strictly forbidden from store pickup settings.
- */
 export async function PUT(request) {
   try {
     const admin = await getAdminSession();
@@ -116,7 +108,6 @@ export async function PUT(request) {
       ? ["uthyPickupAddress", "uthyImmediatePickupEnabled", "uthyPickupInstructions", "uthyPickupLeadDays", "uthyPickupAllowedDays"]
       : ["alomzieePickupAddress", "alomzieeImmediatePickupEnabled", "alomzieePickupInstructions", "alomzieePickupLeadDays", "alomzieePickupAllowedDays"];
 
-    // Ensure client is not attempting to mutate unauthorized keys
     for (const key of Object.keys(body)) {
       if (!allowedKeys.includes(key)) {
         return NextResponse.json(
@@ -126,7 +117,6 @@ export async function PUT(request) {
       }
     }
 
-    // Update authorized keys in database
     for (const key of Object.keys(body)) {
       if (allowedKeys.includes(key)) {
         let valStr = String(body[key]);

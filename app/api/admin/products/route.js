@@ -495,26 +495,6 @@ export async function POST(request) {
             body.sizeType.trim()
               ? body.sizeType.trim()
               : null,
-
-          weight:
-            Number(body.weight) > 0
-              ? Number(body.weight)
-              : null,
-
-          packageLength:
-            Number(body.packageLength) > 0
-              ? Number(body.packageLength)
-              : 15,
-
-          packageWidth:
-            Number(body.packageWidth) > 0
-              ? Number(body.packageWidth)
-              : 15,
-
-          packageHeight:
-            Number(body.packageHeight) > 0
-              ? Number(body.packageHeight)
-              : 15,
         },
       });
 

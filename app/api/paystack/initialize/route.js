@@ -47,9 +47,6 @@ export async function POST(request) {
 
     const {
       items: rawItems,
-      fulfillmentType = "delivery",
-      selectedCourier,
-      requestedPickupDate,
       firstName,
       lastName,
       email,
@@ -59,45 +56,42 @@ export async function POST(request) {
       city,
       zone,
       address,
+      fulfillmentType,
+      selectedCourier,
+      requestedPickupDate,
     } = body;
 
     if (!Array.isArray(rawItems) || rawItems.length === 0) {
       return NextResponse.json({ success: false, error: "Cart is empty." }, { status: 400 });
     }
 
-    if (!email) {
+    if (!email || !address || !state || !city) {
       return NextResponse.json(
-        { success: false, error: "Missing required contact email address." },
+        { success: false, error: "Missing required delivery or contact information." },
         { status: 400 }
       );
     }
 
-    const isPickup = String(fulfillmentType || "").toLowerCase() === "pickup";
+    const receiverAddress = {
+      firstName,
+      lastName,
+      email,
+      phone,
+      country: country || "Nigeria",
+      state,
+      city,
+      zone,
+      address,
+      streetAddress: address,
+    };
 
-    if (!isPickup && (!address || !state || !city)) {
-      return NextResponse.json(
-        { success: false, error: "Missing required delivery address information." },
-        { status: 400 }
-      );
-    }
-
-    // 1. NEVER TRUST CLIENT MONEY OR SHIPPING: Recalculate merchandise subtotal, shipping fee, and total server-side
+    // 1. NEVER TRUST CLIENT MONEY: Recalculate merchandise subtotal, shipping fee, and total server-side
     const calculation = await calculateOrderTotalsServer({
       items: rawItems,
-      fulfillmentType,
+      fulfillmentType: fulfillmentType || "delivery",
       selectedCourier,
       requestedPickupDate,
-      receiverAddress: {
-        firstName,
-        lastName,
-        email,
-        phone,
-        country: country || "Nigeria",
-        state,
-        city,
-        zone,
-        address,
-      },
+      receiverAddress,
     });
 
     const trustedSubtotal = calculation.subtotal;
@@ -124,10 +118,10 @@ export async function POST(request) {
       email,
       phone,
       country: country || "Nigeria",
-      state: state || null,
-      city: city || null,
-      zone: zone || null,
-      address: address || null,
+      state,
+      city,
+      zone,
+      address,
     });
 
     await prisma.order.create({
@@ -176,7 +170,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to initialize payment.",
+        error: error?.message || "Failed to initialize payment.",
       },
       { status: 500 }
     );

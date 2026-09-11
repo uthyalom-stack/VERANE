@@ -3,13 +3,6 @@ import prisma from "@/lib/prisma";
 import { fetchShipbubbleRates, getShipbubbleOriginAddress } from "@/lib/shipbubble";
 import { calculateParcelPackageDetails, resolveItemUnitWeight } from "@/lib/shipping-weights";
 
-/**
- * POST /api/checkout/get-shipping-rates
- *
- * Server-side endpoint to fetch courier shipping rates from Shipbubble using official v1 contract.
- * Uses configured physical delivery origin address dynamically from SiteSetting.
- * Calculates server-authoritative parcel weight SUM(resolvedWeight * quantity) using Category.shippingWeight or Product.weight.
- */
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -19,7 +12,9 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Cart is empty." }, { status: 400 });
     }
 
-    const customerName = `${receiverAddress?.firstName || ""} ${receiverAddress?.lastName || ""}`.trim();
+    const customerName = String(
+      receiverAddress?.name || `${receiverAddress?.firstName || ""} ${receiverAddress?.lastName || ""}`
+    ).trim();
     const customerPhone = String(receiverAddress?.phone || "").trim();
     const customerEmail = String(receiverAddress?.email || "").trim();
     const customerStreet = String(receiverAddress?.address || receiverAddress?.streetAddress || "").trim();
@@ -45,7 +40,6 @@ export async function POST(request) {
       country: String(receiverAddress?.country || "Nigeria").trim(),
     };
 
-    // Server-authoritative DB product/collaboration product resolution
     const itemsWithProducts = await Promise.all(
       items.map(async (it) => {
         const prodId = it.productId || it.id;
@@ -69,7 +63,7 @@ export async function POST(request) {
             try {
               resolvedCollabWeight = resolveItemUnitWeight(collabProd.productA);
             } catch {
-              // Check productB if productA weight is unconfigured
+              // Check productB
             }
           }
           if (!resolvedCollabWeight && collabProd.productB) {

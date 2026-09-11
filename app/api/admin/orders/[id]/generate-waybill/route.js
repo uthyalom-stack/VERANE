@@ -3,11 +3,6 @@ import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 import { generateShipbubbleLabel } from "@/lib/shipbubble";
 
-/**
- * POST /api/admin/orders/[id]/generate-waybill
- *
- * Administrator action to confirm and generate a Shipbubble waybill & tracking label for a delivery order.
- */
 export async function POST(request, { params }) {
   try {
     const admin = await getAdminSession();

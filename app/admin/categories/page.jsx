@@ -9,10 +9,9 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
 
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [sizeType, setSizeType] = useState("none");
-  const [shippingWeight, setShippingWeight] = useState("0.50");
-  const [enabled, setEnabled] = useState(true);
+ const [description, setDescription] = useState("");
+const [sizeType, setSizeType] = useState("none");
+const [enabled, setEnabled] = useState(true);
 
   const [editing, setEditing] = useState(null);
 
@@ -58,9 +57,8 @@ export default function CategoriesPage() {
   function resetForm() {
     setName("");
     setDescription("");
-    setSizeType("none");
-    setShippingWeight("0.50");
-    setEnabled(true);
+setSizeType("none");
+setEnabled(true);
     setEditing(null);
     setError("");
     setMessage("");
@@ -70,9 +68,8 @@ export default function CategoriesPage() {
     setEditing(category);
     setName(category.name || "");
     setDescription(category.description || "");
-    setSizeType(category.sizeType || "none");
-    setShippingWeight(String(category.shippingWeight ?? 0.50));
-    setEnabled(category.enabled !== false);
+setSizeType(category.sizeType || "none");
+setEnabled(category.enabled !== false);
     setError("");
     setMessage("");
 
@@ -104,12 +101,11 @@ export default function CategoriesPage() {
         },
         credentials: "include",
         body: JSON.stringify({
-          name: name.trim(),
-          description: description.trim(),
-          sizeType,
-          shippingWeight: Number(shippingWeight),
-          enabled,
-        }),
+  name: name.trim(),
+  description: description.trim(),
+  sizeType,
+  enabled,
+}),
       });
 
       const data = await response.json().catch(() => null);
@@ -313,29 +309,6 @@ export default function CategoriesPage() {
   <p className="mt-2 text-xs text-neutral-600">
     This determines which sizing system appears when
     creating products in this category.
-  </p>
-</div>
-
-<div>
-  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-neutral-400">
-    Default Shipping Weight (Shipbubble)
-  </label>
-
-  <div className="flex items-center gap-3">
-    <input
-      type="number"
-      min="0.15"
-      max="1.50"
-      step="0.05"
-      value={shippingWeight}
-      onChange={(e) => setShippingWeight(e.target.value)}
-      className="w-full rounded-2xl border border-white/10 bg-black px-5 py-4 text-white outline-none transition focus:border-amber-500/60"
-    />
-    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider shrink-0">KG</span>
-  </div>
-
-  <p className="mt-2 text-xs text-neutral-600">
-    Default parcel estimate used to calculate Shipbubble courier rates for products in this category (0.15 KG to 1.50 KG).
   </p>
 </div>
 
