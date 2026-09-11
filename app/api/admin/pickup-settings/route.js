@@ -3,13 +3,13 @@ import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
 const DEFAULT_PICKUP_SETTINGS = {
-  uthyPickupAddress: "UTHY LUXURY Atelier, Victoria Island, Lagos, Nigeria",
+  uthyPickupAddress: "",
   uthyImmediatePickupEnabled: "false",
   uthyPickupInstructions: "Please present your order confirmation email and a valid photo ID upon arrival.",
   uthyPickupLeadDays: "2",
   uthyPickupAllowedDays: '["MON", "TUE", "WED", "THU", "FRI", "SAT"]',
 
-  alomzieePickupAddress: "ALOMZIEE FOOTIES Boutique, Ikoyi, Lagos, Nigeria",
+  alomzieePickupAddress: "",
   alomzieeImmediatePickupEnabled: "false",
   alomzieePickupInstructions: "Please present your order confirmation email and a valid photo ID upon arrival.",
   alomzieePickupLeadDays: "2",

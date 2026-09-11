@@ -19,13 +19,13 @@ const DEFAULT_SETTINGS = {
   announcementText: "",
 
   // SHIPBUBBLE PHYSICAL DELIVERY ORIGIN
-  shipbubbleOriginName: "VÉRANE Fulfillment Center",
-  shipbubbleOriginEmail: "orders@verane.com",
-  shipbubbleOriginPhone: "+2348000000000",
+  shipbubbleOriginName: "",
+  shipbubbleOriginEmail: "",
+  shipbubbleOriginPhone: "",
   shipbubbleOriginCountry: "Nigeria",
-  shipbubbleOriginState: "Lagos",
-  shipbubbleOriginCity: "Victoria Island",
-  shipbubbleOriginStreet: "Atelier Street, Victoria Island",
+  shipbubbleOriginState: "",
+  shipbubbleOriginCity: "",
+  shipbubbleOriginStreet: "",
 
   // VÉRANE RECEIPT BRANDING
   veraneLogo: "",

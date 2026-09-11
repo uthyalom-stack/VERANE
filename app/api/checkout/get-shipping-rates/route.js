@@ -56,9 +56,21 @@ export async function POST(request) {
             });
 
             if (collabProd) {
-              const weightA = collabProd.productA?.weight ?? collabProd.productA?.categoryRef?.shippingWeight;
-              const weightB = collabProd.productB?.weight ?? collabProd.productB?.categoryRef?.shippingWeight;
-              const resolvedCollabWeight = weightA ?? weightB ?? 0.5;
+              let resolvedCollabWeight = null;
+              if (collabProd.productA) {
+                try {
+                  resolvedCollabWeight = resolveItemUnitWeight(collabProd.productA);
+                } catch {
+                  // Keep checking productB if productA weight is unconfigured
+                }
+              }
+              if (!resolvedCollabWeight && collabProd.productB) {
+                resolvedCollabWeight = resolveItemUnitWeight(collabProd.productB);
+              }
+
+              if (!resolvedCollabWeight) {
+                throw new Error(`Shipping weight configuration missing for collaboration product "${collabProd.name}".`);
+              }
 
               dbProd = {
                 name: collabProd.name,

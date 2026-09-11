@@ -92,7 +92,7 @@ export async function POST(request, { params }) {
         labelUrl: waybillRes.label_url,
         trackingUrl: waybillRes.tracking_url,
         waybillGeneratedAt: now,
-        fulfillmentStatus: "fulfilled",
+        fulfillmentStatus: "unfulfilled", // Generating waybill does not mark order as fulfilled
       },
     });
 

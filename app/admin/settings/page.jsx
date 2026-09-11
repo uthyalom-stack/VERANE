@@ -1615,7 +1615,7 @@ function PickupSettingsSection({ primaryColor }) {
       <SectionHeader
         eyebrow="CUSTOMER PICKUP"
         title={`${brandName} Pickup Location & Availability`}
-        description={`Configure ${brandName} atelier pickup address, immediate pickup availability, and collection instructions.`}
+        description={`Configure ${brandName} atelier pickup address, lead times, permitted operating days, immediate pickup, and collection instructions.`}
         color={primaryColor}
       />
 
@@ -1624,12 +1624,12 @@ function PickupSettingsSection({ primaryColor }) {
 
       <BrandPickupForm
         brandName={brandName}
-        addressKey={`${prefix}PickupAddress`}
-        immediateKey={`${prefix}ImmediatePickupEnabled`}
-        instructionsKey={`${prefix}PickupInstructions`}
+        prefix={prefix}
         initialAddress={pickupData.pickupAddress || ""}
         initialImmediate={Boolean(pickupData.immediatePickupEnabled)}
         initialInstructions={pickupData.pickupInstructions || ""}
+        initialLeadDays={pickupData.leadDays || 2}
+        initialAllowedDays={pickupData.allowedDaysOfWeek || ["MON", "TUE", "WED", "THU", "FRI", "SAT"]}
         onSave={handleSave}
         saving={saving}
       />
@@ -1639,18 +1639,41 @@ function PickupSettingsSection({ primaryColor }) {
 
 function BrandPickupForm({
   brandName,
-  addressKey,
-  immediateKey,
-  instructionsKey,
+  prefix,
   initialAddress,
   initialImmediate,
   initialInstructions,
+  initialLeadDays,
+  initialAllowedDays,
   onSave,
   saving,
 }) {
   const [address, setAddress] = useState(initialAddress || "");
   const [immediate, setImmediate] = useState(Boolean(initialImmediate));
   const [instructions, setInstructions] = useState(initialInstructions || "");
+  const [leadDays, setLeadDays] = useState(Number(initialLeadDays || 2));
+  const [allowedDays, setAllowedDays] = useState(
+    Array.isArray(initialAllowedDays) ? initialAllowedDays : ["MON", "TUE", "WED", "THU", "FRI", "SAT"]
+  );
+
+  const allDays = [
+    { code: "MON", label: "Monday" },
+    { code: "TUE", label: "Tuesday" },
+    { code: "WED", label: "Wednesday" },
+    { code: "THU", label: "Thursday" },
+    { code: "FRI", label: "Friday" },
+    { code: "SAT", label: "Saturday" },
+    { code: "SUN", label: "Sunday" },
+  ];
+
+  function toggleDay(code) {
+    if (allowedDays.includes(code)) {
+      if (allowedDays.length <= 1) return; // Must keep at least one day
+      setAllowedDays(allowedDays.filter((d) => d !== code));
+    } else {
+      setAllowedDays([...allowedDays, code]);
+    }
+  }
 
   return (
     <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
@@ -1666,26 +1689,61 @@ function BrandPickupForm({
         />
       </Field>
 
-      <Field label="Immediate Pickup Availability" description="When enabled, customers can request same-day / immediate pickup at checkout.">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => setImmediate(true)}
-            className={`px-5 py-2.5 rounded-full text-xs font-bold transition ${
-              immediate ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
-            }`}
-          >
-            Immediate Pickup ON
-          </button>
-          <button
-            type="button"
-            onClick={() => setImmediate(false)}
-            className={`px-5 py-2.5 rounded-full text-xs font-bold transition ${
-              !immediate ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
-            }`}
-          >
-            Immediate Pickup OFF
-          </button>
+      <div className="grid gap-6 sm:grid-cols-2">
+        <Field label="Normal Pickup Lead Time (Days)" description="Number of days after order before normal pickup choices start (default 2 days).">
+          <input
+            type="number"
+            min="1"
+            max="14"
+            value={leadDays}
+            onChange={(e) => setLeadDays(Math.max(1, Number(e.target.value)))}
+            className={inputClass}
+          />
+        </Field>
+
+        <Field label="Immediate Pickup Availability" description="When enabled, customers can request same-day / immediate pickup at checkout.">
+          <div className="flex items-center gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => setImmediate(true)}
+              className={`px-5 py-2.5 rounded-full text-xs font-bold transition ${
+                immediate ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
+              }`}
+            >
+              Immediate Pickup ON
+            </button>
+            <button
+              type="button"
+              onClick={() => setImmediate(false)}
+              className={`px-5 py-2.5 rounded-full text-xs font-bold transition ${
+                !immediate ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
+              }`}
+            >
+              Immediate Pickup OFF
+            </button>
+          </div>
+        </Field>
+      </div>
+
+      <Field label="Permitted Operating Pickup Days" description="Select which days of the week customers are allowed to schedule pickup collections.">
+        <div className="flex flex-wrap gap-2 pt-1">
+          {allDays.map((day) => {
+            const active = allowedDays.includes(day.code);
+            return (
+              <button
+                key={day.code}
+                type="button"
+                onClick={() => toggleDay(day.code)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${
+                  active
+                    ? "border-amber-400/50 bg-amber-400/10 text-amber-300"
+                    : "border-white/10 bg-black/40 text-neutral-600 hover:text-white"
+                }`}
+              >
+                {day.label} ({day.code}) {active ? "✓" : ""}
+              </button>
+            );
+          })}
         </div>
       </Field>
 
@@ -1704,9 +1762,11 @@ function BrandPickupForm({
         disabled={saving}
         onClick={() =>
           onSave({
-            [addressKey]: address,
-            [immediateKey]: String(immediate),
-            [instructionsKey]: instructions,
+            [`${prefix}PickupAddress`]: address,
+            [`${prefix}ImmediatePickupEnabled`]: String(immediate),
+            [`${prefix}PickupInstructions`]: instructions,
+            [`${prefix}PickupLeadDays`]: String(leadDays),
+            [`${prefix}PickupAllowedDays`]: allowedDays,
           })
         }
         className="bg-amber-400 text-black px-6 py-3 rounded-full text-xs font-black uppercase hover:bg-amber-300 transition disabled:opacity-50"
