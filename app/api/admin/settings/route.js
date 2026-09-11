@@ -18,6 +18,15 @@ const DEFAULT_SETTINGS = {
   announcementEnabled: "false",
   announcementText: "",
 
+  // SHIPBUBBLE PHYSICAL DELIVERY ORIGIN
+  shipbubbleOriginName: "",
+  shipbubbleOriginEmail: "",
+  shipbubbleOriginPhone: "",
+  shipbubbleOriginCountry: "Nigeria",
+  shipbubbleOriginState: "",
+  shipbubbleOriginCity: "",
+  shipbubbleOriginStreet: "",
+
   // VÉRANE RECEIPT BRANDING
   veraneLogo: "",
   veraneName: "VÉRANE",

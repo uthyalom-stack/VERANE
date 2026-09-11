@@ -265,6 +265,19 @@ async function runTests() {
   assert.ok(originAddressCode.startsWith("addr_"), "Dynamic origin physical address resolves to Shipbubble address_code");
   console.log("✓ 4.3 Physical delivery origin address resolves dynamically to address_code");
 
+  // TEST 4.3c: Missing required physical origin address fields throw explicit error without fake fallbacks
+  process.env.NODE_ENV = "production";
+  process.env.SHIPBUBBLE_MOCK_MODE = "false";
+  db.siteSettings = []; // Clear settings so origin fields are missing
+  await assert.rejects(
+    async () => getShipbubbleOriginAddress(),
+    /Shipbubble delivery origin address is incomplete or not configured/,
+    "Missing physical origin address fields throw clear configuration error without silent fake data substitution"
+  );
+  process.env.NODE_ENV = "test";
+  process.env.SHIPBUBBLE_MOCK_MODE = "true";
+  console.log("✓ 4.3c Missing physical origin address fields throw explicit error without fake fallbacks");
+
   // TEST 4.3b: Customer destination dynamic address code resolution and fetch_rates payload verification
   const customerDestination = {
     name: "Jane Doe",
