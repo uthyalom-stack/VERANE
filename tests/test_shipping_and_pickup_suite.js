@@ -252,6 +252,52 @@ async function runTests() {
   assert.strictEqual(deliveryCalc.total, 103500, "Total equals server product subtotal + server rate_card_amount");
   console.log("✓ 4.2 Client cannot override delivery shipping amount or product unit_price");
 
+  // TEST 4.4: Collaboration product price manipulation prevention
+  // Seed mock collaboration product in DB with price = 150000
+  db.collaborationProducts.push({
+    id: "collab_prod_price_test",
+    name: "Luxury Capsule Jacket",
+    status: "published",
+    price: 150000, // DB authoritative price is 150,000
+    productAId: "prod_u",
+    productA: db.products.find((p) => p.id === "prod_u"),
+    productB: db.products.find((p) => p.id === "prod_a"),
+    variants: [],
+  });
+
+  const collabDeliveryCalc = await calculateOrderTotalsServer({
+    items: [
+      {
+        id: "collab_prod_price_test",
+        collaborationProductId: "collab_prod_price_test",
+        isCollaboration: true,
+        qty: 1,
+        price: 50, // Client tries to claim price is 50 Naira!
+      },
+    ],
+    fulfillmentType: "delivery",
+    selectedCourier: {
+      courier_id: "cour_gig_01",
+      service_code: "gig_express",
+      total_charge: 50,
+    },
+    receiverAddress: {
+      firstName: "Jane",
+      lastName: "Doe",
+      phone: "+2348123456789",
+      email: "jane@example.com",
+      address: "45 Allen Avenue",
+      city: "Ikeja",
+      state: "Lagos",
+      country: "Nigeria",
+    },
+  });
+
+  assert.strictEqual(collabDeliveryCalc.items[0].price, 150000, "Server DB collaboration price (150,000) overrides client-supplied price (50)");
+  assert.strictEqual(collabDeliveryCalc.subtotal, 150000, "Subtotal uses authoritative collaboration DB price (150,000)");
+  assert.strictEqual(collabDeliveryCalc.total, 153500, "Grand total equals collaboration DB subtotal (150,000) + shipping fee (3500)");
+  console.log("✓ 4.4 Client cannot manipulate collaboration product price; DB price (150,000) is enforced");
+
   console.log("\n==================================================");
   console.log("ALL VÉRANE SHIPPING & PICKUP TESTS PASSED SUCCESSFULLY!");
   console.log("==================================================");
