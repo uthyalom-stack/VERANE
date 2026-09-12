@@ -902,20 +902,39 @@ export default function CheckoutPage() {
                   {!loadingPickup && pickupInfo && (
                     <div className="space-y-6">
                       {/* LOCATION DETAILS CARD */}
-                      <div className="p-6 rounded-2xl border border-amber-400/30 bg-black/60 space-y-3">
+                      <div className="p-6 rounded-2xl border border-amber-400/30 bg-black/60 space-y-4">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold uppercase tracking-luxury text-amber-400">
-                            {pickupInfo.pickupBrandDisplayName} ATELIER
+                            {pickupInfo.pickupLocationName || `${pickupInfo.pickupBrandDisplayName} ATELIER`}
                           </span>
                           <span className="text-[9px] font-black uppercase tracking-luxury bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
                             FREE PICKUP: ₦0
                           </span>
                         </div>
 
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-y border-white/10 py-3">
+                          <div>
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-neutral-400 mb-0.5">Pickup Address</p>
+                            <p className="text-xs text-neutral-200 leading-relaxed font-light">
+                              {pickupInfo.pickupAddress}
+                            </p>
+                          </div>
+
+                          <div>
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-neutral-400 mb-0.5">Pickup Contact</p>
+                            <p className="text-xs text-neutral-200 font-medium">
+                              {pickupInfo.pickupContactName}
+                            </p>
+                            <p className="text-[11px] text-neutral-400">
+                              {pickupInfo.pickupContactPhone}
+                            </p>
+                          </div>
+                        </div>
+
                         <div>
-                          <p className="text-xs font-bold text-white mb-1">Pickup Address</p>
-                          <p className="text-xs text-neutral-300 leading-relaxed font-light">
-                            {pickupInfo.pickupAddress}
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-neutral-400 mb-0.5">Pickup Timeframe</p>
+                          <p className="text-xs text-amber-400 font-semibold">
+                            {pickupInfo.pickupTimeframe}
                           </p>
                         </div>
 

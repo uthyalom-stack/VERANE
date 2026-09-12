@@ -100,9 +100,14 @@ export default function BrandPickupSettingsPage() {
         <BrandPickupForm
           brandName={brandName}
           prefix={prefix}
+          initialLocationName={pickupData.pickupLocationName || ""}
           initialAddress={pickupData.pickupAddress || ""}
+          initialContactName={pickupData.pickupContactName || ""}
+          initialContactPhone={pickupData.pickupContactPhone || ""}
           initialImmediate={Boolean(pickupData.immediatePickupEnabled)}
           initialInstructions={pickupData.pickupInstructions || ""}
+          initialMinDays={pickupData.minDays || 1}
+          initialMaxDays={pickupData.maxDays || 3}
           initialLeadDays={pickupData.leadDays || 2}
           initialAllowedDays={pickupData.allowedDaysOfWeek || ["MON", "TUE", "WED", "THU", "FRI", "SAT"]}
           onSave={handleSave}
@@ -116,17 +121,27 @@ export default function BrandPickupSettingsPage() {
 function BrandPickupForm({
   brandName,
   prefix,
+  initialLocationName,
   initialAddress,
+  initialContactName,
+  initialContactPhone,
   initialImmediate,
   initialInstructions,
+  initialMinDays,
+  initialMaxDays,
   initialLeadDays,
   initialAllowedDays,
   onSave,
   saving,
 }) {
+  const [locationName, setLocationName] = useState(initialLocationName || "");
   const [address, setAddress] = useState(initialAddress || "");
+  const [contactName, setContactName] = useState(initialContactName || "");
+  const [contactPhone, setContactPhone] = useState(initialContactPhone || "");
   const [immediate, setImmediate] = useState(Boolean(initialImmediate));
   const [instructions, setInstructions] = useState(initialInstructions || "");
+  const [minDays, setMinDays] = useState(Number(initialMinDays || 1));
+  const [maxDays, setMaxDays] = useState(Number(initialMaxDays || 3));
   const [leadDays, setLeadDays] = useState(Number(initialLeadDays || 2));
   const [allowedDays, setAllowedDays] = useState(
     Array.isArray(initialAllowedDays) ? initialAllowedDays : ["MON", "TUE", "WED", "THU", "FRI", "SAT"]
@@ -155,30 +170,102 @@ function BrandPickupForm({
 
   return (
     <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
-      <div>
-        <label className="block text-sm font-bold text-white mb-1">Pickup Location Address</label>
-        <p className="text-xs text-neutral-500 mb-3">The full physical address where customers will pick up their orders.</p>
-        <textarea
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          rows={3}
-          placeholder="Enter pickup address..."
-          className={`${inputClass} resize-none`}
-        />
-      </div>
+      {/* LOCATION & CONTACT */}
+      <div className="space-y-5">
+        <h3 className="text-base font-black text-amber-400 mb-1">Pickup Location & Contact Information</h3>
 
-      <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-bold text-white mb-1">Pickup Location Name</label>
+            <input
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+              placeholder={`${brandName} Flagship Atelier`}
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-white mb-1">Pickup Contact Person Name</label>
+            <input
+              value={contactName}
+              onChange={(e) => setContactName(e.target.value)}
+              placeholder="e.g. Atelier Concierge"
+              className={inputClass}
+            />
+          </div>
+        </div>
+
         <div>
-          <label className="block text-sm font-bold text-white mb-1">Normal Pickup Lead Time (Days)</label>
-          <p className="text-xs text-neutral-500 mb-3">Number of days after order before normal pickup choices start (default 2 days).</p>
+          <label className="block text-xs font-bold text-white mb-1">Pickup Contact Phone Number</label>
           <input
-            type="number"
-            min="1"
-            max="14"
-            value={leadDays}
-            onChange={(e) => setLeadDays(Math.max(1, Number(e.target.value)))}
+            value={contactPhone}
+            onChange={(e) => setContactPhone(e.target.value)}
+            placeholder="+234..."
             className={inputClass}
           />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-white mb-1">Complete Physical Pickup Address</label>
+          <textarea
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            rows={3}
+            placeholder="Full physical street address for customer pickup..."
+            className={`${inputClass} resize-none`}
+          />
+        </div>
+      </div>
+
+      {/* TIMEFRAME & SCHEDULE */}
+      <div className="border-t border-white/10 pt-6 space-y-5">
+        <h3 className="text-base font-black text-amber-400 mb-1">Pickup Timeframe & Schedule Configuration</h3>
+
+        <div className="grid gap-5 sm:grid-cols-3">
+          <div>
+            <label className="block text-xs font-bold text-white mb-1">Min Pickup Days</label>
+            <p className="text-[10px] text-neutral-500 mb-2">Earliest days after order (e.g. 1 day)</p>
+            <input
+              type="number"
+              min="0"
+              max="14"
+              value={minDays}
+              onChange={(e) => setMinDays(Math.max(0, Number(e.target.value)))}
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-white mb-1">Max Pickup Days</label>
+            <p className="text-[10px] text-neutral-500 mb-2">Latest days after order (e.g. 3 days)</p>
+            <input
+              type="number"
+              min="1"
+              max="14"
+              value={maxDays}
+              onChange={(e) => setMaxDays(Math.max(1, Number(e.target.value)))}
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-white mb-1">Pickup Start Lead Days</label>
+            <p className="text-[10px] text-neutral-500 mb-2">Lead offset for calendar options</p>
+            <input
+              type="number"
+              min="1"
+              max="14"
+              value={leadDays}
+              onChange={(e) => setLeadDays(Math.max(1, Number(e.target.value)))}
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-neutral-900/80 border border-white/10 text-xs text-neutral-300">
+          <span className="font-bold text-amber-400">Configured Timeframe Preview: </span>
+          <span>Pickup available {minDays}–{maxDays} days after order placement.</span>
         </div>
 
         <div>
@@ -248,9 +335,14 @@ function BrandPickupForm({
         disabled={saving}
         onClick={() =>
           onSave({
+            [`${prefix}PickupLocationName`]: locationName,
             [`${prefix}PickupAddress`]: address,
+            [`${prefix}PickupContactName`]: contactName,
+            [`${prefix}PickupContactPhone`]: contactPhone,
             [`${prefix}ImmediatePickupEnabled`]: String(immediate),
             [`${prefix}PickupInstructions`]: instructions,
+            [`${prefix}PickupMinDays`]: String(minDays),
+            [`${prefix}PickupMaxDays`]: String(maxDays),
             [`${prefix}PickupLeadDays`]: String(leadDays),
             [`${prefix}PickupAllowedDays`]: allowedDays,
           })

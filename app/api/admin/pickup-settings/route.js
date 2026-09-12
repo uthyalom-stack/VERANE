@@ -3,15 +3,25 @@ import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
 const DEFAULT_PICKUP_SETTINGS = {
+  uthyPickupLocationName: "",
   uthyPickupAddress: "",
+  uthyPickupContactName: "",
+  uthyPickupContactPhone: "",
   uthyImmediatePickupEnabled: "false",
   uthyPickupInstructions: "Please present your order confirmation email and a valid photo ID upon arrival.",
+  uthyPickupMinDays: "1",
+  uthyPickupMaxDays: "3",
   uthyPickupLeadDays: "2",
   uthyPickupAllowedDays: '["MON", "TUE", "WED", "THU", "FRI", "SAT"]',
 
+  alomzieePickupLocationName: "",
   alomzieePickupAddress: "",
+  alomzieePickupContactName: "",
+  alomzieePickupContactPhone: "",
   alomzieeImmediatePickupEnabled: "false",
   alomzieePickupInstructions: "Please present your order confirmation email and a valid photo ID upon arrival.",
+  alomzieePickupMinDays: "1",
+  alomzieePickupMaxDays: "3",
   alomzieePickupLeadDays: "2",
   alomzieePickupAllowedDays: '["MON", "TUE", "WED", "THU", "FRI", "SAT"]',
 };
@@ -54,9 +64,14 @@ export async function GET(request) {
       return NextResponse.json({
         success: true,
         role: admin.role,
+        pickupLocationName: settings.uthyPickupLocationName,
         pickupAddress: settings.uthyPickupAddress,
+        pickupContactName: settings.uthyPickupContactName,
+        pickupContactPhone: settings.uthyPickupContactPhone,
         immediatePickupEnabled: settings.uthyImmediatePickupEnabled === "true",
         pickupInstructions: settings.uthyPickupInstructions,
+        minDays: Number(settings.uthyPickupMinDays || 1),
+        maxDays: Number(settings.uthyPickupMaxDays || 3),
         leadDays: Number(settings.uthyPickupLeadDays || 2),
         allowedDaysOfWeek: allowedDays,
       });
@@ -73,9 +88,14 @@ export async function GET(request) {
       return NextResponse.json({
         success: true,
         role: admin.role,
+        pickupLocationName: settings.alomzieePickupLocationName,
         pickupAddress: settings.alomzieePickupAddress,
+        pickupContactName: settings.alomzieePickupContactName,
+        pickupContactPhone: settings.alomzieePickupContactPhone,
         immediatePickupEnabled: settings.alomzieeImmediatePickupEnabled === "true",
         pickupInstructions: settings.alomzieePickupInstructions,
+        minDays: Number(settings.alomzieePickupMinDays || 1),
+        maxDays: Number(settings.alomzieePickupMaxDays || 3),
         leadDays: Number(settings.alomzieePickupLeadDays || 2),
         allowedDaysOfWeek: allowedDays,
       });
@@ -105,8 +125,8 @@ export async function PUT(request) {
     const body = await request.json();
 
     const allowedKeys = admin.role === "UTHY"
-      ? ["uthyPickupAddress", "uthyImmediatePickupEnabled", "uthyPickupInstructions", "uthyPickupLeadDays", "uthyPickupAllowedDays"]
-      : ["alomzieePickupAddress", "alomzieeImmediatePickupEnabled", "alomzieePickupInstructions", "alomzieePickupLeadDays", "alomzieePickupAllowedDays"];
+      ? ["uthyPickupLocationName", "uthyPickupAddress", "uthyPickupContactName", "uthyPickupContactPhone", "uthyImmediatePickupEnabled", "uthyPickupInstructions", "uthyPickupMinDays", "uthyPickupMaxDays", "uthyPickupLeadDays", "uthyPickupAllowedDays"]
+      : ["alomzieePickupLocationName", "alomzieePickupAddress", "alomzieePickupContactName", "alomzieePickupContactPhone", "alomzieeImmediatePickupEnabled", "alomzieePickupInstructions", "alomzieePickupMinDays", "alomzieePickupMaxDays", "alomzieePickupLeadDays", "alomzieePickupAllowedDays"];
 
     for (const key of Object.keys(body)) {
       if (!allowedKeys.includes(key)) {

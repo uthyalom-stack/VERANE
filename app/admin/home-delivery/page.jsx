@@ -100,7 +100,6 @@ export default function HomeDeliverySettingsPage() {
         <HomeDeliveryForm
           brandName={brandName}
           prefix={prefix}
-          initialEnabled={data.homeDeliveryEnabled}
           initialName={data.originName}
           initialEmail={data.originEmail}
           initialPhone={data.originPhone}
@@ -119,7 +118,6 @@ export default function HomeDeliverySettingsPage() {
 function HomeDeliveryForm({
   brandName,
   prefix,
-  initialEnabled,
   initialName,
   initialEmail,
   initialPhone,
@@ -130,7 +128,6 @@ function HomeDeliveryForm({
   onSave,
   saving,
 }) {
-  const [enabled, setEnabled] = useState(Boolean(initialEnabled));
   const [name, setName] = useState(initialName || "");
   const [email, setEmail] = useState(initialEmail || "");
   const [phone, setPhone] = useState(initialPhone || "");
@@ -144,36 +141,10 @@ function HomeDeliveryForm({
   return (
     <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
 
-      {/* ENABLE / DISABLE DELIVERY */}
-      <div>
-        <label className="block text-sm font-bold text-white mb-1">Delivery Status</label>
-        <p className="text-xs text-neutral-500 mb-3">Enable or disable courier delivery for {brandName} at checkout.</p>
-        <div className="flex items-center gap-3 pt-1">
-          <button
-            type="button"
-            onClick={() => setEnabled(true)}
-            className={`px-5 py-2.5 rounded-full text-xs font-bold transition ${
-              enabled ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
-            }`}
-          >
-            Delivery ON
-          </button>
-          <button
-            type="button"
-            onClick={() => setEnabled(false)}
-            className={`px-5 py-2.5 rounded-full text-xs font-bold transition ${
-              !enabled ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
-            }`}
-          >
-            Delivery OFF
-          </button>
-        </div>
-      </div>
-
       {/* DISPATCH ORIGIN ADDRESS */}
-      <div className="border-t border-white/10 pt-6">
+      <div>
         <h3 className="text-base font-black text-amber-400 mb-1">Physical Dispatch Origin</h3>
-        <p className="text-xs text-neutral-500 mb-5">The physical address used to quote live courier rates and generate waybill labels.</p>
+        <p className="text-xs text-neutral-500 mb-5">The physical origin address used to quote live Shipbubble courier rates and generate waybill labels.</p>
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
@@ -218,7 +189,6 @@ function HomeDeliveryForm({
         disabled={saving}
         onClick={() =>
           onSave({
-            [`${prefix}HomeDeliveryEnabled`]: String(enabled),
             [`${prefix}ShipbubbleOriginName`]: name,
             [`${prefix}ShipbubbleOriginEmail`]: email,
             [`${prefix}ShipbubbleOriginPhone`]: phone,
