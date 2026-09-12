@@ -16,9 +16,16 @@ const DEFAULT_SETTINGS = {
   facebook: "",
   tiktok: "",
 
-  // Shipping
+  // Shipping & Shipbubble Delivery Origin
   shippingFee: "",
   freeShippingThreshold: "",
+  shipbubbleOriginName: "",
+  shipbubbleOriginEmail: "",
+  shipbubbleOriginPhone: "",
+  shipbubbleOriginCountry: "Nigeria",
+  shipbubbleOriginState: "",
+  shipbubbleOriginCity: "",
+  shipbubbleOriginStreet: "",
 
   // Announcement
   announcementEnabled: "false",
@@ -701,14 +708,48 @@ export default function SettingsPage() {
                         </p>
 
                         <p className="mt-1 text-[11px] leading-5 text-neutral-600">
-                          Customers will pay the flat shipping fee
-                          unless their order reaches the configured
-                          free-shipping threshold.
+                          Shipbubble courier rates are calculated dynamically from your physical delivery origin address configured below to the customer destination.
                         </p>
                       </div>
                     </div>
                   </div>
 
+                </div>
+
+                {/* SHIPBUBBLE DELIVERY ORIGIN */}
+                <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                  <h3 className="text-lg font-black text-amber-400">Shipbubble Delivery Origin</h3>
+                  <p className="text-xs text-neutral-500">The physical dispatch origin address used to fetch live Shipbubble courier rates and generate waybill labels.</p>
+
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <Field label="Business / Store Name">
+                      <input value={settings.shipbubbleOriginName || ""} onChange={(e) => updateSetting("shipbubbleOriginName", e.target.value)} placeholder="VÉRANE Atelier" className={inputClass} />
+                    </Field>
+
+                    <Field label="Phone">
+                      <input value={settings.shipbubbleOriginPhone || ""} onChange={(e) => updateSetting("shipbubbleOriginPhone", e.target.value)} placeholder="+234..." className={inputClass} />
+                    </Field>
+
+                    <Field label="Email">
+                      <input value={settings.shipbubbleOriginEmail || ""} onChange={(e) => updateSetting("shipbubbleOriginEmail", e.target.value)} placeholder="orders@verane.com" className={inputClass} />
+                    </Field>
+
+                    <Field label="Country">
+                      <input value={settings.shipbubbleOriginCountry || "Nigeria"} onChange={(e) => updateSetting("shipbubbleOriginCountry", e.target.value)} placeholder="Nigeria" className={inputClass} />
+                    </Field>
+
+                    <Field label="State">
+                      <input value={settings.shipbubbleOriginState || ""} onChange={(e) => updateSetting("shipbubbleOriginState", e.target.value)} placeholder="Lagos" className={inputClass} />
+                    </Field>
+
+                    <Field label="City">
+                      <input value={settings.shipbubbleOriginCity || ""} onChange={(e) => updateSetting("shipbubbleOriginCity", e.target.value)} placeholder="Victoria Island" className={inputClass} />
+                    </Field>
+                  </div>
+
+                  <Field label="Street Address">
+                    <textarea value={settings.shipbubbleOriginStreet || ""} onChange={(e) => updateSetting("shipbubbleOriginStreet", e.target.value)} rows={2} placeholder="Physical street address..." className={`${inputClass} resize-none`} />
+                  </Field>
                 </div>
               </div>
             )}

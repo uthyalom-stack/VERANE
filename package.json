@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "npx prisma@5 generate && npx prisma@5 migrate deploy && next build",
+    "build": "npx prisma@5 generate && next build",
     "start": "next start",
     "test": "node --experimental-loader ./tests/loader.mjs tests/test_security_audit_suite.js"
   },

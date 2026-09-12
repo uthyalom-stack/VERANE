@@ -305,6 +305,26 @@ function BrandDashboard({
             onClick={() => go(`/admin/collections?brand=${productBrand}`)}
           />
 
+          {/* DELIVERY */}
+
+          <DashboardCard
+            icon="orders"
+            title="Delivery"
+            description="Configure physical dispatch origin for Shipbubble delivery."
+            accent={accent}
+            onClick={() => go("/admin/delivery")}
+          />
+
+          {/* PICKUP SETTINGS */}
+
+          <DashboardCard
+            icon="orders"
+            title="Pickup Settings"
+            description="Configure physical atelier pickup location & scheduling."
+            accent={accent}
+            onClick={() => go("/admin/pickup-settings")}
+          />
+
           {/* ORDERS */}
 
           <DashboardCard

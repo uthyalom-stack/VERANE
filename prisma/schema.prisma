@@ -65,7 +65,11 @@ model Product {
   fulfillmentTime        String?
   preOrderEnabled        Boolean                @default(false)
   sizeType               String?
-sizeGuideImage String?
+  sizeGuideImage         String?
+  weight                 Float?
+  packageLength          Float?                 @default(15)
+  packageWidth           Float?                 @default(15)
+  packageHeight          Float?                 @default(15)
   archivedAt             DateTime?
   collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
@@ -84,17 +88,18 @@ sizeGuideImage String?
 }
 
 model Category {
-  id          String    @id @default(cuid())
-  brand       String
-  name        String
-  slug        String
-  description String?
-  sizeType    String    @default("none")
-  enabled     Boolean   @default(true)
-  sortOrder   Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  products    Product[]
+  id            String    @id @default(cuid())
+  brand         String
+  name          String
+  slug          String
+  description   String?
+  sizeType      String    @default("none")
+  shippingWeight Float?
+  enabled       Boolean   @default(true)
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  products      Product[]
 
   @@unique([brand, slug])
   @@index([brand])
@@ -165,6 +170,41 @@ model Order {
   items               OrderItem[]
   attribution         OrderAttribution?
   brandTrackings      OrderBrandTracking[]
+  fulfillment         OrderFulfillment?
+}
+
+model OrderFulfillment {
+  id                  String    @id @default(cuid())
+  orderId             String    @unique
+  fulfillmentType     String    @default("delivery") // "delivery" | "pickup"
+  fulfillmentStatus   String    @default("unfulfilled") // "unfulfilled" | "fulfilled" | "cancelled"
+
+  // Delivery / Shipbubble Fields
+  courierId           String?
+  courierName         String?
+  serviceCode         String?
+  serviceName         String?
+  rateToken           String?
+  waybillNumber       String?
+  labelUrl            String?
+  trackingUrl         String?
+  waybillGeneratedAt  DateTime?
+
+  // Customer Pickup Fields
+  pickupBrand         String?   // "UTHY" | "ALOMZIEE"
+  pickupAddress       String?
+  pickupInstructions  String?
+  requestedPickupDate String?   // YYYY-MM-DD
+  isImmediatePickup   Boolean   @default(false)
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  order               Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([fulfillmentType])
+  @@index([fulfillmentStatus])
 }
 
 model OrderBrandTracking {
@@ -326,6 +366,8 @@ model Collaboration {
   description String?
   brandA      String
   brandB      String
+  creatorBrand String?               // The requesting/creator brand (e.g. "UTHY" or "ALOMZIEE")
+  creatorRole  String?               // Creator role ("UTHY" | "ALOMZIEE")
   status      String                 @default("active")
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
@@ -334,6 +376,8 @@ model Collaboration {
 
   @@index([brandA])
   @@index([brandB])
+  @@index([creatorBrand])
+  @@index([creatorRole])
   @@index([status])
 }
 

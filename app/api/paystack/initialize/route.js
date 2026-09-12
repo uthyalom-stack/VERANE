@@ -56,6 +56,9 @@ export async function POST(request) {
       city,
       zone,
       address,
+      fulfillmentType,
+      selectedCourier,
+      requestedPickupDate,
     } = body;
 
     if (!Array.isArray(rawItems) || rawItems.length === 0) {
@@ -69,13 +72,26 @@ export async function POST(request) {
       );
     }
 
-    // 1. NEVER TRUST CLIENT MONEY: Recalculate merchandise subtotal, shipping fee, and total server-side
-    const calculation = await calculateOrderTotalsServer({
-      items: rawItems,
+    const receiverAddress = {
+      firstName,
+      lastName,
+      email,
+      phone,
       country: country || "Nigeria",
       state,
       city,
       zone,
+      address,
+      streetAddress: address,
+    };
+
+    // 1. NEVER TRUST CLIENT MONEY: Recalculate merchandise subtotal, shipping fee, and total server-side
+    const calculation = await calculateOrderTotalsServer({
+      items: rawItems,
+      fulfillmentType: fulfillmentType || "delivery",
+      selectedCourier,
+      requestedPickupDate,
+      receiverAddress,
     });
 
     const trustedSubtotal = calculation.subtotal;
@@ -95,6 +111,8 @@ export async function POST(request) {
       subtotal: trustedSubtotal,
       shippingFee: trustedShippingFee,
       total: trustedGrandTotal,
+      fulfillmentType: calculation.fulfillmentType,
+      fulfillmentDetails: calculation.fulfillmentDetails,
       firstName,
       lastName,
       email,
@@ -152,7 +170,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to initialize payment.",
+        error: error?.message || "Failed to initialize payment.",
       },
       { status: 500 }
     );
