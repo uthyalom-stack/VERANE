@@ -424,6 +424,13 @@ async function runTests() {
   assert.strictEqual(pItem.unit_amount, 100000, "package_items[0].unit_amount matches contract");
   assert.strictEqual(pItem.quantity, 1, "package_items[0].quantity matches contract");
 
+  const itemKeys = Object.keys(pItem).sort();
+  assert.deepStrictEqual(
+    itemKeys,
+    ["description", "name", "quantity", "unit_amount", "unit_weight"],
+    "package_items[0] contains ONLY official documented contract keys (no unit_price or weight)"
+  );
+
   global.fetch = ratesFetchMock;
   delete process.env.SHIPBUBBLE_CATEGORY_ID;
   delete process.env.SHIPBUBBLE_API_KEY;
