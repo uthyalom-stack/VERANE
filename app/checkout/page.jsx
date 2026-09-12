@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
@@ -28,6 +28,14 @@ export default function CheckoutPage() {
     cities: [],
   });
 
+  // Photon Address Autocomplete state
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [loadingAddressSearch, setLoadingAddressSearch] = useState(false);
+  const [showAddressDropdown, setShowAddressDropdown] = useState(false);
+  const [selectedAddressObj, setSelectedAddressObj] = useState(null);
+  const [isAddressSelected, setIsAddressSelected] = useState(false);
+
+  // Shipbubble Shipping Rates & Selected Courier
   const [shippingRates, setShippingRates] = useState({ couriers: [], requestToken: null });
   const [selectedCourier, setSelectedCourier] = useState(null);
   const [loadingRates, setLoadingRates] = useState(false);
@@ -51,6 +59,9 @@ export default function CheckoutPage() {
     address: "",
   });
 
+  const addressSearchAbortRef = useRef(null);
+  const dropdownRef = useRef(null);
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem("cart");
@@ -70,6 +81,17 @@ export default function CheckoutPage() {
     }
 
     loadCustomerSessionAndAddresses();
+  }, []);
+
+  // Close address dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowAddressDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   async function loadCustomerSessionAndAddresses() {
@@ -129,6 +151,15 @@ export default function CheckoutPage() {
       zone: "",
       address: addr.streetAddress || "",
     });
+
+    setIsAddressSelected(true);
+    setSelectedAddressObj({
+      formattedAddress: `${addr.streetAddress}, ${addr.city}, ${addr.state}, ${addr.country}`,
+      street: addr.streetAddress,
+      city: addr.city,
+      state: addr.state,
+      country: addr.country,
+    });
   }
 
   function handleSelectSavedAddress(addrId) {
@@ -141,11 +172,16 @@ export default function CheckoutPage() {
 
   function handleSwitchToManual() {
     setAddressMode("manual");
+    setIsAddressSelected(false);
+    setSelectedAddressObj(null);
+    setSelectedCourier(null);
+    setShippingRates({ couriers: [], requestToken: null });
     setForm((prev) => ({
       ...prev,
       firstName: customer?.name?.split(" ")[0] || prev.firstName,
       lastName: customer?.name?.split(" ").slice(1).join(" ") || prev.lastName,
       email: customer?.email || prev.email,
+      address: "",
     }));
   }
 
@@ -215,46 +251,144 @@ export default function CheckoutPage() {
     }
   }
 
-  // Auto-fetch Shipbubble courier rates with AbortController cancellation & debouncing
+  // Handle Street Address Typing -> Photon Autocomplete Search (NO Shipbubble calls!)
+  function handleStreetAddressChange(e) {
+    const value = e.target.value;
+
+    setForm((prev) => ({ ...prev, address: value }));
+
+    // Invalidate selected address and courier choices upon manual address modification
+    setIsAddressSelected(false);
+    setSelectedAddressObj(null);
+    setSelectedCourier(null);
+    setShippingRates({ couriers: [], requestToken: null });
+    setRatesError("");
+
+    if (!value || value.trim().length < 3) {
+      setAddressSuggestions([]);
+      setShowAddressDropdown(false);
+      setLoadingAddressSearch(false);
+      return;
+    }
+
+    if (addressSearchAbortRef.current) {
+      addressSearchAbortRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    addressSearchAbortRef.current = controller;
+
+    setLoadingAddressSearch(true);
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const query = encodeURIComponent(value.trim());
+        const country = encodeURIComponent(form.country || "Nigeria");
+        const res = await fetch(`/api/address-search?q=${query}&country=${country}`, {
+          signal: controller.signal,
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success && Array.isArray(data.results)) {
+          setAddressSuggestions(data.results);
+          setShowAddressDropdown(data.results.length > 0);
+        } else {
+          setAddressSuggestions([]);
+          setShowAddressDropdown(false);
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error("Address search error:", err);
+          setAddressSuggestions([]);
+          setShowAddressDropdown(false);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingAddressSearch(false);
+        }
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }
+
+  // Handle explicitly selecting an address suggestion from the autocomplete dropdown
+  function handleSelectAddressSuggestion(suggestion) {
+    if (!suggestion) return;
+
+    // Standardize address state/city matching with local Nigeria lists where applicable
+    let matchedState = suggestion.state || form.state || "";
+    if (form.country.toLowerCase() === "nigeria" && suggestion.state) {
+      const foundState = NIGERIAN_STATES.find(
+        (s) => s.toLowerCase() === suggestion.state.trim().toLowerCase()
+      );
+      if (foundState) matchedState = foundState;
+    }
+
+    let matchedCity = suggestion.city || suggestion.district || form.city || "";
+    if (form.country.toLowerCase() === "nigeria" && matchedState && NIGERIA_LOCATIONS[matchedState]) {
+      const foundCity = NIGERIA_LOCATIONS[matchedState].find(
+        (c) => c.toLowerCase() === (suggestion.city || suggestion.district || "").trim().toLowerCase()
+      );
+      if (foundCity) matchedCity = foundCity;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      address: suggestion.street || suggestion.formattedAddress,
+      state: matchedState || prev.state,
+      city: matchedCity || prev.city,
+      zone: suggestion.district || prev.zone,
+      country: suggestion.country || prev.country || "Nigeria",
+    }));
+
+    setSelectedAddressObj(suggestion);
+    setIsAddressSelected(true);
+    setShowAddressDropdown(false);
+    setAddressSuggestions([]);
+  }
+
+  function handleClearAddressSelection() {
+    setIsAddressSelected(false);
+    setSelectedAddressObj(null);
+    setSelectedCourier(null);
+    setShippingRates({ couriers: [], requestToken: null });
+    setRatesError("");
+  }
+
+  // Fetch Shipbubble courier rates ONLY AFTER address selection is validated!
   useEffect(() => {
-    // If user switches to pickup, immediately invalidate delivery courier choices and stop fetching
-    if (fulfillmentType !== "delivery") {
+    // Zero Shipbubble calls for pickup mode or unvalidated address
+    if (fulfillmentType !== "delivery" || !isAddressSelected) {
       setShippingRates({ couriers: [], requestToken: null });
       setSelectedCourier(null);
       setLoadingRates(false);
       return;
     }
 
-    // Invalidate currently selected courier & previous quotes when address changes
-    setSelectedCourier(null);
-
-    const isAddressComplete =
+    const isContactReady =
       cart.items.length > 0 &&
       form.firstName &&
       form.email &&
       form.phone &&
       form.state &&
       form.city &&
-      form.address &&
-      form.address.trim().length >= 5;
+      form.address;
 
-    if (!isAddressComplete) {
-      setShippingRates({ couriers: [], requestToken: null });
+    if (!isContactReady) {
       setLoadingRates(false);
       return;
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      fetchShippingRates(controller.signal);
-    }, 600);
+    fetchShippingRates(controller.signal);
 
     return () => {
-      clearTimeout(timeoutId);
       controller.abort();
     };
   }, [
     fulfillmentType,
+    isAddressSelected,
     cart.items,
     form.firstName,
     form.lastName,
@@ -306,7 +440,6 @@ export default function CheckoutPage() {
       }
     } catch (err) {
       if (err.name === "AbortError") {
-        // Request cancelled due to newer address input
         return;
       }
       console.error("Fetch shipping rates error:", err);
@@ -317,7 +450,6 @@ export default function CheckoutPage() {
       }
     }
   }
-
 
   const updateField = (event) => {
     const { name, value } = event.target;
@@ -335,6 +467,12 @@ export default function CheckoutPage() {
 
       return next;
     });
+
+    // Modifying state/city directly invalidates selected courier quote
+    if (name === "state" || name === "city" || name === "country") {
+      setSelectedCourier(null);
+      setShippingRates({ couriers: [], requestToken: null });
+    }
   };
 
   const getImages = (images) => {
@@ -364,8 +502,8 @@ export default function CheckoutPage() {
     }
 
     if (fulfillmentType === "delivery") {
-      if (!form.address || !form.state || !form.city) {
-        alert("Please complete delivery destination details (State, City, and Street Address).");
+      if (!isAddressSelected || !form.address || !form.state || !form.city) {
+        alert("Please select a valid delivery address from the suggestions before proceeding.");
         return;
       }
       if (!selectedCourier) {
@@ -786,18 +924,80 @@ export default function CheckoutPage() {
                         />
                       </div>
 
-                      <div>
+                      {/* PHOTON OPENSTREETMAP ADDRESS AUTOCOMPLETE INPUT */}
+                      <div className="relative" ref={dropdownRef}>
                         <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
-                          Complete Physical Address *
+                          Street Address (Type & Select Suggestion) *
                         </label>
                         <textarea
                           name="address"
                           value={form.address}
-                          onChange={updateField}
-                          rows={3}
-                          placeholder="Street address, house number, suite, or apartment..."
-                          className="w-full rounded-2xl border border-white/10 bg-neutral-900/90 p-4 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50 resize-none"
+                          onChange={handleStreetAddressChange}
+                          onFocus={() => {
+                            if (addressSuggestions.length > 0 && !isAddressSelected) {
+                              setShowAddressDropdown(true);
+                            }
+                          }}
+                          rows={2}
+                          placeholder="Type street name or house number (e.g. 12 Admiralty Way)..."
+                          className={`w-full rounded-2xl border bg-neutral-900/90 p-4 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50 resize-none transition ${
+                            isAddressSelected ? "border-emerald-500/50 bg-emerald-950/10" : "border-white/10"
+                          }`}
                         />
+
+                        {/* STATUS INDICATORS FOR ADDRESS SEARCH */}
+                        {loadingAddressSearch && (
+                          <div className="mt-2 flex items-center gap-2 text-xs text-amber-400 font-medium">
+                            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/10 border-t-amber-400" />
+                            <span>Searching addresses...</span>
+                          </div>
+                        )}
+
+                        {/* AUTOCOMPLETE SUGGESTIONS DROPDOWN */}
+                        {showAddressDropdown && addressSuggestions.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl border border-amber-400/40 bg-neutral-900/95 p-2 shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto">
+                            <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-couture text-amber-400 border-b border-white/10 mb-1">
+                              Select Address Suggestion
+                            </div>
+                            {addressSuggestions.map((suggestion) => (
+                              <div
+                                key={suggestion.id}
+                                onClick={() => handleSelectAddressSuggestion(suggestion)}
+                                className="p-3 rounded-xl hover:bg-amber-400/10 text-neutral-200 hover:text-white cursor-pointer transition flex flex-col border-b border-white/5 last:border-0"
+                              >
+                                <span className="text-xs font-semibold text-white">
+                                  {suggestion.street || suggestion.formattedAddress}
+                                </span>
+                                <span className="text-[10px] text-neutral-400 mt-0.5">
+                                  {suggestion.formattedAddress}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* SELECTION BADGE OR HINT */}
+                        {isAddressSelected ? (
+                          <div className="mt-2 flex items-center justify-between p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                              <span className="font-semibold">Validated Address Selected</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleClearAddressSelection}
+                              className="text-[10px] uppercase tracking-luxury text-neutral-400 hover:text-amber-400 underline"
+                            >
+                              Change
+                            </button>
+                          </div>
+                        ) : (
+                          !loadingAddressSearch && (
+                            <p className="mt-2 text-[11px] text-amber-400/80 font-light italic">
+                              💡 Type your street address and select a suggestion above to view available express couriers.
+                            </p>
+                          )
+                        )}
                       </div>
 
                       {customer && addressMode === "manual" && (
@@ -823,11 +1023,12 @@ export default function CheckoutPage() {
                       4. SELECT COURIER & EXPRESS SERVICE
                     </p>
 
+                    {/* Shipbubble Rate Calculation Loading State */}
                     {loadingRates && (
                       <div className="p-5 rounded-2xl bg-neutral-900/80 border border-white/10 flex items-center gap-3">
                         <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-amber-400 shrink-0" />
                         <span className="text-xs font-semibold text-neutral-300">
-                          Calculating live express shipping quotes...
+                          Finding available couriers...
                         </span>
                       </div>
                     )}
@@ -891,10 +1092,10 @@ export default function CheckoutPage() {
                     {!loadingRates &&
                       shippingRates.couriers.length === 0 &&
                       !ratesError &&
-                      (!form.address || form.address.trim().length < 5) && (
-                        <p className="text-xs text-neutral-500 font-light italic">
-                          Please enter your complete physical street address above to view live courier quotes.
-                        </p>
+                      !isAddressSelected && (
+                        <div className="p-4 rounded-xl border border-white/10 bg-neutral-900/40 text-neutral-400 text-xs font-light italic">
+                          Select your delivery address from suggestions above to view available express couriers.
+                        </div>
                       )}
                   </div>
                 </div>
@@ -1069,7 +1270,7 @@ export default function CheckoutPage() {
                       ? "Free Pickup (₦0)"
                       : currentShippingFee > 0
                       ? `₦${currentShippingFee.toLocaleString()}`
-                      : "Calculated at address entry"}
+                      : "Calculated at address selection"}
                   </span>
                 </div>
 
