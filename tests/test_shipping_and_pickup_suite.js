@@ -1,6 +1,6 @@
 import assert from "assert";
 import { resolveOrderPickupBrand, calculatePickupDates, getPickupDetailsForCart } from "../lib/pickup-resolver.js";
-import { fetchShipbubbleRates, generateShipbubbleLabel, getShipbubbleOriginAddress, resolveShipbubbleAddressCode } from "../lib/shipbubble.js";
+import { fetchShipbubbleRates, generateShipbubbleLabel, getShipbubbleOriginAddress, resolveShipbubbleAddressCode, getShipbubbleCategoryId } from "../lib/shipbubble.js";
 import { calculateOrderTotalsServer } from "../lib/paystack.js";
 import { resolveItemUnitWeight, calculateParcelPackageDetails, isValidCategoryShippingWeight } from "../lib/shipping-weights.js";
 import { db } from "./mock_prisma.js";
@@ -255,6 +255,16 @@ async function runTests() {
   assert.strictEqual(pickupCalc.shippingFee, 0, "Pickup shipping fee must be strictly ₦0");
   assert.strictEqual(pickupCalc.total, 100000, "Pickup grand total equals product total");
   console.log("✓ 4.1 Pickup shipping fee is ₦0");
+
+  // TEST 4.2b: Shipbubble Category ID resolution hierarchy
+  const defaultCatId = await getShipbubbleCategoryId();
+  assert.strictEqual(defaultCatId, "cat_apparel_01", "Default Shipbubble Category ID is cat_apparel_01");
+
+  process.env.SHIPBUBBLE_CATEGORY_ID = "cat_custom_99";
+  const envCatId = await getShipbubbleCategoryId();
+  assert.strictEqual(envCatId, "cat_custom_99", "SHIPBUBBLE_CATEGORY_ID env var overrides category ID");
+  delete process.env.SHIPBUBBLE_CATEGORY_ID;
+  console.log("✓ 4.2b Shipbubble Category ID resolution hierarchy verified");
 
   // TEST 4.3: Physical delivery origin address loading & dynamic address code resolution
   const dynamicOrigin = await getShipbubbleOriginAddress();
