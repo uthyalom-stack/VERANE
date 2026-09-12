@@ -745,6 +745,10 @@ export default function SettingsPage() {
                     <Field label="City">
                       <input value={settings.shipbubbleOriginCity || ""} onChange={(e) => updateSetting("shipbubbleOriginCity", e.target.value)} placeholder="Victoria Island" className={inputClass} />
                     </Field>
+
+                    <Field label="Shipbubble Category ID" description="Package Category ID retrieved from Shipbubble merchant account.">
+                      <input value={settings.shipbubbleCategoryId || ""} onChange={(e) => updateSetting("shipbubbleCategoryId", e.target.value)} placeholder="e.g. 12345 or cat_..." className={inputClass} />
+                    </Field>
                   </div>
 
                   <Field label="Street Address">

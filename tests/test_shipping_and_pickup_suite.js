@@ -1,6 +1,6 @@
 import assert from "assert";
 import { resolveOrderPickupBrand, calculatePickupDates, getPickupDetailsForCart } from "../lib/pickup-resolver.js";
-import { fetchShipbubbleRates, generateShipbubbleLabel, getShipbubbleOriginAddress, resolveShipbubbleAddressCode, getShipbubbleCategoryId } from "../lib/shipbubble.js";
+import { fetchShipbubbleRates, generateShipbubbleLabel, getShipbubbleOriginAddress, resolveShipbubbleAddressCode, getShipbubbleCategoryId, getShipbubbleCategories } from "../lib/shipbubble.js";
 import { calculateOrderTotalsServer } from "../lib/paystack.js";
 import { resolveItemUnitWeight, calculateParcelPackageDetails, isValidCategoryShippingWeight } from "../lib/shipping-weights.js";
 import { db } from "./mock_prisma.js";
@@ -256,15 +256,32 @@ async function runTests() {
   assert.strictEqual(pickupCalc.total, 100000, "Pickup grand total equals product total");
   console.log("✓ 4.1 Pickup shipping fee is ₦0");
 
-  // TEST 4.2b: Shipbubble Category ID resolution hierarchy
-  const defaultCatId = await getShipbubbleCategoryId();
-  assert.strictEqual(defaultCatId, "cat_apparel_01", "Default Shipbubble Category ID is cat_apparel_01");
+  // TEST 4.2b: Shipbubble Category ID configuration requirement & Categories API
+  const mockCategories = await getShipbubbleCategories();
+  assert.ok(Array.isArray(mockCategories) && mockCategories.length > 0, "getShipbubbleCategories returns category list");
+  assert.ok(mockCategories[0].category_id, "Category item contains category_id");
 
-  process.env.SHIPBUBBLE_CATEGORY_ID = "cat_custom_99";
-  const envCatId = await getShipbubbleCategoryId();
-  assert.strictEqual(envCatId, "cat_custom_99", "SHIPBUBBLE_CATEGORY_ID env var overrides category ID");
+  // Verify production mode throws explicit error when shipbubbleCategoryId is unconfigured
+  process.env.NODE_ENV = "production";
+  process.env.SHIPBUBBLE_MOCK_MODE = "false";
+  db.siteSettings = db.siteSettings.filter((s) => s.key !== "shipbubbleCategoryId");
   delete process.env.SHIPBUBBLE_CATEGORY_ID;
-  console.log("✓ 4.2b Shipbubble Category ID resolution hierarchy verified");
+
+  await assert.rejects(
+    async () => getShipbubbleCategoryId(),
+    /Shipbubble Category ID is not configured/,
+    "Unconfigured Category ID in production throws explicit configuration error"
+  );
+
+  // Verify configured env var or site setting resolves
+  process.env.SHIPBUBBLE_CATEGORY_ID = "12345";
+  const configuredCatId = await getShipbubbleCategoryId();
+  assert.strictEqual(configuredCatId, "12345", "Configured SHIPBUBBLE_CATEGORY_ID resolves correctly");
+
+  delete process.env.SHIPBUBBLE_CATEGORY_ID;
+  process.env.NODE_ENV = "test";
+  process.env.SHIPBUBBLE_MOCK_MODE = "true";
+  console.log("✓ 4.2b Shipbubble Category ID configuration requirement & Categories API verified");
 
   // TEST 4.3: Physical delivery origin address loading & dynamic address code resolution
   const dynamicOrigin = await getShipbubbleOriginAddress();
