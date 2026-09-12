@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { NIGERIA_LOCATIONS, NIGERIAN_STATES } from "@/lib/nigeria-locations";
@@ -28,7 +28,7 @@ export default function CheckoutPage() {
     cities: [],
   });
 
-  // Photon Address Autocomplete state
+  // Geoapify / Lokate Address Autocomplete state
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [loadingAddressSearch, setLoadingAddressSearch] = useState(false);
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
@@ -60,6 +60,8 @@ export default function CheckoutPage() {
   });
 
   const addressSearchAbortRef = useRef(null);
+  const rateRequestAbortRef = useRef(null);
+  const lastFetchedAddressSignatureRef = useRef("");
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -140,6 +142,8 @@ export default function CheckoutPage() {
     const firstName = names[0] || "";
     const lastName = names.slice(1).join(" ") || "";
 
+    const fullStreetAddress = addr.streetAddress || "";
+
     setForm({
       firstName,
       lastName,
@@ -149,16 +153,20 @@ export default function CheckoutPage() {
       state: addr.state || "",
       city: addr.city || "",
       zone: "",
-      address: addr.streetAddress || "",
+      address: fullStreetAddress,
     });
+
+    const fullFormatted = [fullStreetAddress, addr.city, addr.state, addr.country].filter(Boolean).join(", ");
 
     setIsAddressSelected(true);
     setSelectedAddressObj({
-      formattedAddress: `${addr.streetAddress}, ${addr.city}, ${addr.state}, ${addr.country}`,
-      street: addr.streetAddress,
+      formattedAddress: fullFormatted,
+      addressLine1: fullStreetAddress,
+      street: fullStreetAddress,
       city: addr.city,
       state: addr.state,
       country: addr.country,
+      provider: "saved_account",
     });
   }
 
@@ -176,6 +184,8 @@ export default function CheckoutPage() {
     setSelectedAddressObj(null);
     setSelectedCourier(null);
     setShippingRates({ couriers: [], requestToken: null });
+    setRatesError("");
+    lastFetchedAddressSignatureRef.current = "";
     setForm((prev) => ({
       ...prev,
       firstName: customer?.name?.split(" ")[0] || prev.firstName,
@@ -251,7 +261,7 @@ export default function CheckoutPage() {
     }
   }
 
-  // Handle Street Address Typing -> Photon Autocomplete Search (NO Shipbubble calls!)
+  // Handle Street Address Typing -> Geoapify/Lokate Autocomplete Search (NO Shipbubble calls!)
   function handleStreetAddressChange(e) {
     const value = e.target.value;
 
@@ -263,8 +273,10 @@ export default function CheckoutPage() {
     setSelectedCourier(null);
     setShippingRates({ couriers: [], requestToken: null });
     setRatesError("");
+    lastFetchedAddressSignatureRef.current = "";
 
-    if (!value || value.trim().length < 3) {
+    // HARD REQUIREMENT: Minimum 5 characters before searching
+    if (!value || value.trim().length < 5) {
       setAddressSuggestions([]);
       setShowAddressDropdown(false);
       setLoadingAddressSearch(false);
@@ -280,11 +292,11 @@ export default function CheckoutPage() {
 
     setLoadingAddressSearch(true);
 
+    // 600ms Debounce to preserve API quotas and reduce network churn
     const timeoutId = setTimeout(async () => {
       try {
         const query = encodeURIComponent(value.trim());
-        const country = encodeURIComponent(form.country || "Nigeria");
-        const res = await fetch(`/api/address-search?q=${query}&country=${country}`, {
+        const res = await fetch(`/api/address-search?q=${query}`, {
           signal: controller.signal,
         });
 
@@ -307,7 +319,7 @@ export default function CheckoutPage() {
           setLoadingAddressSearch(false);
         }
       }
-    }, 300);
+    }, 600);
 
     return () => clearTimeout(timeoutId);
   }
@@ -316,7 +328,9 @@ export default function CheckoutPage() {
   function handleSelectAddressSuggestion(suggestion) {
     if (!suggestion) return;
 
-    // Standardize address state/city matching with local Nigeria lists where applicable
+    // PRESERVE COMPLETE STRUCTURED ADDRESS: Formatted address contains house number, building, street, district!
+    const completeAddressStr = suggestion.formattedAddress || suggestion.addressLine1 || suggestion.street || "";
+
     let matchedState = suggestion.state || form.state || "";
     if (form.country.toLowerCase() === "nigeria" && suggestion.state) {
       const foundState = NIGERIAN_STATES.find(
@@ -335,7 +349,7 @@ export default function CheckoutPage() {
 
     setForm((prev) => ({
       ...prev,
-      address: suggestion.street || suggestion.formattedAddress,
+      address: completeAddressStr,
       state: matchedState || prev.state,
       city: matchedCity || prev.city,
       zone: suggestion.district || prev.zone,
@@ -354,15 +368,33 @@ export default function CheckoutPage() {
     setSelectedCourier(null);
     setShippingRates({ couriers: [], requestToken: null });
     setRatesError("");
+    lastFetchedAddressSignatureRef.current = "";
   }
 
-  // Fetch Shipbubble courier rates ONLY AFTER address selection is validated!
+  // Address signature for deduplication and effect lifecycle management
+  const currentAddressSignature = useMemo(() => {
+    if (!isAddressSelected || fulfillmentType !== "delivery") return "";
+    return `${form.firstName}|${form.email}|${form.phone}|${form.address}|${form.city}|${form.state}|${form.country}|${cart.items.length}`;
+  }, [
+    isAddressSelected,
+    fulfillmentType,
+    form.firstName,
+    form.email,
+    form.phone,
+    form.address,
+    form.city,
+    form.state,
+    form.country,
+    cart.items.length,
+  ]);
+
+  // Fetch Shipbubble courier rates ONLY AFTER explicit address selection!
   useEffect(() => {
-    // Zero Shipbubble calls for pickup mode or unvalidated address
     if (fulfillmentType !== "delivery" || !isAddressSelected) {
       setShippingRates({ couriers: [], requestToken: null });
       setSelectedCourier(null);
       setLoadingRates(false);
+      lastFetchedAddressSignatureRef.current = "";
       return;
     }
 
@@ -380,16 +412,29 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Deduplication check: Do not re-fetch if address signature has not changed
+    if (currentAddressSignature && lastFetchedAddressSignatureRef.current === currentAddressSignature) {
+      return;
+    }
+
+    if (rateRequestAbortRef.current) {
+      rateRequestAbortRef.current.abort();
+    }
+
     const controller = new AbortController();
+    rateRequestAbortRef.current = controller;
+
+    lastFetchedAddressSignatureRef.current = currentAddressSignature;
     fetchShippingRates(controller.signal);
 
     return () => {
       controller.abort();
     };
   }, [
+    currentAddressSignature,
     fulfillmentType,
     isAddressSelected,
-    cart.items,
+    cart.items.length,
     form.firstName,
     form.lastName,
     form.email,
@@ -404,6 +449,9 @@ export default function CheckoutPage() {
     try {
       setLoadingRates(true);
       setRatesError("");
+
+      const completeReceiverAddressStr = selectedAddressObj?.formattedAddress || form.address;
+
       const res = await fetch("/api/checkout/get-shipping-rates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -420,8 +468,8 @@ export default function CheckoutPage() {
             state: form.state,
             city: form.city,
             zone: form.zone,
-            address: form.address,
-            streetAddress: form.address,
+            address: completeReceiverAddressStr,
+            streetAddress: completeReceiverAddressStr,
           },
         }),
       });
@@ -436,14 +484,14 @@ export default function CheckoutPage() {
       } else {
         setShippingRates({ couriers: [], requestToken: null });
         setSelectedCourier(null);
-        setRatesError(data.error || "No available shipping options found for this address.");
+        setRatesError(data.error || "No available shipping options found for this destination.");
       }
     } catch (err) {
       if (err.name === "AbortError") {
         return;
       }
-      console.error("Fetch shipping rates error:", err);
-      setRatesError("Failed to calculate shipping rates. Please check address details.");
+      console.error("Fetch shipping rates client error:", err);
+      setRatesError("Unable to retrieve delivery options right now. Please check address details or try again.");
     } finally {
       if (!signal || !signal.aborted) {
         setLoadingRates(false);
@@ -472,6 +520,7 @@ export default function CheckoutPage() {
     if (name === "state" || name === "city" || name === "country") {
       setSelectedCourier(null);
       setShippingRates({ couriers: [], requestToken: null });
+      lastFetchedAddressSignatureRef.current = "";
     }
   };
 
@@ -544,6 +593,8 @@ export default function CheckoutPage() {
         }
       }
 
+      const completeReceiverAddressStr = selectedAddressObj?.formattedAddress || form.address;
+
       const response = await fetch("/api/paystack/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -560,7 +611,7 @@ export default function CheckoutPage() {
           state: form.state || "Lagos",
           city: form.city || "Ikeja",
           zone: form.zone || "",
-          address: form.address || "Customer Atelier Pickup",
+          address: completeReceiverAddressStr || "Customer Atelier Pickup",
           fulfillmentType,
           selectedCourier: fulfillmentType === "delivery" ? selectedCourier : null,
           requestedPickupDate: fulfillmentType === "pickup" ? selectedPickupDate : null,
@@ -648,7 +699,9 @@ export default function CheckoutPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 {/* DELIVERY CHOICE */}
                 <div
-                  onClick={() => setFulfillmentType("delivery")}
+                  onClick={() => {
+                    setFulfillmentType("delivery");
+                  }}
                   className={`p-5 rounded-2xl border cursor-pointer transition flex flex-col justify-between ${
                     fulfillmentType === "delivery"
                       ? "border-amber-400 bg-amber-400/10 text-white shadow-lg shadow-amber-400/5"
@@ -678,7 +731,9 @@ export default function CheckoutPage() {
 
                 {/* PICKUP CHOICE */}
                 <div
-                  onClick={() => setFulfillmentType("pickup")}
+                  onClick={() => {
+                    setFulfillmentType("pickup");
+                  }}
                   className={`p-5 rounded-2xl border cursor-pointer transition flex flex-col justify-between ${
                     fulfillmentType === "pickup"
                       ? "border-amber-400 bg-amber-400/10 text-white shadow-lg shadow-amber-400/5"
@@ -924,7 +979,7 @@ export default function CheckoutPage() {
                         />
                       </div>
 
-                      {/* PHOTON OPENSTREETMAP ADDRESS AUTOCOMPLETE INPUT */}
+                      {/* GEOAPIFY / LOKATE ADDRESS AUTOCOMPLETE INPUT */}
                       <div className="relative" ref={dropdownRef}>
                         <label className="block text-[10px] uppercase tracking-luxury text-neutral-400 mb-1.5">
                           Street Address (Type & Select Suggestion) *
@@ -939,7 +994,7 @@ export default function CheckoutPage() {
                             }
                           }}
                           rows={2}
-                          placeholder="Type street name or house number (e.g. 12 Admiralty Way)..."
+                          placeholder="Type house number and street name (e.g. 12 Admiralty Way, Lekki)..."
                           className={`w-full rounded-2xl border bg-neutral-900/90 p-4 text-sm text-white outline-none placeholder:text-neutral-600 focus:border-amber-400/50 resize-none transition ${
                             isAddressSelected ? "border-emerald-500/50 bg-emerald-950/10" : "border-white/10"
                           }`}
@@ -956,8 +1011,9 @@ export default function CheckoutPage() {
                         {/* AUTOCOMPLETE SUGGESTIONS DROPDOWN */}
                         {showAddressDropdown && addressSuggestions.length > 0 && (
                           <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl border border-amber-400/40 bg-neutral-900/95 p-2 shadow-2xl backdrop-blur-xl max-h-60 overflow-y-auto">
-                            <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-couture text-amber-400 border-b border-white/10 mb-1">
-                              Select Address Suggestion
+                            <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-couture text-amber-400 border-b border-white/10 mb-1 flex items-center justify-between">
+                              <span>Select Address Suggestion</span>
+                              <span className="text-[8px] text-neutral-500 font-normal">Verified Geocoder</span>
                             </div>
                             {addressSuggestions.map((suggestion) => (
                               <div
@@ -966,7 +1022,7 @@ export default function CheckoutPage() {
                                 className="p-3 rounded-xl hover:bg-amber-400/10 text-neutral-200 hover:text-white cursor-pointer transition flex flex-col border-b border-white/5 last:border-0"
                               >
                                 <span className="text-xs font-semibold text-white">
-                                  {suggestion.street || suggestion.formattedAddress}
+                                  {suggestion.addressLine1 || suggestion.formattedAddress}
                                 </span>
                                 <span className="text-[10px] text-neutral-400 mt-0.5">
                                   {suggestion.formattedAddress}

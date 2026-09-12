@@ -36,7 +36,7 @@ export async function POST(request) {
       name: customerName,
       phone: customerPhone,
       email: customerEmail,
-      address: customerStreet,
+      address: customerStreet, // Pass complete normalized physical address
       city: customerCity,
       state: customerState,
       country: String(receiverAddress?.country || "Nigeria").trim(),
@@ -134,6 +134,16 @@ export async function POST(request) {
       },
     });
 
+    if (!rateResult.couriers || rateResult.couriers.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No delivery services are currently available for this address.",
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       requestToken: rateResult.request_token,
@@ -141,14 +151,26 @@ export async function POST(request) {
       parcelDetails,
     });
   } catch (error) {
-    console.error("Get shipping rates server error:", error);
+    const rawError = String(error?.message || error || "");
+    console.error("Get shipping rates server structured error log:", {
+      message: rawError,
+      stack: error?.stack,
+    });
+
+    let customerErrorMessage = "We couldn't retrieve delivery options right now. Please try again shortly.";
+
+    if (rawError.includes("RECEIVER_ADDRESS_VALIDATION_FAILED") || rawError.toLowerCase().includes("address")) {
+      customerErrorMessage = "We couldn't validate this delivery address. Please check the selected address or choose another suggestion.";
+    } else if (rawError.includes("SENDER_ADDRESS_VALIDATION_FAILED") || rawError.includes("CATEGORY_RESOLUTION_FAILED") || rawError.includes("origin address is incomplete")) {
+      customerErrorMessage = "Delivery is temporarily unavailable. Please try again later.";
+    }
 
     return NextResponse.json(
       {
         success: false,
-        error: "Unable to calculate shipping rates. Please try again.",
+        error: customerErrorMessage,
       },
-      { status: 500 }
+      { status: 400 }
     );
   }
 }

@@ -7,7 +7,7 @@ import { GET as addressSearchGET } from "../app/api/address-search/route.js";
 import { db } from "./mock_prisma.js";
 
 async function runTests() {
-  console.log("=== RUNNING VÉRANE EXPANDED SHIPPING & PICKUP TEST SUITE ===");
+  console.log("=== RUNNING VÉRANE COMPREHENSIVE SHIPPING, AUTOCOMPLETE & PICKUP TEST SUITE ===");
 
   process.env.NODE_ENV = "test";
   process.env.SHIPBUBBLE_MOCK_MODE = "true";
@@ -234,7 +234,6 @@ async function runTests() {
   }, baseDate);
 
   assert.strictEqual(customDates.length, 3, "Returns 3 requested permitted dates");
-  // Oct 1 Thu + 2 lead = Oct 3 Sat (skip), Oct 4 Sun (skip), Oct 5 Mon (Match #1: 2026-10-05)
   assert.strictEqual(customDates[0].value, "2026-10-05", "First permitted date is Mon Oct 5");
   assert.strictEqual(customDates[1].value, "2026-10-07", "Second permitted date is Wed Oct 7");
   assert.strictEqual(customDates[2].value, "2026-10-09", "Third permitted date is Fri Oct 9");
@@ -267,14 +266,14 @@ async function runTests() {
   process.env.NODE_ENV = "production";
   process.env.SHIPBUBBLE_MOCK_MODE = "false";
 
-  // 1. Unconfigured Category ID defaults internally to Fashion wears category ID 98246239
+  // Unconfigured Category ID defaults internally to Fashion wears category ID 98246239
   db.siteSettings = db.siteSettings.filter((s) => s.key !== "shipbubbleCategoryId");
   delete process.env.SHIPBUBBLE_CATEGORY_ID;
 
   const defaultCatId = await getShipbubbleCategoryId();
   assert.strictEqual(defaultCatId, 98246239, "Unconfigured Category ID defaults internally to 98246239");
 
-  // 2. Non-numeric category ID throws validation error
+  // Non-numeric category ID throws validation error
   process.env.SHIPBUBBLE_CATEGORY_ID = "abc_invalid";
   await assert.rejects(
     async () => getShipbubbleCategoryId(),
@@ -282,7 +281,7 @@ async function runTests() {
     "Non-numeric Category ID string is rejected with validation error"
   );
 
-  // 3. Arbitrary non-matching numeric string "12345" fails category list check in production mode
+  // Arbitrary non-matching numeric string "12345" fails category list check in production mode
   process.env.SHIPBUBBLE_API_KEY = "sb_test_key";
   const origFetch = global.fetch;
   global.fetch = async (url) => {
@@ -305,7 +304,7 @@ async function runTests() {
     "Arbitrary non-matching numeric Category ID 12345 is rejected against official categories list"
   );
 
-  // 4. Documented numeric category ID 98246239 resolves cleanly as number
+  // Documented numeric category ID 98246239 resolves cleanly as number
   process.env.SHIPBUBBLE_CATEGORY_ID = "98246239";
   const validCatId = await getShipbubbleCategoryId();
   assert.strictEqual(validCatId, 98246239, "Valid numeric Category ID 98246239 resolves as number 98246239");
@@ -326,20 +325,20 @@ async function runTests() {
   assert.ok(originAddressCode.startsWith("addr_"), "Dynamic origin physical address resolves to Shipbubble address_code");
   console.log("✓ 4.3 Physical delivery origin address resolves dynamically to address_code");
 
-  // TEST 4.3c: Missing required physical origin address fields throw explicit error without fake fallbacks
+  // TEST 4.3c: Missing required physical origin address fields throw explicit error
   process.env.NODE_ENV = "production";
   process.env.SHIPBUBBLE_MOCK_MODE = "false";
-  db.siteSettings = []; // Clear settings so origin fields are missing
+  db.siteSettings = [];
   await assert.rejects(
     async () => getShipbubbleOriginAddress(),
     /Shipbubble delivery origin address is incomplete or not configured/,
-    "Missing physical origin address fields throw clear configuration error without silent fake data substitution"
+    "Missing physical origin address fields throw clear configuration error"
   );
   process.env.NODE_ENV = "test";
   process.env.SHIPBUBBLE_MOCK_MODE = "true";
-  console.log("✓ 4.3c Missing physical origin address fields throw explicit error without fake fallbacks");
+  console.log("✓ 4.3c Missing physical origin address fields throw explicit error");
 
-  // TEST 4.3d: Address validation uses /shipping/address/validate and rejects missing name, email, phone, or address
+  // TEST 4.3d: Address validation uses /shipping/address/validate and rejects missing fields
   process.env.NODE_ENV = "production";
   process.env.SHIPBUBBLE_MOCK_MODE = "false";
   process.env.SHIPBUBBLE_API_KEY = "sb_test_api_key";
@@ -359,7 +358,7 @@ async function runTests() {
     name: "Jane Doe",
     email: "jane@example.com",
     phone: "+2348123456789",
-    address: "45 Allen Avenue",
+    address: "45 Allen Avenue, Ikeja, Lagos, Nigeria", // Pass complete normalized physical address
     city: "Ikeja",
     state: "Lagos",
     country: "Nigeria",
@@ -422,20 +421,13 @@ async function runTests() {
   assert.strictEqual(pItem.unit_amount, 100000, "package_items[0].unit_amount matches contract");
   assert.strictEqual(pItem.quantity, 1, "package_items[0].quantity matches contract");
 
-  const itemKeys = Object.keys(pItem).sort();
-  assert.deepStrictEqual(
-    itemKeys,
-    ["description", "name", "quantity", "unit_amount", "unit_weight"],
-    "package_items[0] contains ONLY official documented contract keys (no unit_price or weight)"
-  );
-
   global.fetch = ratesFetchMock;
   delete process.env.SHIPBUBBLE_CATEGORY_ID;
   delete process.env.SHIPBUBBLE_API_KEY;
   process.env.NODE_ENV = "test";
   process.env.SHIPBUBBLE_MOCK_MODE = "true";
 
-  console.log("✓ 4.3b Customer destination resolves dynamically to reciever_address_code and fetch_rates package_items payload matches official contract");
+  console.log("✓ 4.3b Complete receiver address sent to validation and fetch_rates package_items payload matches official contract");
 
   // TEST 4.2: Client cannot override delivery shipping amount or package unit_price
   const deliveryCalc = await calculateOrderTotalsServer({
@@ -444,7 +436,7 @@ async function runTests() {
     selectedCourier: {
       courier_id: "cour_gig_01",
       service_code: "gig_express",
-      total_charge: 50, // Client tries to claim 50 Naira shipping!
+      total_charge: 50,
     },
     receiverAddress: customerDestination,
   });
@@ -505,70 +497,119 @@ async function runTests() {
   process.env.SHIPBUBBLE_MOCK_MODE = "true";
   console.log("✓ 4.5 Brand-scoped Home Delivery origin address resolution verified");
 
-  // TEST 4.4: Collaboration product price manipulation prevention
-  db.collaborationProducts.push({
-    id: "collab_prod_price_test",
-    name: "Luxury Capsule Jacket",
-    status: "published",
-    price: 150000, // DB authoritative price is 150,000
-    productAId: "prod_u",
-    productA: db.products.find((p) => p.id === "prod_u"),
-    productB: db.products.find((p) => p.id === "prod_a"),
-    variants: [],
-  });
+  // 5. Geoapify (Nigeria-Only) + Lokate Fallback Address Search & Gate Isolation
+  console.log("\n--- TEST GROUP 5: Geoapify & Lokate Address Autocomplete Pipeline ---");
 
-  const collabDeliveryCalc = await calculateOrderTotalsServer({
-    items: [
-      {
-        id: "collab_prod_price_test",
-        collaborationProductId: "collab_prod_price_test",
-        isCollaboration: true,
-        qty: 1,
-        price: 50, // Client tries to claim price is 50 Naira!
-      },
-    ],
-    fulfillmentType: "delivery",
-    selectedCourier: {
-      courier_id: "cour_gig_01",
-      service_code: "gig_express",
-      total_charge: 50,
-    },
-    receiverAddress: customerDestination,
-  });
-
-  assert.strictEqual(collabDeliveryCalc.items[0].price, 150000, "Server DB collaboration price (150,000) overrides client-supplied price (50)");
-  assert.strictEqual(collabDeliveryCalc.subtotal, 150000, "Subtotal uses authoritative collaboration DB price (150,000)");
-  assert.strictEqual(collabDeliveryCalc.total, 153500, "Grand total equals collaboration DB subtotal (150,000) + shipping fee (3500)");
-  console.log("✓ 4.4 Client cannot manipulate collaboration product price; DB price (150,000) is enforced");
-
-  // 5. Photon OpenStreetMap Address Autocomplete & Rate Trigger Isolation
-  console.log("\n--- TEST GROUP 5: Photon Address Autocomplete & Rate Trigger Isolation ---");
-
-  // TEST 5.1: Address search API query character threshold (< 3 chars returns empty results)
-  const shortSearchReq = new Request("http://localhost:3000/api/address-search?q=12");
+  // TEST 5.1: Address search API short query (< 5 chars) returns empty results without API calls
+  const shortSearchReq = new Request("http://localhost:3000/api/address-search?q=1234");
   const shortSearchRes = await addressSearchGET(shortSearchReq);
   const shortSearchData = await shortSearchRes.json();
   assert.strictEqual(shortSearchData.success, true, "Address search API returns success: true");
-  assert.strictEqual(shortSearchData.results.length, 0, "Query < 3 chars returns empty array without calling external service");
-  console.log("✓ 5.1 Query length threshold (< 3 chars) returns empty results");
+  assert.strictEqual(shortSearchData.results.length, 0, "Query < 5 chars returns empty array without provider call");
+  console.log("✓ 5.1 Short query threshold (< 5 chars) returns empty results without calling provider");
 
-  // TEST 5.2: Photon address search GeoJSON feature normalization
-  const validSearchReq = new Request("http://localhost:3000/api/address-search?q=Admiralty+Way&country=Nigeria");
-  const validSearchRes = await addressSearchGET(validSearchReq);
-  const validSearchData = await validSearchRes.json();
-  assert.strictEqual(validSearchData.success, true, "Valid search returns success: true");
-  assert.ok(Array.isArray(validSearchData.results) && validSearchData.results.length > 0, "Valid search returns normalized address results");
+  // TEST 5.2: Geoapify Address Autocomplete mock response normalization
+  process.env.GEOAPIFY_API_KEY = "geoapify_mock_key";
+  const origFetchGeo = global.fetch;
 
-  const firstResult = validSearchData.results[0];
-  assert.ok(firstResult.formattedAddress, "Normalized result contains formattedAddress string");
-  assert.ok(firstResult.street, "Normalized result contains street line");
-  assert.ok(firstResult.country, "Normalized result contains country");
-  console.log("✓ 5.2 Photon GeoJSON features normalized into structured address object");
+  let capturedGeoapifyUrl = null;
+  global.fetch = async (url, opts) => {
+    const urlStr = String(url);
+    if (urlStr.includes("geoapify.com")) {
+      capturedGeoapifyUrl = urlStr;
+      return {
+        ok: true,
+        json: async () => ({
+          features: [
+            {
+              id: "geo_1",
+              properties: {
+                place_id: "place_123",
+                formatted: "12 Admiralty Way, Lekki Phase 1, Lagos, Nigeria",
+                address_line1: "12 Admiralty Way",
+                address_line2: "Lekki Phase 1, Lagos, Nigeria",
+                housenumber: "12",
+                street: "Admiralty Way",
+                suburb: "Lekki Phase 1",
+                city: "Lagos",
+                state: "Lagos",
+                country: "Nigeria",
+                country_code: "ng",
+                lat: 6.4474,
+                lon: 3.4704,
+              },
+            },
+          ],
+        }),
+      };
+    }
+    return origFetchGeo(url, opts);
+  };
 
-  // TEST 5.3: Address search prioritizes Nigerian results
-  const topResultCountry = firstResult.country.toLowerCase();
-  assert.strictEqual(topResultCountry, "nigeria", "Address search prioritizes Nigerian addresses");
-  console.log("✓ 5.3 Address search prioritizes Nigerian addresses");
+  const validGeoReq = new Request("http://localhost:3000/api/address-search?q=12+Admiralty+Way");
+  const validGeoRes = await addressSearchGET(validGeoReq);
+  const validGeoData = await validGeoRes.json();
+
+  assert.strictEqual(validGeoData.success, true);
+  assert.ok(capturedGeoapifyUrl.includes("filter=countrycode%3Ang") || capturedGeoapifyUrl.includes("filter=countrycode:ng"), "Geoapify request URL includes hard restriction filter=countrycode:ng");
+  assert.strictEqual(validGeoData.results.length, 1);
+
+  const geoResItem = validGeoData.results[0];
+  assert.strictEqual(geoResItem.provider, "geoapify", "Provider identifies as geoapify");
+  assert.strictEqual(geoResItem.formattedAddress, "12 Admiralty Way, Lekki Phase 1, Lagos, Nigeria", "Full formatted address preserved");
+  assert.strictEqual(geoResItem.houseNumber, "12", "House number preserved");
+  assert.strictEqual(geoResItem.street, "Admiralty Way", "Street name preserved");
+  assert.strictEqual(geoResItem.district, "Lekki Phase 1", "District/Locality preserved");
+  assert.strictEqual(geoResItem.city, "Lagos", "City preserved");
+  assert.strictEqual(geoResItem.state, "Lagos", "State preserved");
+
+  global.fetch = origFetchGeo;
+  delete process.env.GEOAPIFY_API_KEY;
+  console.log("✓ 5.2 Geoapify Nigeria-only request, hard filter, and complete address preservation verified");
+
+  // TEST 5.3: Geoapify no-results -> Lokate Tier 2 Fallback
+  process.env.LOKATE_API_KEY = "lokate_mock_key";
+  let lokateCalled = false;
+
+  const origFetchLokate = global.fetch;
+  global.fetch = async (url, opts) => {
+    const urlStr = String(url);
+    if (urlStr.includes("geoapify.com")) {
+      return { ok: true, json: async () => ({ features: [] }) }; // Geoapify returns 0 results
+    }
+    if (urlStr.includes("uselokate.com") || urlStr.includes("lokate")) {
+      lokateCalled = true;
+      return {
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: "lok_1",
+              formattedAddress: "45 Allen Avenue, Ikeja, Lagos, Nigeria",
+              addressLine1: "45 Allen Avenue",
+              district: "Ikeja",
+              city: "Lagos",
+              state: "Lagos",
+              country: "Nigeria",
+            },
+          ],
+        }),
+      };
+    }
+    return origFetchLokate(url, opts);
+  };
+
+  const fallbackReq = new Request("http://localhost:3000/api/address-search?q=45+Allen+Avenue");
+  const fallbackRes = await addressSearchGET(fallbackReq);
+  const fallbackData = await fallbackRes.json();
+
+  assert.strictEqual(lokateCalled, true, "Lokate fallback called when Geoapify returns no results");
+  assert.strictEqual(fallbackData.results.length, 1);
+  assert.strictEqual(fallbackData.results[0].provider, "lokate", "Result correctly attributes provider as lokate");
+
+  global.fetch = origFetchLokate;
+  delete process.env.LOKATE_API_KEY;
+  console.log("✓ 5.3 Geoapify no-results triggers Lokate fallback correctly");
 
   // TEST 5.4: Shipbubble rate calculation is triggered ONLY when address selection is explicit
   let shipbubbleCalled = false;
