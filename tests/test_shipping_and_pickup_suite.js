@@ -259,11 +259,14 @@ async function runTests() {
   // TEST 4.2b: Shipbubble Category ID configuration requirement & Categories API
   const mockCategories = await getShipbubbleCategories();
   assert.ok(Array.isArray(mockCategories) && mockCategories.length > 0, "getShipbubbleCategories returns category list");
-  assert.ok(mockCategories[0].category_id, "Category item contains category_id");
+  assert.strictEqual(typeof mockCategories[0].category_id, "number", "Category item contains numeric category_id");
+  assert.ok(mockCategories[0].category, "Category item contains category string");
 
-  // Verify production mode throws explicit error when shipbubbleCategoryId is unconfigured
+  // Verify production mode behavior
   process.env.NODE_ENV = "production";
   process.env.SHIPBUBBLE_MOCK_MODE = "false";
+
+  // 1. Unconfigured Category ID throws explicit error
   db.siteSettings = db.siteSettings.filter((s) => s.key !== "shipbubbleCategoryId");
   delete process.env.SHIPBUBBLE_CATEGORY_ID;
 
@@ -273,15 +276,48 @@ async function runTests() {
     "Unconfigured Category ID in production throws explicit configuration error"
   );
 
-  // Verify configured env var or site setting resolves
-  process.env.SHIPBUBBLE_CATEGORY_ID = "12345";
-  const configuredCatId = await getShipbubbleCategoryId();
-  assert.strictEqual(configuredCatId, "12345", "Configured SHIPBUBBLE_CATEGORY_ID resolves correctly");
+  // 2. Non-numeric category ID throws validation error
+  process.env.SHIPBUBBLE_CATEGORY_ID = "abc_invalid";
+  await assert.rejects(
+    async () => getShipbubbleCategoryId(),
+    /Invalid Shipbubble Category ID "abc_invalid"/,
+    "Non-numeric Category ID string is rejected with validation error"
+  );
 
+  // 3. Arbitrary non-matching numeric string "12345" fails category list check in production mode
+  process.env.SHIPBUBBLE_API_KEY = "sb_test_key";
+  const origFetch = global.fetch;
+  global.fetch = async (url) => {
+    if (String(url).includes("/shipping/labels/categories")) {
+      return {
+        ok: true,
+        json: async () => ({
+          status: "success",
+          data: [{ category_id: 98246239, category: "Fashion wears" }],
+        }),
+      };
+    }
+    return origFetch(url);
+  };
+
+  process.env.SHIPBUBBLE_CATEGORY_ID = "12345";
+  await assert.rejects(
+    async () => getShipbubbleCategoryId(),
+    /was not found in the official Shipbubble categories list/,
+    "Arbitrary non-matching numeric Category ID 12345 is rejected against official categories list"
+  );
+
+  // 4. Documented numeric category ID 98246239 resolves cleanly as number
+  process.env.SHIPBUBBLE_CATEGORY_ID = "98246239";
+  const validCatId = await getShipbubbleCategoryId();
+  assert.strictEqual(validCatId, 98246239, "Valid numeric Category ID 98246239 resolves as number 98246239");
+
+  global.fetch = origFetch;
   delete process.env.SHIPBUBBLE_CATEGORY_ID;
+  delete process.env.SHIPBUBBLE_API_KEY;
   process.env.NODE_ENV = "test";
   process.env.SHIPBUBBLE_MOCK_MODE = "true";
-  console.log("✓ 4.2b Shipbubble Category ID configuration requirement & Categories API verified");
+  console.log("✓ 4.2b Official categories endpoint /shipping/labels/categories, response parsing, and numeric validation verified");
 
   // TEST 4.3: Physical delivery origin address loading & dynamic address code resolution
   const dynamicOrigin = await getShipbubbleOriginAddress();
@@ -334,6 +370,39 @@ async function runTests() {
   const recieverAddressCode = await resolveShipbubbleAddressCode(customerDestination);
   assert.ok(recieverAddressCode.startsWith("addr_"), "Customer destination resolves dynamically to reciever_address_code");
 
+  // Test package_items formatting against official contract
+  process.env.SHIPBUBBLE_API_KEY = "sb_test_key";
+  process.env.NODE_ENV = "production";
+  process.env.SHIPBUBBLE_MOCK_MODE = "false";
+
+  let capturedPayload = null;
+  const ratesFetchMock = global.fetch;
+  global.fetch = async (url, opts) => {
+    const urlStr = String(url);
+    if (urlStr.includes("/shipping/address/validate")) {
+      return { ok: true, json: async () => ({ status: "success", data: { address_code: "addr_validated_mock" } }) };
+    }
+    if (urlStr.includes("/shipping/labels/categories")) {
+      return { ok: true, json: async () => ({ status: "success", data: [{ category_id: 98246239, category: "Fashion wears" }] }) };
+    }
+    if (urlStr.includes("/shipping/fetch_rates")) {
+      capturedPayload = JSON.parse(opts.body);
+      return {
+        ok: true,
+        json: async () => ({
+          status: "success",
+          data: {
+            request_token: "req_token_123",
+            couriers: [{ courier_id: "cour_1", courier_name: "DHL", service_code: "dhl_express", service_type: "Express", rate_card_amount: 3500, total: 3500 }],
+          },
+        }),
+      };
+    }
+    return ratesFetchMock(url, opts);
+  };
+
+  process.env.SHIPBUBBLE_CATEGORY_ID = "98246239";
+
   const rateResult = await fetchShipbubbleRates({
     senderAddress: dynamicOrigin,
     receiverAddress: customerDestination,
@@ -343,7 +412,25 @@ async function runTests() {
 
   assert.ok(rateResult.sender_address_code.startsWith("addr_"), "fetch_rates receives resolved sender_address_code");
   assert.ok(rateResult.reciever_address_code.startsWith("addr_"), "fetch_rates receives resolved reciever_address_code");
-  console.log("✓ 4.3b Customer destination resolves dynamically to reciever_address_code and fetch_rates receives both codes");
+
+  assert.ok(capturedPayload, "fetch_rates payload captured");
+  assert.strictEqual(capturedPayload.category_id, 98246239, "fetch_rates payload category_id is numeric 98246239");
+  assert.ok(Array.isArray(capturedPayload.package_items) && capturedPayload.package_items.length === 1, "package_items is array");
+
+  const pItem = capturedPayload.package_items[0];
+  assert.strictEqual(pItem.name, "Test Dress", "package_items[0].name matches contract");
+  assert.strictEqual(pItem.description, "Test Dress", "package_items[0].description matches contract");
+  assert.strictEqual(pItem.unit_weight, 0.5, "package_items[0].unit_weight matches contract");
+  assert.strictEqual(pItem.unit_amount, 100000, "package_items[0].unit_amount matches contract");
+  assert.strictEqual(pItem.quantity, 1, "package_items[0].quantity matches contract");
+
+  global.fetch = ratesFetchMock;
+  delete process.env.SHIPBUBBLE_CATEGORY_ID;
+  delete process.env.SHIPBUBBLE_API_KEY;
+  process.env.NODE_ENV = "test";
+  process.env.SHIPBUBBLE_MOCK_MODE = "true";
+
+  console.log("✓ 4.3b Customer destination resolves dynamically to reciever_address_code and fetch_rates package_items payload matches official contract");
 
   // TEST 4.2: Client cannot override delivery shipping amount or package unit_price
   const deliveryCalc = await calculateOrderTotalsServer({
