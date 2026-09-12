@@ -3,8 +3,8 @@ import prisma from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-auth";
 
 /**
- * GET /api/admin/home-delivery
- * Retrieves brand-scoped Home Delivery configuration for UTHY or ALOMZIEE store admins.
+ * GET /api/admin/delivery
+ * Retrieves brand-scoped Delivery physical dispatch origin configuration for UTHY or ALOMZIEE store admins.
  * SUPERADMIN access is strictly blocked (403 Forbidden).
  */
 export async function GET() {
@@ -73,8 +73,8 @@ export async function GET() {
 }
 
 /**
- * PUT /api/admin/home-delivery
- * Updates brand-scoped Home Delivery configuration for UTHY or ALOMZIEE store admins.
+ * PUT /api/admin/delivery
+ * Updates brand-scoped Delivery physical dispatch origin configuration for UTHY or ALOMZIEE store admins.
  * Enforces strict key isolation so brand admins cannot alter each other's settings or global settings.
  */
 export async function PUT(request) {

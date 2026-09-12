@@ -163,9 +163,9 @@ export default function AdminDashboard({ admin }) {
 
               <AdminLink
                 title="Delivery"
-                description="Manage physical dispatch origin & delivery settings"
+                description="Manage physical dispatch origin for Shipbubble delivery"
                 onClick={() =>
-                  router.push("/admin/home-delivery")
+                  router.push("/admin/delivery")
                 }
               />
 
