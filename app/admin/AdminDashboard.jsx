@@ -162,6 +162,14 @@ export default function AdminDashboard({ admin }) {
               />
 
               <AdminLink
+                title="Home Delivery"
+                description="Manage physical dispatch origin & courier settings"
+                onClick={() =>
+                  router.push("/admin/home-delivery")
+                }
+              />
+
+              <AdminLink
                 title="Pickup Settings"
                 description="Manage atelier pickup location & scheduling"
                 onClick={() =>

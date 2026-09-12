@@ -456,6 +456,40 @@ async function runTests() {
   assert.strictEqual(deliveryCalc.total, 103500, "Total equals server product subtotal + server rate_card_amount");
   console.log("✓ 4.2 Client cannot override delivery shipping amount or product unit_price");
 
+  // TEST 4.5: Brand-scoped Home Delivery origin address resolution
+  db.siteSettings.push(
+    { key: "uthyShipbubbleOriginName", value: "UTHY LUXURY Atelier" },
+    { key: "uthyShipbubbleOriginEmail", value: "uthy_shipping@verane.com" },
+    { key: "uthyShipbubbleOriginPhone", value: "+2348111111111" },
+    { key: "uthyShipbubbleOriginCountry", value: "Nigeria" },
+    { key: "uthyShipbubbleOriginState", value: "Lagos" },
+    { key: "uthyShipbubbleOriginCity", value: "Victoria Island" },
+    { key: "uthyShipbubbleOriginStreet", value: "10 UTHY Way, VI, Lagos" },
+
+    { key: "alomzieeShipbubbleOriginName", value: "ALOMZIEE FOOTIES Hub" },
+    { key: "alomzieeShipbubbleOriginEmail", value: "alomziee_shipping@verane.com" },
+    { key: "alomzieeShipbubbleOriginPhone", value: "+2348222222222" },
+    { key: "alomzieeShipbubbleOriginCountry", value: "Nigeria" },
+    { key: "alomzieeShipbubbleOriginState", value: "Lagos" },
+    { key: "alomzieeShipbubbleOriginCity", value: "Ikoyi" },
+    { key: "alomzieeShipbubbleOriginStreet", value: "20 ALOMZIEE Street, Ikoyi, Lagos" }
+  );
+
+  process.env.NODE_ENV = "production";
+  process.env.SHIPBUBBLE_MOCK_MODE = "false";
+
+  const uthyOrigin = await getShipbubbleOriginAddress("UTHY");
+  assert.strictEqual(uthyOrigin.name, "UTHY LUXURY Atelier", "UTHY brand origin name resolves correctly");
+  assert.strictEqual(uthyOrigin.city, "Victoria Island", "UTHY brand origin city resolves correctly");
+
+  const alomzieeOrigin = await getShipbubbleOriginAddress("ALOMZIEE");
+  assert.strictEqual(alomzieeOrigin.name, "ALOMZIEE FOOTIES Hub", "ALOMZIEE brand origin name resolves correctly");
+  assert.strictEqual(alomzieeOrigin.city, "Ikoyi", "ALOMZIEE brand origin city resolves correctly");
+
+  process.env.NODE_ENV = "test";
+  process.env.SHIPBUBBLE_MOCK_MODE = "true";
+  console.log("✓ 4.5 Brand-scoped Home Delivery origin address resolution verified");
+
   // TEST 4.4: Collaboration product price manipulation prevention
   db.collaborationProducts.push({
     id: "collab_prod_price_test",

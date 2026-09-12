@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { fetchShipbubbleRates, getShipbubbleOriginAddress } from "@/lib/shipbubble";
+import { resolveOrderPickupBrand } from "@/lib/pickup-resolver";
 import { calculateParcelPackageDetails, resolveItemUnitWeight } from "@/lib/shipping-weights";
 
 export async function POST(request) {
@@ -28,7 +29,8 @@ export async function POST(request) {
       );
     }
 
-    const senderAddress = await getShipbubbleOriginAddress();
+    const pickupBrand = await resolveOrderPickupBrand(items).catch(() => null);
+    const senderAddress = await getShipbubbleOriginAddress(pickupBrand);
 
     const receiver = {
       name: customerName,
