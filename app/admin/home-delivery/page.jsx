@@ -25,11 +25,11 @@ export default function HomeDeliverySettingsPage() {
       if (res.ok && resData.success) {
         setData(resData);
       } else {
-        setError(resData.error || "Home Delivery settings are restricted to store administrators.");
+        setError(resData.error || "Delivery settings are restricted to store administrators.");
       }
     } catch (err) {
       console.error(err);
-      setError("Failed to load Home Delivery configuration.");
+      setError("Failed to load Delivery configuration.");
     } finally {
       setLoading(false);
     }
@@ -48,10 +48,10 @@ export default function HomeDeliverySettingsPage() {
       });
       const resData = await res.json();
       if (res.ok && resData.success) {
-        setMsg("Home Delivery configuration saved successfully!");
+        setMsg("Delivery configuration saved successfully!");
         fetchData();
       } else {
-        setError(resData.error || "Failed to update Home Delivery configuration.");
+        setError(resData.error || "Failed to update Delivery configuration.");
       }
     } catch (err) {
       console.error(err);
@@ -64,7 +64,7 @@ export default function HomeDeliverySettingsPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p className="text-xs font-mono text-neutral-500 animate-pulse">Loading Home Delivery configuration...</p>
+        <p className="text-xs font-mono text-neutral-500 animate-pulse">Loading Delivery configuration...</p>
       </main>
     );
   }
@@ -73,7 +73,7 @@ export default function HomeDeliverySettingsPage() {
     return (
       <main className="min-h-screen bg-black text-white p-10">
         <div className="max-w-xl mx-auto p-6 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-300 text-sm font-bold">
-          {error || "Unable to load Home Delivery settings. Store admin session required."}
+          {error || "Unable to load Delivery settings. Store admin session required."}
         </div>
       </main>
     );
@@ -88,9 +88,9 @@ export default function HomeDeliverySettingsPage() {
       <div className="mx-auto max-w-5xl px-6 py-10">
         <header className="mb-10">
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400">Logistics & Dispatch</p>
-          <h1 className="mt-2 text-3xl font-black">{brandName} Home Delivery</h1>
+          <h1 className="mt-2 text-3xl font-black">{brandName} Delivery</h1>
           <p className="mt-2 text-sm text-neutral-400">
-            Configure the physical Shipbubble dispatch origin address, package category ID, and home delivery status for {brandName}.
+            Configure the physical dispatch origin address and delivery status for {brandName}.
           </p>
         </header>
 
@@ -108,7 +108,6 @@ export default function HomeDeliverySettingsPage() {
           initialState={data.originState}
           initialCity={data.originCity}
           initialStreet={data.originStreet}
-          initialCategoryId={data.categoryId}
           onSave={handleSave}
           saving={saving}
         />
@@ -128,7 +127,6 @@ function HomeDeliveryForm({
   initialState,
   initialCity,
   initialStreet,
-  initialCategoryId,
   onSave,
   saving,
 }) {
@@ -140,17 +138,16 @@ function HomeDeliveryForm({
   const [state, setState] = useState(initialState || "");
   const [city, setCity] = useState(initialCity || "");
   const [street, setStreet] = useState(initialStreet || "");
-  const [categoryId, setCategoryId] = useState(initialCategoryId || "");
 
   const inputClass = "w-full rounded-xl border border-white/10 bg-neutral-900 px-4 py-3 text-sm text-white outline-none focus:border-amber-400/50";
 
   return (
     <div className="space-y-6 rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
 
-      {/* ENABLE / DISABLE HOME DELIVERY */}
+      {/* ENABLE / DISABLE DELIVERY */}
       <div>
-        <label className="block text-sm font-bold text-white mb-1">Home Delivery Status</label>
-        <p className="text-xs text-neutral-500 mb-3">Enable or disable courier home delivery for {brandName} at checkout.</p>
+        <label className="block text-sm font-bold text-white mb-1">Delivery Status</label>
+        <p className="text-xs text-neutral-500 mb-3">Enable or disable courier delivery for {brandName} at checkout.</p>
         <div className="flex items-center gap-3 pt-1">
           <button
             type="button"
@@ -159,7 +156,7 @@ function HomeDeliveryForm({
               enabled ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
             }`}
           >
-            Home Delivery ON
+            Delivery ON
           </button>
           <button
             type="button"
@@ -168,7 +165,7 @@ function HomeDeliveryForm({
               !enabled ? "bg-amber-400 text-black shadow-md" : "bg-neutral-900 text-neutral-400 border border-white/10"
             }`}
           >
-            Home Delivery OFF
+            Delivery OFF
           </button>
         </div>
       </div>
@@ -176,7 +173,7 @@ function HomeDeliveryForm({
       {/* DISPATCH ORIGIN ADDRESS */}
       <div className="border-t border-white/10 pt-6">
         <h3 className="text-base font-black text-amber-400 mb-1">Physical Dispatch Origin</h3>
-        <p className="text-xs text-neutral-500 mb-5">The physical address used by Shipbubble to quote live courier rates and generate waybill labels.</p>
+        <p className="text-xs text-neutral-500 mb-5">The physical address used to quote live courier rates and generate waybill labels.</p>
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
@@ -216,13 +213,6 @@ function HomeDeliveryForm({
         </div>
       </div>
 
-      {/* SHIPBUBBLE CATEGORY ID */}
-      <div className="border-t border-white/10 pt-6">
-        <label className="block text-sm font-bold text-white mb-1">Shipbubble Category ID</label>
-        <p className="text-xs text-neutral-500 mb-3">Numeric category ID retrieved from Shipbubble for package classification (e.g. 98246239 for Fashion wears).</p>
-        <input value={categoryId} onChange={(e) => setCategoryId(e.target.value)} placeholder="e.g. 98246239" className={inputClass} />
-      </div>
-
       <button
         type="button"
         disabled={saving}
@@ -236,12 +226,11 @@ function HomeDeliveryForm({
             [`${prefix}ShipbubbleOriginState`]: state,
             [`${prefix}ShipbubbleOriginCity`]: city,
             [`${prefix}ShipbubbleOriginStreet`]: street,
-            [`${prefix}ShipbubbleCategoryId`]: categoryId,
           })
         }
         className="bg-amber-400 text-black px-6 py-3 rounded-full text-xs font-black uppercase hover:bg-amber-300 transition disabled:opacity-50"
       >
-        {saving ? "Saving..." : `Save ${brandName} Home Delivery Settings`}
+        {saving ? "Saving..." : `Save ${brandName} Delivery Settings`}
       </button>
     </div>
   );

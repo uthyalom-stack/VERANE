@@ -266,15 +266,12 @@ async function runTests() {
   process.env.NODE_ENV = "production";
   process.env.SHIPBUBBLE_MOCK_MODE = "false";
 
-  // 1. Unconfigured Category ID throws explicit error
+  // 1. Unconfigured Category ID defaults internally to Fashion wears category ID 98246239
   db.siteSettings = db.siteSettings.filter((s) => s.key !== "shipbubbleCategoryId");
   delete process.env.SHIPBUBBLE_CATEGORY_ID;
 
-  await assert.rejects(
-    async () => getShipbubbleCategoryId(),
-    /Shipbubble Category ID is not configured/,
-    "Unconfigured Category ID in production throws explicit configuration error"
-  );
+  const defaultCatId = await getShipbubbleCategoryId();
+  assert.strictEqual(defaultCatId, 98246239, "Unconfigured Category ID defaults internally to 98246239");
 
   // 2. Non-numeric category ID throws validation error
   process.env.SHIPBUBBLE_CATEGORY_ID = "abc_invalid";

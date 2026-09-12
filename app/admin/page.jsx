@@ -305,12 +305,12 @@ function BrandDashboard({
             onClick={() => go(`/admin/collections?brand=${productBrand}`)}
           />
 
-          {/* HOME DELIVERY */}
+          {/* DELIVERY */}
 
           <DashboardCard
             icon="orders"
-            title="Home Delivery"
-            description="Configure physical dispatch origin & courier options."
+            title="Delivery"
+            description="Configure physical dispatch origin & delivery options."
             accent={accent}
             onClick={() => go("/admin/home-delivery")}
           />
