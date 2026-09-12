@@ -215,10 +215,20 @@ export default function CheckoutPage() {
     }
   }
 
-  // Auto-fetch Shipbubble courier rates when delivery address is sufficiently completed
+  // Auto-fetch Shipbubble courier rates with AbortController cancellation & debouncing
   useEffect(() => {
-    if (
-      fulfillmentType === "delivery" &&
+    // If user switches to pickup, immediately invalidate delivery courier choices and stop fetching
+    if (fulfillmentType !== "delivery") {
+      setShippingRates({ couriers: [], requestToken: null });
+      setSelectedCourier(null);
+      setLoadingRates(false);
+      return;
+    }
+
+    // Invalidate currently selected courier & previous quotes when address changes
+    setSelectedCourier(null);
+
+    const isAddressComplete =
       cart.items.length > 0 &&
       form.firstName &&
       form.email &&
@@ -226,17 +236,23 @@ export default function CheckoutPage() {
       form.state &&
       form.city &&
       form.address &&
-      form.address.trim().length >= 5
-    ) {
-      const timeoutId = setTimeout(() => {
-        fetchShippingRates();
-      }, 500);
+      form.address.trim().length >= 5;
 
-      return () => clearTimeout(timeoutId);
-    } else if (fulfillmentType === "delivery") {
+    if (!isAddressComplete) {
       setShippingRates({ couriers: [], requestToken: null });
-      setSelectedCourier(null);
+      setLoadingRates(false);
+      return;
     }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      fetchShippingRates(controller.signal);
+    }, 600);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [
     fulfillmentType,
     cart.items,
@@ -250,13 +266,14 @@ export default function CheckoutPage() {
     form.address,
   ]);
 
-  async function fetchShippingRates() {
+  async function fetchShippingRates(signal) {
     try {
       setLoadingRates(true);
       setRatesError("");
       const res = await fetch("/api/checkout/get-shipping-rates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal,
         body: JSON.stringify({
           items: cart.items,
           receiverAddress: {
@@ -288,10 +305,16 @@ export default function CheckoutPage() {
         setRatesError(data.error || "No available shipping options found for this address.");
       }
     } catch (err) {
+      if (err.name === "AbortError") {
+        // Request cancelled due to newer address input
+        return;
+      }
       console.error("Fetch shipping rates error:", err);
       setRatesError("Failed to calculate shipping rates. Please check address details.");
     } finally {
-      setLoadingRates(false);
+      if (!signal || !signal.aborted) {
+        setLoadingRates(false);
+      }
     }
   }
 

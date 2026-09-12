@@ -453,6 +453,23 @@ async function runTests() {
   assert.strictEqual(deliveryCalc.total, 103500, "Total equals server product subtotal + server rate_card_amount");
   console.log("✓ 4.2 Client cannot override delivery shipping amount or product unit_price");
 
+  // TEST 4.2c: Disappeared or invalid selected courier is rejected with explicit message
+  await assert.rejects(
+    async () =>
+      calculateOrderTotalsServer({
+        items: [{ id: "prod_u", productId: "prod_u", qty: 1 }],
+        fulfillmentType: "delivery",
+        selectedCourier: {
+          courier_id: "non_existent_courier",
+          service_code: "invalid_service",
+        },
+        receiverAddress: customerDestination,
+      }),
+    /Selected courier shipping option is no longer available/,
+    "Disappeared or unquoted courier selection is rejected during Paystack server validation"
+  );
+  console.log("✓ 4.2c Disappeared/stale courier selection is rejected during Paystack initialization");
+
   // TEST 4.5: Brand-scoped Home Delivery origin address resolution
   db.siteSettings.push(
     { key: "uthyShipbubbleOriginName", value: "UTHY LUXURY Atelier" },
