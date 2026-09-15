@@ -1,12 +1,9 @@
+import prisma from "@/lib/prisma";
+
 export const dynamic = "force-dynamic";
 
 async function getFaqContent() {
-  let prisma;
-
   try {
-    const { PrismaClient } = await import("@prisma/client");
-    prisma = new PrismaClient();
-
     const row = await prisma.siteSetting.findUnique({
       where: { key: "pageContent" },
     });
@@ -21,10 +18,6 @@ async function getFaqContent() {
     }
   } catch (error) {
     console.error("Failed to load FAQ content:", error);
-  } finally {
-    if (prisma) {
-      await prisma.$disconnect();
-    }
   }
 
   return "";
