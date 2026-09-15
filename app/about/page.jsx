@@ -1,17 +1,13 @@
 import Link from "next/link";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 async function getPageContent() {
   try {
-    const { PrismaClient } = await import("@prisma/client");
-    const prisma = new PrismaClient();
-
     const row = await prisma.siteSetting.findUnique({
       where: { key: "pageContent" },
     });
-
-    await prisma.$disconnect();
 
     if (row?.value) {
       const pages = JSON.parse(row.value);
