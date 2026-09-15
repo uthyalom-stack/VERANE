@@ -10,7 +10,7 @@
     "db:init": "node scripts/init-turso-db.mjs",
     "build": "npx prisma@5 generate && next build",
     "start": "next start",
-    "test": "node --experimental-loader ./tests/loader.mjs tests/test_security_audit_suite.js"
+    "test": "node --experimental-loader ./tests/loader.mjs tests/test_security_audit_suite.js && node --experimental-loader ./tests/loader.mjs tests/test_turso_shared_client_adapter.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1117.0",
