@@ -8,9 +8,9 @@
   "scripts": {
     "dev": "next dev",
     "db:init": "node scripts/init-turso-db.mjs",
-    "build": "npx prisma@5 generate && next build",
+    "build": "npx prisma@5 generate && npm run db:init && next build",
     "start": "next start",
-    "test": "node --experimental-loader ./tests/loader.mjs tests/test_security_audit_suite.js && node --experimental-loader ./tests/loader.mjs tests/test_turso_shared_client_adapter.js"
+    "test": "node tests/run_all_tests.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1117.0",
