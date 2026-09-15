@@ -16,12 +16,11 @@ async function runComprehensiveAdapterTest() {
 
   await initTursoSchema();
 
-  // Dynamically import lib/prisma.js AFTER setting TURSO_DATABASE_URL environment variable
   const { default: prisma } = await import("../lib/prisma.js");
   const { checkRateLimit, recordFailedAttempt, resetRateLimit } = await import("../lib/rate-limit.js");
 
-  // 1. PRODUCTS & CATEGORIES & COLLECTIONS CRUD
-  console.log("--- 1. Testing Products, Categories, Collections ---");
+  // 1. PRODUCTS & CATEGORIES & COLLECTIONS CRUD & CASE-INSENSITIVE SEARCH
+  console.log("--- 1. Testing Products, Categories, Collections & Search Parity ---");
   const category = await prisma.category.create({
     data: { brand: "UTHY_LUXURY", name: "Formal Shirts", slug: "formal-shirts" },
   });
@@ -34,12 +33,14 @@ async function runComprehensiveAdapterTest() {
 
   const product = await prisma.product.create({
     data: {
-      name: "Couture Silk Shirt",
+      name: "COUTURE SILK SHIRT",
       brand: "UTHY_LUXURY",
       category: "Formal Shirts",
       price: 85000.0,
-      description: "Handcrafted Italian silk luxury shirt",
+      description: "Handcrafted Italian Silk Luxury Shirt",
       images: JSON.stringify(["https://verane.app/img1.jpg"]),
+      style: "High Fashion",
+      occasion: "Gala Night",
       inventory: 20,
       initialInventory: 20,
       categoryId: category.id,
@@ -48,30 +49,55 @@ async function runComprehensiveAdapterTest() {
   });
   assert.ok(product.id);
 
-  // Search product
-  const searchResults = await prisma.product.findMany({
+  // Search assertions (lowercase, uppercase, mixed-case, description, style, occasion, relations)
+  const lowerResults = await prisma.product.findMany({
+    where: { archivedAt: null, AND: [{ name: { contains: "couture" } }] },
+  });
+  assert.strictEqual(lowerResults.length, 1, "Lowercase search against uppercase name failed");
+
+  const upperResults = await prisma.product.findMany({
+    where: { archivedAt: null, AND: [{ description: { contains: "ITALIAN" } }] },
+  });
+  assert.strictEqual(upperResults.length, 1, "Uppercase search against mixed-case description failed");
+
+  const relationResults = await prisma.product.findMany({
     where: {
       archivedAt: null,
-      AND: [{ name: { contains: "silk" } }],
+      OR: [
+        { categoryRef: { name: { contains: "formal" } } },
+        { collection: { name: { contains: "autumn atelier" } } },
+      ],
     },
   });
-  assert.strictEqual(searchResults.length, 1);
-  assert.strictEqual(searchResults[0].id, product.id);
+  assert.strictEqual(relationResults.length, 1, "Relation search failed");
 
-  // Update product
-  const updatedProduct = await prisma.product.update({
-    where: { id: product.id },
-    data: { price: 90000.0 },
+  // 2. DISCOUNT CRUD
+  console.log("--- 2. Testing Discount CRUD ---");
+  const discount = await prisma.discount.create({
+    data: {
+      code: "ATELIER10",
+      name: "Atelier Inaugural 10%",
+      type: "percentage",
+      value: 10.0,
+      brand: "UTHY",
+      enabled: true,
+    },
   });
-  assert.strictEqual(updatedProduct.price, 90000.0);
+  assert.ok(discount.id);
+  assert.strictEqual(discount.code, "ATELIER10");
 
-  // 2. VARIANTS & COLORS
-  console.log("--- 2. Testing Variants and Colors ---");
+  const fetchedDiscount = await prisma.discount.findUnique({
+    where: { code: "ATELIER10" },
+  });
+  assert.ok(fetchedDiscount);
+
+  // 3. VARIANTS, COLORS & PRODUCT VARIANT UNIQUENESS CONSTRAINT
+  console.log("--- 3. Testing Variants, Colors & ProductVariant Uniqueness Constraint ---");
   const color = await prisma.productColor.create({
     data: { productId: product.id, name: "Emerald Green", hex: "#008000" },
   });
 
-  const variant = await prisma.productVariant.create({
+  const variant1 = await prisma.productVariant.create({
     data: {
       productId: product.id,
       colorId: color.id,
@@ -80,10 +106,56 @@ async function runComprehensiveAdapterTest() {
       initialStock: 10,
     },
   });
-  assert.ok(variant.id);
+  assert.ok(variant1.id);
 
-  // 3. CUSTOMER DATA (User, Address, Wishlist, Saved Looks, Waiting List)
-  console.log("--- 3. Testing Customer User Data, Addresses, Wishlist ---");
+  // Assert duplicate ProductVariant (same productId + normalized size + normalized colorId) fails
+  try {
+    await prisma.$executeRaw`
+      INSERT INTO "ProductVariant" ("id", "productId", "size", "colorId", "stock", "initialStock", "createdAt")
+      VALUES ('dup_v_1', ${product.id}, 'L', ${color.id}, 5, 5, CURRENT_TIMESTAMP);
+    `;
+    assert.fail("Should have thrown UNIQUE constraint violation for duplicate ProductVariant");
+  } catch (err) {
+    assert.ok(
+      err.message.includes("UNIQUE constraint failed") || err.message.includes("ProductVariant_productId_size_colorId_key"),
+      `Expected UNIQUE constraint error, got: ${err.message}`
+    );
+    console.log("  ✓ ProductVariant uniqueness constraint correctly enforced in SQLite");
+  }
+
+  // 4. WAITING LIST & PRODUCT ARCHIVAL
+  console.log("--- 4. Testing WaitingList and Product Archival ---");
+  const waitingList = await prisma.waitingList.create({
+    data: {
+      productId: product.id,
+      variantId: variant1.id,
+      email: "waiting@example.com",
+      selectedColor: "Emerald Green",
+      selectedSize: "L",
+    },
+  });
+  assert.ok(waitingList.id);
+
+  // Product Archival test
+  const archivedProduct = await prisma.product.update({
+    where: { id: product.id },
+    data: { archivedAt: new Date(), inventory: 0 },
+  });
+  assert.ok(archivedProduct.archivedAt);
+
+  const activePublicProducts = await prisma.product.findMany({
+    where: { archivedAt: null },
+  });
+  assert.strictEqual(activePublicProducts.length, 0, "Archived product should not appear in active queries");
+
+  // Restore for subsequent test relations
+  await prisma.product.update({
+    where: { id: product.id },
+    data: { archivedAt: null, inventory: 20 },
+  });
+
+  // 5. CUSTOMER DATA (User, Address, Wishlist, Saved Looks)
+  console.log("--- 5. Testing Customer User Data, Addresses, Wishlist, Saved Looks ---");
   const user = await prisma.user.create({
     data: { email: "customer_test@verane.app", password: "hashed_password_123", name: "Atelier Client" },
   });
@@ -106,22 +178,27 @@ async function runComprehensiveAdapterTest() {
   });
   assert.ok(wishlist.id);
 
-  // 4. ORDERS & ORDER ITEMS & TRACKING
-  console.log("--- 4. Testing Orders, Order Items, and Brand Tracking ---");
+  const savedLook = await prisma.savedLook.create({
+    data: { userId: user.id, products: JSON.stringify([product.id]) },
+  });
+  assert.ok(savedLook.id);
+
+  // 6. ORDERS, ORDER ITEMS, BRAND TRACKING & ATTRIBUTION
+  console.log("--- 6. Testing Orders, Order Items, Brand Tracking & Order Attribution ---");
   const order = await prisma.order.create({
     data: {
       userId: user.id,
-      orderNumber: "VERANE-TURSO-1001",
+      orderNumber: "VERANE-TURSO-2001",
       total: 90000.0,
       shippingFee: 5000.0,
-      paymentReference: "pay_ref_turso_1001",
+      paymentReference: "pay_ref_turso_2001",
       paymentStatus: "paid",
       status: "processing",
       items: {
         create: [
           {
             productId: product.id,
-            variantId: variant.id,
+            variantId: variant1.id,
             quantity: 1,
             price: 90000.0,
             selectedColor: "Emerald Green",
@@ -130,9 +207,7 @@ async function runComprehensiveAdapterTest() {
         ],
       },
       brandTrackings: {
-        create: [
-          { brand: "UTHY", status: "Processing" },
-        ],
+        create: [{ brand: "UTHY", status: "Processing" }],
       },
     },
     include: { items: true, brandTrackings: true },
@@ -140,20 +215,40 @@ async function runComprehensiveAdapterTest() {
   assert.strictEqual(order.items.length, 1);
   assert.strictEqual(order.brandTrackings.length, 1);
 
-  // 5. CMS & SITE SETTINGS
-  console.log("--- 5. Testing CMS Sections and Site Settings ---");
-  const siteSetting = await prisma.siteSetting.create({
-    data: { key: "pageContent", value: JSON.stringify([{ key: "about", content: "Atelier Story" }]) },
+  // 7. CAMPAIGNS, CAMPAIGN VISITS & ORDER ATTRIBUTION
+  console.log("--- 7. Testing Campaigns, Campaign Visits & Order Attribution ---");
+  const campaign = await prisma.campaign.create({
+    data: {
+      brand: "UTHY",
+      name: "Autumn Launch 2026",
+      slug: "uthy-autumn-launch",
+      destination: "/catalog",
+    },
   });
-  assert.ok(siteSetting.id);
+  assert.ok(campaign.id);
 
-  const homepageSection = await prisma.homepageSection.create({
-    data: { key: "custom-banner", title: "AUTUMN CAPSULE", enabled: true },
+  const campaignVisit = await prisma.campaignVisit.create({
+    data: {
+      campaignId: campaign.id,
+      brand: "UTHY",
+      visitorId: "v_visit_12345",
+      destination: "/catalog",
+    },
   });
-  assert.ok(homepageSection.id);
+  assert.ok(campaignVisit.id);
 
-  // 6. COLLABORATIONS
-  console.log("--- 6. Testing Collaborations & Requests ---");
+  const orderAttr = await prisma.orderAttribution.create({
+    data: {
+      orderId: order.id,
+      campaignId: campaign.id,
+      brand: "UTHY",
+      visitorId: "v_visit_12345",
+    },
+  });
+  assert.ok(orderAttr.id);
+
+  // 8. COLLABORATIONS & ADMIN NOTIFICATIONS
+  console.log("--- 8. Testing Collaborations, Collaboration Products/Variants & Notifications ---");
   const collabRequest = await prisma.collaborationRequest.create({
     data: {
       fromBrand: "UTHY",
@@ -164,8 +259,31 @@ async function runComprehensiveAdapterTest() {
   });
   assert.ok(collabRequest.id);
 
-  // 7. RATE LIMITING & ATOMIC UPSERT
-  console.log("--- 7. Testing Rate Limiter Atomic Executions ---");
+  const adminNotif = await prisma.adminNotification.create({
+    data: {
+      recipientBrand: "ALOMZIEE",
+      type: "COLLABORATION_REQUEST",
+      title: "New Collaboration Request",
+      message: "UTHY LUXURY wants to collaborate",
+      requestId: collabRequest.id,
+    },
+  });
+  assert.ok(adminNotif.id);
+
+  // 9. CMS & SITE SETTINGS
+  console.log("--- 9. Testing CMS Sections and Site Settings ---");
+  const siteSetting = await prisma.siteSetting.create({
+    data: { key: "pageContent", value: JSON.stringify([{ key: "about", content: "Atelier Story" }]) },
+  });
+  assert.ok(siteSetting.id);
+
+  const homepageSection = await prisma.homepageSection.create({
+    data: { key: "custom-banner", title: "AUTUMN CAPSULE", enabled: true },
+  });
+  assert.ok(homepageSection.id);
+
+  // 10. RATE LIMITING & ATOMIC UPSERT
+  console.log("--- 10. Testing Rate Limiter Atomic Executions ---");
   const rateLimitKey = "test_ip_turso_adapter_1";
   const recorded = await recordFailedAttempt(rateLimitKey);
   assert.strictEqual(recorded.attempts, 1);
@@ -176,21 +294,28 @@ async function runComprehensiveAdapterTest() {
 
   await resetRateLimit(rateLimitKey);
 
-  // 8. CLEANUP FIXTURES
-  console.log("--- 8. Clean up test records ---");
+  // 11. CLEANUP FIXTURES
+  console.log("--- 11. Clean up test records ---");
+  await prisma.orderAttribution.delete({ where: { id: orderAttr.id } });
+  await prisma.campaignVisit.delete({ where: { id: campaignVisit.id } });
+  await prisma.campaign.delete({ where: { id: campaign.id } });
   await prisma.orderBrandTracking.deleteMany({ where: { orderId: order.id } });
   await prisma.orderItem.deleteMany({ where: { orderId: order.id } });
   await prisma.order.delete({ where: { id: order.id } });
   await prisma.wishlist.delete({ where: { id: wishlist.id } });
+  await prisma.savedLook.delete({ where: { id: savedLook.id } });
   await prisma.savedAddress.delete({ where: { id: savedAddress.id } });
   await prisma.user.delete({ where: { id: user.id } });
-  await prisma.productVariant.delete({ where: { id: variant.id } });
+  await prisma.waitingList.delete({ where: { id: waitingList.id } });
+  await prisma.productVariant.delete({ where: { id: variant1.id } });
   await prisma.productColor.delete({ where: { id: color.id } });
   await prisma.product.delete({ where: { id: product.id } });
   await prisma.collection.delete({ where: { id: collection.id } });
   await prisma.category.delete({ where: { id: category.id } });
+  await prisma.discount.delete({ where: { id: discount.id } });
   await prisma.siteSetting.delete({ where: { id: siteSetting.id } });
   await prisma.homepageSection.delete({ where: { id: homepageSection.id } });
+  await prisma.adminNotification.delete({ where: { id: adminNotif.id } });
   await prisma.collaborationRequest.delete({ where: { id: collabRequest.id } });
 
   console.log("\n==================================================");
