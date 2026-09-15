@@ -122,77 +122,97 @@ export async function initTursoSchema() {
     const sql = fs.readFileSync(sqlPath, "utf-8");
     const checksum = crypto.createHash("sha256").update(sql).digest("hex");
 
-    // 1. Check if migration has already been finished by a prior run
-    const statusResult = await client.execute({
-      sql: `SELECT "checksum", "finished_at" FROM "_prisma_migrations" WHERE "migration_name" = ?;`,
-      args: [folder],
-    });
+    let isApplied = false;
+    let maxRetries = 10;
+    let attempt = 0;
 
-    if (statusResult.rows.length > 0 && statusResult.rows[0].finished_at) {
-      const storedChecksum = String(statusResult.rows[0].checksum || "");
-      if (storedChecksum && storedChecksum !== checksum) {
-        throw new Error(
-          `Migration checksum mismatch for "${folder}". ` +
-          `Expected ${storedChecksum}, but current migration.sql checksum is ${checksum}. ` +
-          `Already applied migrations cannot be modified.`
-        );
-      }
+    while (!isApplied && attempt < maxRetries) {
+      attempt++;
 
-      console.log(`[TURSO DB INIT] Skipping already applied migration: ${folder}`);
-      skippedCount++;
-      continue;
-    }
-
-    const migrationId = crypto.randomUUID();
-
-    // 2. Attempt atomic lock reservation using the UNIQUE constraint on migration_name
-    let reservationAcquired = false;
-    try {
-      await client.execute({
-        sql: `INSERT INTO "_prisma_migrations" ("id", "checksum", "finished_at", "migration_name", "started_at", "applied_steps_count")
-              VALUES (?, ?, NULL, ?, CURRENT_TIMESTAMP, 0);`,
-        args: [migrationId, checksum, folder],
+      // 1. Check if migration has already been finished by a prior run
+      const statusResult = await client.execute({
+        sql: `SELECT "checksum", "finished_at" FROM "_prisma_migrations" WHERE "migration_name" = ?;`,
+        args: [folder],
       });
-      reservationAcquired = true;
-      console.log(`[TURSO DB INIT] Acquired migration lock reservation for: ${folder}`);
-    } catch (err) {
-      // UNIQUE constraint violation means another process concurrently reserved or finished this migration
-      console.log(`[TURSO DB INIT] Migration lock for ${folder} already acquired by another process.`);
-      const finished = await waitForConcurrentMigration(client, folder);
-      if (finished) {
+
+      if (statusResult.rows.length > 0 && statusResult.rows[0].finished_at) {
+        const storedChecksum = String(statusResult.rows[0].checksum || "");
+        if (storedChecksum && storedChecksum !== checksum) {
+          throw new Error(
+            `Migration checksum mismatch for "${folder}". ` +
+            `Expected ${storedChecksum}, but current migration.sql checksum is ${checksum}. ` +
+            `Already applied migrations cannot be modified.`
+          );
+        }
+
+        console.log(`[TURSO DB INIT] Skipping already applied migration: ${folder}`);
         skippedCount++;
-        continue;
+        isApplied = true;
+        break;
+      }
+
+      const migrationId = crypto.randomUUID();
+
+      // 2. Attempt atomic lock reservation using the UNIQUE constraint on migration_name
+      let reservationAcquired = false;
+      try {
+        await client.execute({
+          sql: `INSERT INTO "_prisma_migrations" ("id", "checksum", "finished_at", "migration_name", "started_at", "applied_steps_count")
+                VALUES (?, ?, NULL, ?, CURRENT_TIMESTAMP, 0);`,
+          args: [migrationId, checksum, folder],
+        });
+        reservationAcquired = true;
+        console.log(`[TURSO DB INIT] Acquired migration lock reservation for: ${folder}`);
+      } catch (err) {
+        // UNIQUE constraint violation means another process concurrently reserved or finished this migration
+        console.log(`[TURSO DB INIT] Migration lock for ${folder} already acquired by another process.`);
+        const finished = await waitForConcurrentMigration(client, folder);
+        if (finished) {
+          skippedCount++;
+          isApplied = true;
+          break;
+        } else {
+          // Concurrent initializer failed and released reservation row. Retry this attempt loop!
+          console.log(`[TURSO DB INIT] Retrying migration acquisition for ${folder} (attempt ${attempt + 1}/${maxRetries})...`);
+          continue;
+        }
+      }
+
+      // 3. If this process acquired the reservation, apply the DDL and finalize
+      if (reservationAcquired) {
+        console.log(`[TURSO DB INIT] Applying migration script: ${folder}/migration.sql ...`);
+
+        try {
+          await client.executeMultiple(sql);
+
+          // Mark finished_at
+          await client.execute({
+            sql: `UPDATE "_prisma_migrations"
+                  SET "finished_at" = CURRENT_TIMESTAMP, "applied_steps_count" = 1
+                  WHERE "id" = ?;`,
+            args: [migrationId],
+          });
+
+          console.log(`[TURSO DB INIT] Successfully applied and finalized migration: ${folder}`);
+          appliedCount++;
+          isApplied = true;
+          break;
+        } catch (err) {
+          console.error(`[TURSO DB INIT] Error executing migration ${folder}:`, err.message || err);
+
+          // On failure, remove reservation so retry is possible by other processes or retried attempts
+          await client.execute({
+            sql: `DELETE FROM "_prisma_migrations" WHERE "id" = ?;`,
+            args: [migrationId],
+          }).catch(() => {});
+
+          throw err;
+        }
       }
     }
 
-    // 3. If this process acquired the reservation, apply the DDL and finalize
-    if (reservationAcquired) {
-      console.log(`[TURSO DB INIT] Applying migration script: ${folder}/migration.sql ...`);
-
-      try {
-        await client.executeMultiple(sql);
-
-        // Mark finished_at
-        await client.execute({
-          sql: `UPDATE "_prisma_migrations"
-                SET "finished_at" = CURRENT_TIMESTAMP, "applied_steps_count" = 1
-                WHERE "id" = ?;`,
-          args: [migrationId],
-        });
-
-        console.log(`[TURSO DB INIT] Successfully applied and finalized migration: ${folder}`);
-        appliedCount++;
-      } catch (err) {
-        console.error(`[TURSO DB INIT] Error executing migration ${folder}:`, err.message || err);
-
-        // On failure, remove reservation so retry is possible
-        await client.execute({
-          sql: `DELETE FROM "_prisma_migrations" WHERE "id" = ?;`,
-          args: [migrationId],
-        }).catch(() => {});
-
-        throw err;
-      }
+    if (!isApplied) {
+      throw new Error(`Failed to apply migration ${folder} after ${maxRetries} attempts.`);
     }
   }
 
