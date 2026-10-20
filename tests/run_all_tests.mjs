@@ -10,6 +10,7 @@ const testFiles = [
   "tests/test_live_search_suite.js",
   "tests/test_migration_safety.js",
   "tests/test_migration_lock_retry.js",
+  "tests/test_turso_failed_migration.js",
   "tests/test_paystack_initialize.js",
   "tests/test_product_archival_suite.js",
   "tests/test_receipt_pdf_logos.js",
