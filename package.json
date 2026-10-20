@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "db:init": "node scripts/init-turso-db.mjs",
-    "build": "npx prisma@5 generate && npm run db:init && next build",
+    "build": "npx prisma@5 generate && next build",
     "start": "next start",
     "test": "node tests/run_all_tests.mjs"
   },
