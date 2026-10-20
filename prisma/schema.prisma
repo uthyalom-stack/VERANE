@@ -65,7 +65,7 @@ model Product {
   fulfillmentTime        String?
   preOrderEnabled        Boolean                @default(false)
   sizeType               String?
-sizeGuideImage String?
+  sizeGuideImage         String?
   weight                 Float?
   packageLength          Float?                 @default(15)
   packageWidth           Float?                 @default(15)
