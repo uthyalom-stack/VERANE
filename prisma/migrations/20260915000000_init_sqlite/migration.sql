@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "User" (
+CREATE TABLE IF NOT EXISTS "User" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE "User" (
 );
 
 -- CreateTable
-CREATE TABLE "SavedAddress" (
+CREATE TABLE IF NOT EXISTS "SavedAddress" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "userId" TEXT NOT NULL,
     "fullName" TEXT NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE "SavedAddress" (
 );
 
 -- CreateTable
-CREATE TABLE "Product" (
+CREATE TABLE IF NOT EXISTS "Product" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "brand" TEXT NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE "Product" (
 );
 
 -- CreateTable
-CREATE TABLE "Category" (
+CREATE TABLE IF NOT EXISTS "Category" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "brand" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -77,7 +77,7 @@ CREATE TABLE "Category" (
 );
 
 -- CreateTable
-CREATE TABLE "Collection" (
+CREATE TABLE IF NOT EXISTS "Collection" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "description" TEXT,
@@ -88,7 +88,7 @@ CREATE TABLE "Collection" (
 );
 
 -- CreateTable
-CREATE TABLE "HomepageSection" (
+CREATE TABLE IF NOT EXISTS "HomepageSection" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "key" TEXT NOT NULL,
     "type" TEXT NOT NULL DEFAULT 'text',
@@ -109,14 +109,14 @@ CREATE TABLE "HomepageSection" (
 );
 
 -- CreateTable
-CREATE TABLE "SiteSetting" (
+CREATE TABLE IF NOT EXISTS "SiteSetting" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "key" TEXT NOT NULL,
     "value" TEXT NOT NULL
 );
 
 -- CreateTable
-CREATE TABLE "Order" (
+CREATE TABLE IF NOT EXISTS "Order" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "userId" TEXT,
     "status" TEXT NOT NULL DEFAULT 'pending',
@@ -142,7 +142,7 @@ CREATE TABLE "Order" (
 );
 
 -- CreateTable
-CREATE TABLE "OrderBrandTracking" (
+CREATE TABLE IF NOT EXISTS "OrderBrandTracking" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "orderId" TEXT NOT NULL,
     "brand" TEXT NOT NULL,
@@ -153,7 +153,7 @@ CREATE TABLE "OrderBrandTracking" (
 );
 
 -- CreateTable
-CREATE TABLE "OrderItem" (
+CREATE TABLE IF NOT EXISTS "OrderItem" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "orderId" TEXT NOT NULL,
     "productId" TEXT NOT NULL,
@@ -174,7 +174,7 @@ CREATE TABLE "OrderItem" (
 );
 
 -- CreateTable
-CREATE TABLE "SavedLook" (
+CREATE TABLE IF NOT EXISTS "SavedLook" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "userId" TEXT NOT NULL,
     "products" TEXT NOT NULL,
@@ -183,7 +183,7 @@ CREATE TABLE "SavedLook" (
 );
 
 -- CreateTable
-CREATE TABLE "Subscriber" (
+CREATE TABLE IF NOT EXISTS "Subscriber" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "email" TEXT NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -191,7 +191,7 @@ CREATE TABLE "Subscriber" (
 );
 
 -- CreateTable
-CREATE TABLE "Discount" (
+CREATE TABLE IF NOT EXISTS "Discount" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "brand" TEXT,
     "code" TEXT NOT NULL,
@@ -210,7 +210,7 @@ CREATE TABLE "Discount" (
 );
 
 -- CreateTable
-CREATE TABLE "ProductVariant" (
+CREATE TABLE IF NOT EXISTS "ProductVariant" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "productId" TEXT NOT NULL,
     "stock" INTEGER NOT NULL DEFAULT 0,
@@ -223,7 +223,7 @@ CREATE TABLE "ProductVariant" (
 );
 
 -- CreateTable
-CREATE TABLE "ProductColor" (
+CREATE TABLE IF NOT EXISTS "ProductColor" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "productId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -233,7 +233,7 @@ CREATE TABLE "ProductColor" (
 );
 
 -- CreateTable
-CREATE TABLE "WaitingList" (
+CREATE TABLE IF NOT EXISTS "WaitingList" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "productId" TEXT NOT NULL,
     "variantId" TEXT,
@@ -249,7 +249,7 @@ CREATE TABLE "WaitingList" (
 );
 
 -- CreateTable
-CREATE TABLE "CollaborationRequest" (
+CREATE TABLE IF NOT EXISTS "CollaborationRequest" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "fromBrand" TEXT NOT NULL,
     "toBrand" TEXT NOT NULL,
@@ -263,7 +263,7 @@ CREATE TABLE "CollaborationRequest" (
 );
 
 -- CreateTable
-CREATE TABLE "Collaboration" (
+CREATE TABLE IF NOT EXISTS "Collaboration" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "name" TEXT NOT NULL,
     "description" TEXT,
@@ -277,7 +277,7 @@ CREATE TABLE "Collaboration" (
 );
 
 -- CreateTable
-CREATE TABLE "CollaborationProduct" (
+CREATE TABLE IF NOT EXISTS "CollaborationProduct" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "collaborationId" TEXT NOT NULL,
     "productAId" TEXT NOT NULL,
@@ -295,7 +295,7 @@ CREATE TABLE "CollaborationProduct" (
 );
 
 -- CreateTable
-CREATE TABLE "CollaborationVariant" (
+CREATE TABLE IF NOT EXISTS "CollaborationVariant" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "collaborationProductId" TEXT NOT NULL,
     "productAVariantId" TEXT,
@@ -316,7 +316,7 @@ CREATE TABLE "CollaborationVariant" (
 );
 
 -- CreateTable
-CREATE TABLE "AdminNotification" (
+CREATE TABLE IF NOT EXISTS "AdminNotification" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "recipientBrand" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -329,7 +329,7 @@ CREATE TABLE "AdminNotification" (
 );
 
 -- CreateTable
-CREATE TABLE "Wishlist" (
+CREATE TABLE IF NOT EXISTS "Wishlist" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "userId" TEXT NOT NULL,
     "productId" TEXT NOT NULL,
@@ -339,7 +339,7 @@ CREATE TABLE "Wishlist" (
 );
 
 -- CreateTable
-CREATE TABLE "Campaign" (
+CREATE TABLE IF NOT EXISTS "Campaign" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "brand" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -354,7 +354,7 @@ CREATE TABLE "Campaign" (
 );
 
 -- CreateTable
-CREATE TABLE "CampaignVisit" (
+CREATE TABLE IF NOT EXISTS "CampaignVisit" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "campaignId" TEXT NOT NULL,
     "brand" TEXT NOT NULL,
@@ -367,7 +367,7 @@ CREATE TABLE "CampaignVisit" (
 );
 
 -- CreateTable
-CREATE TABLE "OrderAttribution" (
+CREATE TABLE IF NOT EXISTS "OrderAttribution" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "orderId" TEXT NOT NULL,
     "campaignId" TEXT NOT NULL,
@@ -380,7 +380,7 @@ CREATE TABLE "OrderAttribution" (
 );
 
 -- CreateTable
-CREATE TABLE "RateLimit" (
+CREATE TABLE IF NOT EXISTS "RateLimit" (
     "key" TEXT NOT NULL PRIMARY KEY,
     "attempts" INTEGER NOT NULL DEFAULT 0,
     "firstAttempt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -388,202 +388,202 @@ CREATE TABLE "RateLimit" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
 
 -- CreateIndex
-CREATE INDEX "SavedAddress_userId_idx" ON "SavedAddress"("userId");
+CREATE INDEX IF NOT EXISTS "SavedAddress_userId_idx" ON "SavedAddress"("userId");
 
 -- CreateIndex
-CREATE INDEX "Product_brand_idx" ON "Product"("brand");
+CREATE INDEX IF NOT EXISTS "Product_brand_idx" ON "Product"("brand");
 
 -- CreateIndex
-CREATE INDEX "Product_categoryId_idx" ON "Product"("categoryId");
+CREATE INDEX IF NOT EXISTS "Product_categoryId_idx" ON "Product"("categoryId");
 
 -- CreateIndex
-CREATE INDEX "Product_collectionId_idx" ON "Product"("collectionId");
+CREATE INDEX IF NOT EXISTS "Product_collectionId_idx" ON "Product"("collectionId");
 
 -- CreateIndex
-CREATE INDEX "Product_archivedAt_idx" ON "Product"("archivedAt");
+CREATE INDEX IF NOT EXISTS "Product_archivedAt_idx" ON "Product"("archivedAt");
 
 -- CreateIndex
-CREATE INDEX "Category_brand_idx" ON "Category"("brand");
+CREATE INDEX IF NOT EXISTS "Category_brand_idx" ON "Category"("brand");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Category_brand_slug_key" ON "Category"("brand", "slug");
+CREATE UNIQUE INDEX IF NOT EXISTS "Category_brand_slug_key" ON "Category"("brand", "slug");
 
 -- CreateIndex
-CREATE INDEX "Collection_brand_idx" ON "Collection"("brand");
+CREATE INDEX IF NOT EXISTS "Collection_brand_idx" ON "Collection"("brand");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "HomepageSection_key_key" ON "HomepageSection"("key");
+CREATE UNIQUE INDEX IF NOT EXISTS "HomepageSection_key_key" ON "HomepageSection"("key");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "SiteSetting_key_key" ON "SiteSetting"("key");
+CREATE UNIQUE INDEX IF NOT EXISTS "SiteSetting_key_key" ON "SiteSetting"("key");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Order_paymentReference_key" ON "Order"("paymentReference");
+CREATE UNIQUE INDEX IF NOT EXISTS "Order_paymentReference_key" ON "Order"("paymentReference");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Order_orderNumber_key" ON "Order"("orderNumber");
+CREATE UNIQUE INDEX IF NOT EXISTS "Order_orderNumber_key" ON "Order"("orderNumber");
 
 -- CreateIndex
-CREATE INDEX "OrderBrandTracking_orderId_idx" ON "OrderBrandTracking"("orderId");
+CREATE INDEX IF NOT EXISTS "OrderBrandTracking_orderId_idx" ON "OrderBrandTracking"("orderId");
 
 -- CreateIndex
-CREATE INDEX "OrderBrandTracking_brand_idx" ON "OrderBrandTracking"("brand");
+CREATE INDEX IF NOT EXISTS "OrderBrandTracking_brand_idx" ON "OrderBrandTracking"("brand");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "OrderBrandTracking_orderId_brand_key" ON "OrderBrandTracking"("orderId", "brand");
+CREATE UNIQUE INDEX IF NOT EXISTS "OrderBrandTracking_orderId_brand_key" ON "OrderBrandTracking"("orderId", "brand");
 
 -- CreateIndex
-CREATE INDEX "OrderItem_productId_idx" ON "OrderItem"("productId");
+CREATE INDEX IF NOT EXISTS "OrderItem_productId_idx" ON "OrderItem"("productId");
 
 -- CreateIndex
-CREATE INDEX "OrderItem_orderId_idx" ON "OrderItem"("orderId");
+CREATE INDEX IF NOT EXISTS "OrderItem_orderId_idx" ON "OrderItem"("orderId");
 
 -- CreateIndex
-CREATE INDEX "OrderItem_variantId_idx" ON "OrderItem"("variantId");
+CREATE INDEX IF NOT EXISTS "OrderItem_variantId_idx" ON "OrderItem"("variantId");
 
 -- CreateIndex
-CREATE INDEX "OrderItem_collaborationProductId_idx" ON "OrderItem"("collaborationProductId");
+CREATE INDEX IF NOT EXISTS "OrderItem_collaborationProductId_idx" ON "OrderItem"("collaborationProductId");
 
 -- CreateIndex
-CREATE INDEX "OrderItem_collaborationVariantId_idx" ON "OrderItem"("collaborationVariantId");
+CREATE INDEX IF NOT EXISTS "OrderItem_collaborationVariantId_idx" ON "OrderItem"("collaborationVariantId");
 
 -- CreateIndex
-CREATE INDEX "Subscriber_brand_idx" ON "Subscriber"("brand");
+CREATE INDEX IF NOT EXISTS "Subscriber_brand_idx" ON "Subscriber"("brand");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Subscriber_email_brand_key" ON "Subscriber"("email", "brand");
+CREATE UNIQUE INDEX IF NOT EXISTS "Subscriber_email_brand_key" ON "Subscriber"("email", "brand");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Discount_code_key" ON "Discount"("code");
+CREATE UNIQUE INDEX IF NOT EXISTS "Discount_code_key" ON "Discount"("code");
 
 -- CreateIndex
-CREATE INDEX "Discount_brand_idx" ON "Discount"("brand");
+CREATE INDEX IF NOT EXISTS "Discount_brand_idx" ON "Discount"("brand");
 
 -- CreateIndex
-CREATE INDEX "ProductVariant_productId_idx" ON "ProductVariant"("productId");
+CREATE INDEX IF NOT EXISTS "ProductVariant_productId_idx" ON "ProductVariant"("productId");
 
 -- CreateIndex
-CREATE INDEX "ProductVariant_colorId_idx" ON "ProductVariant"("colorId");
+CREATE INDEX IF NOT EXISTS "ProductVariant_colorId_idx" ON "ProductVariant"("colorId");
 
 -- CreateIndex
-CREATE INDEX "ProductVariant_productId_size_idx" ON "ProductVariant"("productId", "size");
+CREATE INDEX IF NOT EXISTS "ProductVariant_productId_size_idx" ON "ProductVariant"("productId", "size");
 
 -- CreateIndex
-CREATE INDEX "ProductVariant_productId_colorId_idx" ON "ProductVariant"("productId", "colorId");
+CREATE INDEX IF NOT EXISTS "ProductVariant_productId_colorId_idx" ON "ProductVariant"("productId", "colorId");
 
 -- CreateIndex
-CREATE INDEX "ProductColor_productId_idx" ON "ProductColor"("productId");
+CREATE INDEX IF NOT EXISTS "ProductColor_productId_idx" ON "ProductColor"("productId");
 
 -- CreateIndex
-CREATE INDEX "WaitingList_productId_idx" ON "WaitingList"("productId");
+CREATE INDEX IF NOT EXISTS "WaitingList_productId_idx" ON "WaitingList"("productId");
 
 -- CreateIndex
-CREATE INDEX "WaitingList_variantId_idx" ON "WaitingList"("variantId");
+CREATE INDEX IF NOT EXISTS "WaitingList_variantId_idx" ON "WaitingList"("variantId");
 
 -- CreateIndex
-CREATE INDEX "WaitingList_userId_idx" ON "WaitingList"("userId");
+CREATE INDEX IF NOT EXISTS "WaitingList_userId_idx" ON "WaitingList"("userId");
 
 -- CreateIndex
-CREATE INDEX "WaitingList_email_idx" ON "WaitingList"("email");
+CREATE INDEX IF NOT EXISTS "WaitingList_email_idx" ON "WaitingList"("email");
 
 -- CreateIndex
-CREATE INDEX "CollaborationRequest_fromBrand_idx" ON "CollaborationRequest"("fromBrand");
+CREATE INDEX IF NOT EXISTS "CollaborationRequest_fromBrand_idx" ON "CollaborationRequest"("fromBrand");
 
 -- CreateIndex
-CREATE INDEX "CollaborationRequest_toBrand_idx" ON "CollaborationRequest"("toBrand");
+CREATE INDEX IF NOT EXISTS "CollaborationRequest_toBrand_idx" ON "CollaborationRequest"("toBrand");
 
 -- CreateIndex
-CREATE INDEX "CollaborationRequest_status_idx" ON "CollaborationRequest"("status");
+CREATE INDEX IF NOT EXISTS "CollaborationRequest_status_idx" ON "CollaborationRequest"("status");
 
 -- CreateIndex
-CREATE INDEX "CollaborationRequest_collaborationId_idx" ON "CollaborationRequest"("collaborationId");
+CREATE INDEX IF NOT EXISTS "CollaborationRequest_collaborationId_idx" ON "CollaborationRequest"("collaborationId");
 
 -- CreateIndex
-CREATE INDEX "Collaboration_brandA_idx" ON "Collaboration"("brandA");
+CREATE INDEX IF NOT EXISTS "Collaboration_brandA_idx" ON "Collaboration"("brandA");
 
 -- CreateIndex
-CREATE INDEX "Collaboration_brandB_idx" ON "Collaboration"("brandB");
+CREATE INDEX IF NOT EXISTS "Collaboration_brandB_idx" ON "Collaboration"("brandB");
 
 -- CreateIndex
-CREATE INDEX "Collaboration_creatorBrand_idx" ON "Collaboration"("creatorBrand");
+CREATE INDEX IF NOT EXISTS "Collaboration_creatorBrand_idx" ON "Collaboration"("creatorBrand");
 
 -- CreateIndex
-CREATE INDEX "Collaboration_creatorRole_idx" ON "Collaboration"("creatorRole");
+CREATE INDEX IF NOT EXISTS "Collaboration_creatorRole_idx" ON "Collaboration"("creatorRole");
 
 -- CreateIndex
-CREATE INDEX "Collaboration_status_idx" ON "Collaboration"("status");
+CREATE INDEX IF NOT EXISTS "Collaboration_status_idx" ON "Collaboration"("status");
 
 -- CreateIndex
-CREATE INDEX "CollaborationProduct_collaborationId_idx" ON "CollaborationProduct"("collaborationId");
+CREATE INDEX IF NOT EXISTS "CollaborationProduct_collaborationId_idx" ON "CollaborationProduct"("collaborationId");
 
 -- CreateIndex
-CREATE INDEX "CollaborationProduct_productAId_idx" ON "CollaborationProduct"("productAId");
+CREATE INDEX IF NOT EXISTS "CollaborationProduct_productAId_idx" ON "CollaborationProduct"("productAId");
 
 -- CreateIndex
-CREATE INDEX "CollaborationProduct_productBId_idx" ON "CollaborationProduct"("productBId");
+CREATE INDEX IF NOT EXISTS "CollaborationProduct_productBId_idx" ON "CollaborationProduct"("productBId");
 
 -- CreateIndex
-CREATE INDEX "CollaborationProduct_status_idx" ON "CollaborationProduct"("status");
+CREATE INDEX IF NOT EXISTS "CollaborationProduct_status_idx" ON "CollaborationProduct"("status");
 
 -- CreateIndex
-CREATE INDEX "CollaborationVariant_collaborationProductId_idx" ON "CollaborationVariant"("collaborationProductId");
+CREATE INDEX IF NOT EXISTS "CollaborationVariant_collaborationProductId_idx" ON "CollaborationVariant"("collaborationProductId");
 
 -- CreateIndex
-CREATE INDEX "CollaborationVariant_productAVariantId_idx" ON "CollaborationVariant"("productAVariantId");
+CREATE INDEX IF NOT EXISTS "CollaborationVariant_productAVariantId_idx" ON "CollaborationVariant"("productAVariantId");
 
 -- CreateIndex
-CREATE INDEX "CollaborationVariant_productBVariantId_idx" ON "CollaborationVariant"("productBVariantId");
+CREATE INDEX IF NOT EXISTS "CollaborationVariant_productBVariantId_idx" ON "CollaborationVariant"("productBVariantId");
 
 -- CreateIndex
-CREATE INDEX "AdminNotification_recipientBrand_idx" ON "AdminNotification"("recipientBrand");
+CREATE INDEX IF NOT EXISTS "AdminNotification_recipientBrand_idx" ON "AdminNotification"("recipientBrand");
 
 -- CreateIndex
-CREATE INDEX "AdminNotification_readAt_idx" ON "AdminNotification"("readAt");
+CREATE INDEX IF NOT EXISTS "AdminNotification_readAt_idx" ON "AdminNotification"("readAt");
 
 -- CreateIndex
-CREATE INDEX "AdminNotification_requestId_idx" ON "AdminNotification"("requestId");
+CREATE INDEX IF NOT EXISTS "AdminNotification_requestId_idx" ON "AdminNotification"("requestId");
 
 -- CreateIndex
-CREATE INDEX "Wishlist_userId_idx" ON "Wishlist"("userId");
+CREATE INDEX IF NOT EXISTS "Wishlist_userId_idx" ON "Wishlist"("userId");
 
 -- CreateIndex
-CREATE INDEX "Wishlist_productId_idx" ON "Wishlist"("productId");
+CREATE INDEX IF NOT EXISTS "Wishlist_productId_idx" ON "Wishlist"("productId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Wishlist_userId_productId_key" ON "Wishlist"("userId", "productId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Wishlist_userId_productId_key" ON "Wishlist"("userId", "productId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Campaign_slug_key" ON "Campaign"("slug");
+CREATE UNIQUE INDEX IF NOT EXISTS "Campaign_slug_key" ON "Campaign"("slug");
 
 -- CreateIndex
-CREATE INDEX "Campaign_brand_idx" ON "Campaign"("brand");
+CREATE INDEX IF NOT EXISTS "Campaign_brand_idx" ON "Campaign"("brand");
 
 -- CreateIndex
-CREATE INDEX "Campaign_slug_idx" ON "Campaign"("slug");
+CREATE INDEX IF NOT EXISTS "Campaign_slug_idx" ON "Campaign"("slug");
 
 -- CreateIndex
-CREATE INDEX "CampaignVisit_campaignId_idx" ON "CampaignVisit"("campaignId");
+CREATE INDEX IF NOT EXISTS "CampaignVisit_campaignId_idx" ON "CampaignVisit"("campaignId");
 
 -- CreateIndex
-CREATE INDEX "CampaignVisit_brand_idx" ON "CampaignVisit"("brand");
+CREATE INDEX IF NOT EXISTS "CampaignVisit_brand_idx" ON "CampaignVisit"("brand");
 
 -- CreateIndex
-CREATE INDEX "CampaignVisit_visitorId_idx" ON "CampaignVisit"("visitorId");
+CREATE INDEX IF NOT EXISTS "CampaignVisit_visitorId_idx" ON "CampaignVisit"("visitorId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "OrderAttribution_orderId_key" ON "OrderAttribution"("orderId");
+CREATE UNIQUE INDEX IF NOT EXISTS "OrderAttribution_orderId_key" ON "OrderAttribution"("orderId");
 
 -- CreateIndex
-CREATE INDEX "OrderAttribution_orderId_idx" ON "OrderAttribution"("orderId");
+CREATE INDEX IF NOT EXISTS "OrderAttribution_orderId_idx" ON "OrderAttribution"("orderId");
 
 -- CreateIndex
-CREATE INDEX "OrderAttribution_campaignId_idx" ON "OrderAttribution"("campaignId");
+CREATE INDEX IF NOT EXISTS "OrderAttribution_campaignId_idx" ON "OrderAttribution"("campaignId");
 
 -- CreateIndex
-CREATE INDEX "OrderAttribution_brand_idx" ON "OrderAttribution"("brand");
+CREATE INDEX IF NOT EXISTS "OrderAttribution_brand_idx" ON "OrderAttribution"("brand");
 
 -- CreateIndex
-CREATE INDEX "RateLimit_updatedAt_idx" ON "RateLimit"("updatedAt");
+CREATE INDEX IF NOT EXISTS "RateLimit_updatedAt_idx" ON "RateLimit"("updatedAt");
