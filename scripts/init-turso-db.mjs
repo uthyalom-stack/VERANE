@@ -200,7 +200,7 @@ export async function initTursoSchema() {
         } catch (err) {
           console.error(`[TURSO DB INIT] Error executing migration ${folder}:`, err.message || err);
 
-          // On failure, remove reservation so retry is possible by other processes or retried attempts
+          // All committed migration DDL must be idempotent (CREATE TABLE/INDEX IF NOT EXISTS), so a later run can safely continue after partial DDL. Release only this failed reservation; do not treat this as a rollback of SQL.
           await client.execute({
             sql: `DELETE FROM "_prisma_migrations" WHERE "id" = ?;`,
             args: [migrationId],
