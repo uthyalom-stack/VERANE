@@ -35,6 +35,80 @@ function resolveConnectionConfig() {
   return { url, authToken };
 }
 
+function splitSqlStatements(sql) {
+  // Split migration SQL without breaking semicolons inside quoted strings or comments.
+  const statements = [];
+  let current = "";
+  let quote = null;
+  let lineComment = false;
+  let blockComment = false;
+
+  for (let i = 0; i < sql.length; i++) {
+    const char = sql[i];
+    const next = sql[i + 1];
+
+    if (lineComment) {
+      current += char;
+      if (char === "\n") lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      current += char;
+      if (char === "*" && next === "/") {
+        current += next;
+        i++;
+        blockComment = false;
+      }
+      continue;
+    }
+    if (quote) {
+      current += char;
+      if (char === quote) {
+        if (next === quote) {
+          current += next;
+          i++;
+        } else {
+          quote = null;
+        }
+      } else if (char === "\\" && next) {
+        current += next;
+        i++;
+      }
+      continue;
+    }
+
+    if (char === "-" && next === "-") {
+      current += char + next;
+      i++;
+      lineComment = true;
+      continue;
+    }
+    if (char === "/" && next === "*") {
+      current += char + next;
+      i++;
+      blockComment = true;
+      continue;
+    }
+    if (char === "'" || char === '"' || char === "`") {
+      quote = char;
+      current += char;
+      continue;
+    }
+    if (char === ";") {
+      if (current.trim()) statements.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+
+  if (quote || blockComment) {
+    throw new Error("Malformed migration SQL: unterminated quoted string or block comment.");
+  }
+  if (current.trim()) statements.push(current.trim());
+  return statements;
+}
+
 async function waitForConcurrentMigration(client, folder, timeoutMs = 60000) {
   const pollIntervalMs = 500;
   const startTime = Date.now();
@@ -182,28 +256,47 @@ export async function initTursoSchema() {
       if (reservationAcquired) {
         console.log(`[TURSO DB INIT] Applying migration script: ${folder}/migration.sql ...`);
 
+        let transaction;
         try {
-          await client.executeMultiple(sql);
+          // SQLite supports transactional DDL. Execute every statement on the same libSQL
+          // transaction so a failed statement rolls back earlier table/index creation too.
+          transaction = await client.transaction("write");
+          const statements = splitSqlStatements(sql);
+          if (statements.length === 0) {
+            throw new Error(`Migration "${folder}" contains no SQL statements.`);
+          }
 
-          // Mark finished_at
-          await client.execute({
+          for (const statement of statements) {
+            await transaction.execute(statement);
+          }
+
+          // The schema changes and the successful migration marker commit together.
+          await transaction.execute({
             sql: `UPDATE "_prisma_migrations"
                   SET "finished_at" = CURRENT_TIMESTAMP, "applied_steps_count" = 1
                   WHERE "id" = ?;`,
             args: [migrationId],
           });
+          await transaction.commit();
+          transaction = null;
 
           console.log(`[TURSO DB INIT] Successfully applied and finalized migration: ${folder}`);
           appliedCount++;
           isApplied = true;
           break;
         } catch (err) {
+          if (transaction) {
+            await transaction.rollback().catch((rollbackError) => {
+              console.error(
+                `[TURSO DB INIT] Rollback failed for migration ${folder}:`,
+                rollbackError.message || rollbackError
+              );
+            });
+          }
           console.error(`[TURSO DB INIT] Error executing migration ${folder}:`, err.message || err);
 
-          // executeMultiple() is not assumed to roll back statements that ran before the failure.
-          // Keep a durable failed-migration record instead of deleting the reservation: a future
-          // initializer must fail closed rather than rerun CREATE TABLE IF NOT EXISTS over a
-          // potentially incomplete schema and incorrectly mark it as fully applied.
+          // If the transaction could not be rolled back, keep a durable failure record and
+          // refuse automatic retries rather than trust CREATE TABLE IF NOT EXISTS to repair it.
           const failureMessage = String(err?.stack || err?.message || err).slice(0, 4000);
           await client.execute({
             sql: `UPDATE "_prisma_migrations"
@@ -218,9 +311,8 @@ export async function initTursoSchema() {
           });
 
           throw new Error(
-            `Migration "${folder}" failed and may have partially applied DDL. ` +
-            `Its failure record was retained to prevent an unsafe automatic retry. ` +
-            `Inspect the target schema and repair/recreate the disposable database before rerunning. ` +
+            `Migration "${folder}" failed. Transaction rollback was attempted and the failure record was retained ` +
+            `to prevent an unsafe automatic retry. Verify the target schema before rerunning. ` +
             `Original error: ${err?.message || err}`
           );
         }
