@@ -35,6 +35,19 @@ async function testReservationReleaseAndRetry() {
 
   console.log("✓ Inserted simulated pending lock reservation row.");
 
+  // Simulate a process that partially applied the baseline migration before failing.
+  // The first table already exists when the initializer retries, so baseline DDL must be idempotent.
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS "User" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "email" TEXT NOT NULL,
+      "password" TEXT NOT NULL,
+      "name" TEXT,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  console.log("✓ Simulated partial baseline DDL (User table already exists).");
+
   // 2. Schedule deletion of fake reservation after 1 second to simulate failed process releasing reservation
   setTimeout(async () => {
     console.log("✓ Simulating failed initializer releasing lock reservation...");
