@@ -21,14 +21,14 @@ async function runLiveSearchTests() {
       if (tokens.length > 0) {
         whereClause.AND = tokens.map((token) => ({
           OR: [
-            { name: { contains: token, mode: "insensitive" } },
-            { description: { contains: token, mode: "insensitive" } },
-            { brand: { contains: token, mode: "insensitive" } },
-            { category: { contains: token, mode: "insensitive" } },
-            { style: { contains: token, mode: "insensitive" } },
-            { occasion: { contains: token, mode: "insensitive" } },
-            { categoryRef: { name: { contains: token, mode: "insensitive" } } },
-            { collection: { name: { contains: token, mode: "insensitive" } } },
+            { name: { contains: token } },
+            { description: { contains: token } },
+            { brand: { contains: token } },
+            { category: { contains: token } },
+            { style: { contains: token } },
+            { occasion: { contains: token } },
+            { categoryRef: { name: { contains: token } } },
+            { collection: { name: { contains: token } } },
           ],
         }));
       }
@@ -42,8 +42,7 @@ async function runLiveSearchTests() {
   assert.strictEqual(clause1.archivedAt, null);
   assert.strictEqual(clause1.AND.length, 1);
   assert.strictEqual(clause1.AND[0].OR[0].name.contains, "shirt");
-  assert.strictEqual(clause1.AND[0].OR[0].name.mode, "insensitive");
-  console.log("✓ Single term search clause built correctly with case-insensitive contains");
+  console.log("✓ Single term search clause built correctly with contains");
 
   // Verify multi-word tokenized search clause ("uthy shirt")
   const clause2 = buildSearchWhereClause("uthy shirt");

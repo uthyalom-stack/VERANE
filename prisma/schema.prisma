@@ -1,11 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_DATABASE_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -65,7 +65,11 @@ model Product {
   fulfillmentTime        String?
   preOrderEnabled        Boolean                @default(false)
   sizeType               String?
-sizeGuideImage String?
+  sizeGuideImage         String?
+  weight                 Float?
+  packageLength          Float?                 @default(15)
+  packageWidth           Float?                 @default(15)
+  packageHeight          Float?                 @default(15)
   archivedAt             DateTime?
   collaborationProductsA CollaborationProduct[] @relation("CollaborationProductA")
   collaborationProductsB CollaborationProduct[] @relation("CollaborationProductB")
@@ -90,6 +94,7 @@ model Category {
   slug        String
   description String?
   sizeType    String    @default("none")
+  shippingWeight Float?
   enabled     Boolean   @default(true)
   sortOrder   Int       @default(0)
   createdAt   DateTime  @default(now())
@@ -141,7 +146,7 @@ model SiteSetting {
 
 model Order {
   id                  String      @id @default(cuid())
-  userId              String
+  userId              String?
   status              String      @default("pending")
   paymentStatus       String      @default("pending")
   paymentReference    String?     @unique
@@ -161,10 +166,38 @@ model Order {
   address             String?
   createdAt           DateTime    @default(now())
   orderNumber         String      @unique
-  user                User        @relation(fields: [userId], references: [id])
+  user                User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   items               OrderItem[]
   attribution         OrderAttribution?
   brandTrackings      OrderBrandTracking[]
+  fulfillment         OrderFulfillment?
+}
+
+model OrderFulfillment {
+  id                  String   @id @default(cuid())
+  orderId             String   @unique
+  fulfillmentType     String   @default("delivery")
+  fulfillmentStatus   String   @default("unfulfilled")
+  courierId           String?
+  courierName         String?
+  serviceCode         String?
+  serviceName         String?
+  rateToken           String?
+  waybillNumber       String?
+  labelUrl            String?
+  trackingUrl         String?
+  waybillGeneratedAt  DateTime?
+  pickupBrand         String?
+  pickupAddress       String?
+  pickupInstructions  String?
+  requestedPickupDate String?
+  isImmediatePickup   Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([fulfillmentType])
+  @@index([fulfillmentStatus])
 }
 
 model OrderBrandTracking {
@@ -326,6 +359,8 @@ model Collaboration {
   description String?
   brandA      String
   brandB      String
+  creatorBrand String?
+  creatorRole  String?
   status      String                 @default("active")
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
@@ -334,6 +369,8 @@ model Collaboration {
 
   @@index([brandA])
   @@index([brandB])
+  @@index([creatorBrand])
+  @@index([creatorRole])
   @@index([status])
 }
 

@@ -1,12 +1,9 @@
 export const dynamic = "force-dynamic";
 
+import prisma from "@/lib/prisma";
+
 async function getContactContent() {
-  let prisma;
-
   try {
-    const { PrismaClient } = await import("@prisma/client");
-    prisma = new PrismaClient();
-
     const row = await prisma.siteSetting.findUnique({
       where: { key: "pageContent" },
     });
@@ -21,22 +18,13 @@ async function getContactContent() {
     }
   } catch (error) {
     console.error("Failed to load contact content:", error);
-  } finally {
-    if (prisma) {
-      await prisma.$disconnect();
-    }
   }
 
   return "";
 }
 
 async function getSettings() {
-  let prisma;
-
   try {
-    const { PrismaClient } = await import("@prisma/client");
-    prisma = new PrismaClient();
-
     const rows = await prisma.siteSetting.findMany();
 
     const settings = {};
@@ -48,10 +36,6 @@ async function getSettings() {
     return settings;
   } catch (error) {
     console.error("Failed to load site settings:", error);
-  } finally {
-    if (prisma) {
-      await prisma.$disconnect();
-    }
   }
 
   return {};
