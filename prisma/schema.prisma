@@ -166,7 +166,7 @@ model Order {
   address             String?
   createdAt           DateTime    @default(now())
   orderNumber         String      @unique
-  user                User?       @relation(fields: [userId], references: [id])
+  user                User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   items               OrderItem[]
   attribution         OrderAttribution?
   brandTrackings      OrderBrandTracking[]
@@ -196,7 +196,6 @@ model OrderFulfillment {
   updatedAt           DateTime @updatedAt
   order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  @@index([orderId])
   @@index([fulfillmentType])
   @@index([fulfillmentStatus])
 }
