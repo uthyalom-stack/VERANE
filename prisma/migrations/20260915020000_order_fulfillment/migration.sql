@@ -1,5 +1,5 @@
 -- Add order fulfillment metadata for Shipbubble delivery and customer pickup.
-CREATE TABLE "OrderFulfillment" (
+CREATE TABLE IF NOT EXISTS "OrderFulfillment" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "orderId" TEXT NOT NULL,
     "fulfillmentType" TEXT NOT NULL DEFAULT 'delivery',
@@ -23,6 +23,6 @@ CREATE TABLE "OrderFulfillment" (
     CONSTRAINT "OrderFulfillment_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
-CREATE UNIQUE INDEX "OrderFulfillment_orderId_key" ON "OrderFulfillment"("orderId");
-CREATE INDEX "OrderFulfillment_fulfillmentType_idx" ON "OrderFulfillment"("fulfillmentType");
-CREATE INDEX "OrderFulfillment_fulfillmentStatus_idx" ON "OrderFulfillment"("fulfillmentStatus");
+CREATE UNIQUE INDEX IF NOT EXISTS "OrderFulfillment_orderId_key" ON "OrderFulfillment"("orderId");
+CREATE INDEX IF NOT EXISTS "OrderFulfillment_fulfillmentType_idx" ON "OrderFulfillment"("fulfillmentType");
+CREATE INDEX IF NOT EXISTS "OrderFulfillment_fulfillmentStatus_idx" ON "OrderFulfillment"("fulfillmentStatus");
