@@ -45,8 +45,8 @@ async function testReservationReleaseAndRetry() {
   const result = await initTursoSchema();
   console.log("Initializer result after retry:", result);
 
-  assert.strictEqual(result.appliedCount, 2, "Initializer should apply 2 migrations after lock release retry");
-  assert.strictEqual(result.tablesCount, 27, "Target database should contain 27 tables");
+  assert.strictEqual(result.appliedCount, 3, "Initializer should apply all 3 migrations after lock release retry");
+  assert.strictEqual(result.tablesCount, 28, "Target database should contain 28 tables including OrderFulfillment");
 
   if (fs.existsSync(testDbPath)) fs.unlinkSync(testDbPath);
 
