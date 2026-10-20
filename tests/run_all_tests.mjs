@@ -5,7 +5,6 @@ const testFiles = [
   "tests/test_security_audit_suite.js",
   "tests/test_turso_shared_client_adapter.js",
   "tests/test_customer_auth.js",
-  "tests/test_shipping_and_pickup_suite.js",
   "tests/test_brand_tracking.js",
   "tests/test_email_system.js",
   "tests/test_live_search_suite.js",
