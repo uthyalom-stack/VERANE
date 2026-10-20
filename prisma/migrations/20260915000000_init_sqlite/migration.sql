@@ -508,6 +508,12 @@ CREATE INDEX "Collaboration_brandA_idx" ON "Collaboration"("brandA");
 CREATE INDEX "Collaboration_brandB_idx" ON "Collaboration"("brandB");
 
 -- CreateIndex
+CREATE INDEX "Collaboration_creatorBrand_idx" ON "Collaboration"("creatorBrand");
+
+-- CreateIndex
+CREATE INDEX "Collaboration_creatorRole_idx" ON "Collaboration"("creatorRole");
+
+-- CreateIndex
 CREATE INDEX "Collaboration_status_idx" ON "Collaboration"("status");
 
 -- CreateIndex
