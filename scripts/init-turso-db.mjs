@@ -200,13 +200,29 @@ export async function initTursoSchema() {
         } catch (err) {
           console.error(`[TURSO DB INIT] Error executing migration ${folder}:`, err.message || err);
 
-          // All committed migration DDL must be idempotent (CREATE TABLE/INDEX IF NOT EXISTS), so a later run can safely continue after partial DDL. Release only this failed reservation; do not treat this as a rollback of SQL.
+          // executeMultiple() is not assumed to roll back statements that ran before the failure.
+          // Keep a durable failed-migration record instead of deleting the reservation: a future
+          // initializer must fail closed rather than rerun CREATE TABLE IF NOT EXISTS over a
+          // potentially incomplete schema and incorrectly mark it as fully applied.
+          const failureMessage = String(err?.stack || err?.message || err).slice(0, 4000);
           await client.execute({
-            sql: `DELETE FROM "_prisma_migrations" WHERE "id" = ?;`,
-            args: [migrationId],
-          }).catch(() => {});
+            sql: `UPDATE "_prisma_migrations"
+                  SET "rolled_back_at" = CURRENT_TIMESTAMP, "logs" = ?
+                  WHERE "id" = ?;`,
+            args: [failureMessage, migrationId],
+          }).catch((trackingError) => {
+            console.error(
+              `[TURSO DB INIT] Could not record failed migration state for ${folder}:`,
+              trackingError.message || trackingError
+            );
+          });
 
-          throw err;
+          throw new Error(
+            `Migration "${folder}" failed and may have partially applied DDL. ` +
+            `Its failure record was retained to prevent an unsafe automatic retry. ` +
+            `Inspect the target schema and repair/recreate the disposable database before rerunning. ` +
+            `Original error: ${err?.message || err}`
+          );
         }
       }
     }
