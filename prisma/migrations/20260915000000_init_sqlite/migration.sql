@@ -52,6 +52,10 @@ CREATE TABLE "Product" (
     "preOrderEnabled" BOOLEAN NOT NULL DEFAULT false,
     "sizeType" TEXT,
     "sizeGuideImage" TEXT,
+    "weight" REAL,
+    "packageLength" REAL DEFAULT 15,
+    "packageWidth" REAL DEFAULT 15,
+    "packageHeight" REAL DEFAULT 15,
     "archivedAt" DATETIME,
     CONSTRAINT "Product_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "Product_collectionId_fkey" FOREIGN KEY ("collectionId") REFERENCES "Collection" ("id") ON DELETE SET NULL ON UPDATE CASCADE
@@ -65,6 +69,7 @@ CREATE TABLE "Category" (
     "slug" TEXT NOT NULL,
     "description" TEXT,
     "sizeType" TEXT NOT NULL DEFAULT 'none',
+    "shippingWeight" REAL,
     "enabled" BOOLEAN NOT NULL DEFAULT true,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -113,7 +118,7 @@ CREATE TABLE "SiteSetting" (
 -- CreateTable
 CREATE TABLE "Order" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "userId" TEXT NOT NULL,
+    "userId" TEXT,
     "status" TEXT NOT NULL DEFAULT 'pending',
     "paymentStatus" TEXT NOT NULL DEFAULT 'pending',
     "paymentReference" TEXT,
@@ -264,6 +269,8 @@ CREATE TABLE "Collaboration" (
     "description" TEXT,
     "brandA" TEXT NOT NULL,
     "brandB" TEXT NOT NULL,
+    "creatorBrand" TEXT,
+    "creatorRole" TEXT,
     "status" TEXT NOT NULL DEFAULT 'active',
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
