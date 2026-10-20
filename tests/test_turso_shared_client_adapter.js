@@ -215,6 +215,32 @@ async function runComprehensiveAdapterTest() {
   assert.strictEqual(order.items.length, 1);
   assert.strictEqual(order.brandTrackings.length, 1);
 
+  // Guest checkout and delivery/pickup fulfillment must work without a User record.
+  const guestOrder = await prisma.order.create({
+    data: {
+      orderNumber: "VERANE-GUEST-TURSO-2002",
+      total: 42000,
+      shippingFee: 0,
+      email: "guest@example.com",
+      phone: "+2348000000000",
+      fulfillment: {
+        create: {
+          fulfillmentType: "pickup",
+          fulfillmentStatus: "unfulfilled",
+          pickupBrand: "UTHY",
+          pickupAddress: "Lagos atelier",
+          isImmediatePickup: true,
+        },
+      },
+    },
+    include: { fulfillment: true },
+  });
+  assert.strictEqual(guestOrder.userId, null, "Guest order must not require a User");
+  assert.ok(guestOrder.fulfillment, "Guest order must support fulfillment metadata");
+  assert.strictEqual(guestOrder.fulfillment.fulfillmentType, "pickup");
+  assert.strictEqual(guestOrder.fulfillment.pickupBrand, "UTHY");
+  assert.strictEqual(guestOrder.fulfillment.isImmediatePickup, true);
+
   // 7. CAMPAIGNS, CAMPAIGN VISITS & ORDER ATTRIBUTION
   console.log("--- 7. Testing Campaigns, Campaign Visits & Order Attribution ---");
   const campaign = await prisma.campaign.create({
@@ -302,6 +328,7 @@ async function runComprehensiveAdapterTest() {
   await prisma.orderBrandTracking.deleteMany({ where: { orderId: order.id } });
   await prisma.orderItem.deleteMany({ where: { orderId: order.id } });
   await prisma.order.delete({ where: { id: order.id } });
+  await prisma.order.delete({ where: { id: guestOrder.id } });
   await prisma.wishlist.delete({ where: { id: wishlist.id } });
   await prisma.savedLook.delete({ where: { id: savedLook.id } });
   await prisma.savedAddress.delete({ where: { id: savedAddress.id } });
