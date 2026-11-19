@@ -1,4 +1,5 @@
 name: VÉRANE V1 CI
+# Initialize local schema once before regression and build
 
 on:
   pull_request:
