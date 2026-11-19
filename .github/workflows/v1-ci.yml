@@ -1,5 +1,5 @@
 name: VÉRANE V1 CI
-# CI validation for branded receipts and fulfillment-aware email/PDF
+# CI validation for receipt PDF table layout fix
 
 on:
   pull_request:
