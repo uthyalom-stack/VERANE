@@ -91,6 +91,7 @@ Configure the following as Cloudflare Worker secrets/variables (not committed to
 
 - `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`: use the existing production Turso database. Do not create a second database just for Cloudflare unless intentionally migrating.
 - `ADMIN_AUTH_SECRET` and `CUSTOMER_AUTH_SECRET`.
+- `ADMIN_UTHY_PASSWORD`, `ADMIN_ALOMZIEE_PASSWORD`, and `ADMIN_SUPERADMIN_PASSWORD`: required for the three admin login roles; store them as Worker secrets, not plain variables.
 - `PAYSTACK_SECRET_KEY`.
 - `SHIPBUBBLE_API_KEY`.
 - `RESEND_API_KEY` and sender settings if email delivery is required.
