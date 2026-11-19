@@ -1,4 +1,5 @@
 name: VÉRANE V1 CI
+# Validate current full V1 stack before feature PRs are merged
 
 on:
   pull_request:
