@@ -31,6 +31,8 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      # Tailwind/PostCSS are build-time devDependencies; production NODE_ENV
+      # must not cause npm ci to omit them in the Cloudflare build job.
+      - run: npm ci --include=dev
       - run: npm run db:init
       - run: npm run cf:build
