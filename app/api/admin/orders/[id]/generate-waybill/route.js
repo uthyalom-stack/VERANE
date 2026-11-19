@@ -49,6 +49,10 @@ export async function POST(request, { params }) {
       return NextResponse.json({ success: false, error: "Order not found or unauthorized." }, { status: 404 });
     }
 
+    if (order.paymentStatus !== "paid") {
+      return NextResponse.json({ success: false, error: "Waybill generation is only allowed for paid orders." }, { status: 409 });
+    }
+
     const fulfillment = order.fulfillment;
     if (!fulfillment) {
       return NextResponse.json({ success: false, error: "No fulfillment record found for this order." }, { status: 400 });
