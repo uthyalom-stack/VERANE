@@ -56,14 +56,14 @@ export async function GET(request) {
       if (tokens.length > 0) {
         whereClause.AND = tokens.map((token) => ({
           OR: [
-            { name: { contains: token, mode: "insensitive" } },
-            { description: { contains: token, mode: "insensitive" } },
-            { brand: { contains: token, mode: "insensitive" } },
-            { category: { contains: token, mode: "insensitive" } },
-            { style: { contains: token, mode: "insensitive" } },
-            { occasion: { contains: token, mode: "insensitive" } },
-            { categoryRef: { name: { contains: token, mode: "insensitive" } } },
-            { collection: { name: { contains: token, mode: "insensitive" } } },
+            { name: { contains: token } },
+            { description: { contains: token } },
+            { brand: { contains: token } },
+            { category: { contains: token } },
+            { style: { contains: token } },
+            { occasion: { contains: token } },
+            { categoryRef: { name: { contains: token } } },
+            { collection: { name: { contains: token } } },
           ],
         }));
       }

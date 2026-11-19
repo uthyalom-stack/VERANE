@@ -1,7 +1,5 @@
 import assert from "assert";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from "../lib/prisma.js";
 
 async function runProductArchivalTests() {
   console.log("Starting Product Archival Regression Test Suite...\n");

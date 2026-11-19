@@ -24,6 +24,10 @@
 .DS_Store
 *.pem
 
+# local databases
+*.db
+*.db-journal
+
 # debug
 npm-debug.log*
 yarn-debug.log*

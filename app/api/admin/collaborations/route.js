@@ -254,17 +254,17 @@ export async function POST(request) {
     /*
      * Check for an existing duplicate pending request for the same intended collaboration title
      */
-    const existingPending = await prisma.collaborationRequest.findFirst({
+    const pendingRequests = await prisma.collaborationRequest.findMany({
       where: {
         fromBrand,
         toBrand,
-        title: {
-          equals: title,
-          mode: "insensitive",
-        },
         status: "pending",
       },
     });
+
+    const existingPending = pendingRequests.find(
+      (r) => r.title.trim().toLowerCase() === title.toLowerCase()
+    );
 
     if (existingPending) {
       return NextResponse.json(
