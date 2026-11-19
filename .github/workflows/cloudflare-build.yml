@@ -1,0 +1,36 @@
+name: Cloudflare Workers compatibility
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "prisma/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.*"
+      - "open-next.config.ts"
+      - "wrangler.jsonc"
+      - ".github/workflows/cloudflare-build.yml"
+  workflow_dispatch:
+
+jobs:
+  workers-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_ENV: production
+      DATABASE_URL: file:./prisma/dev.db
+      TURSO_DATABASE_URL: file:./prisma/dev.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:init
+      - run: npm run cf:build
