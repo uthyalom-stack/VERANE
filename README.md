@@ -67,7 +67,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Deploy on Cloudflare Workers (additional deployment target)
 
-Cloudflare support is additive: the existing Next.js/Vercel scripts and deployment path remain unchanged. The Cloudflare target uses the OpenNext adapter so the existing App Router, route handlers, proxy, and server-rendered storefront can be retained.
+Cloudflare support is additive: the existing Next.js/Vercel scripts and deployment path remain unchanged. The Cloudflare target uses the OpenNext adapter so the existing App Router, route handlers, Edge middleware, and server-rendered storefront can be retained. The admin request gate deliberately uses the supported Edge `middleware.ts` convention instead of Next.js 16 `proxy.ts`, whose Node.js middleware runtime remains experimental in the Cloudflare adapter.
 
 ### Build and preview
 
@@ -77,10 +77,11 @@ Use Node.js 24 and npm:
 npm ci
 npm run db:init
 npm run cf:build
+npm run cf:smoke
 npm run cf:preview
 ```
 
-The Cloudflare scripts install the OpenNext adapter and Wrangler into the local working tree without changing the committed dependency manifest or lockfile. This deliberately keeps the current Vercel dependency graph untouched while the Workers compatibility work is validated. For a long-term pinned dependency setup, promote the verified adapter/Wrangler versions into the normal dependency manifest and regenerate the lockfile.
+The Cloudflare scripts install pinned versions of the OpenNext adapter and Wrangler into the local working tree without changing the committed dependency manifest or lockfile. This deliberately keeps the current Vercel dependency graph untouched while the Workers compatibility work is validated. The `cf:smoke` command starts the built Worker in the local workerd runtime and checks the admin login page, Edge middleware security headers, admin-page redirects, and unauthenticated admin API rejection.
 
 ### Required Worker configuration
 
