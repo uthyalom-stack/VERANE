@@ -94,9 +94,11 @@ Configure the following as Cloudflare Worker secrets/variables (not committed to
 - `ADMIN_UTHY_PASSWORD`, `ADMIN_ALOMZIEE_PASSWORD`, and `ADMIN_SUPERADMIN_PASSWORD`: required for the three admin login roles; store them as Worker secrets, not plain variables.
 - `PAYSTACK_SECRET_KEY`.
 - `SHIPBUBBLE_API_KEY`.
-- `RESEND_API_KEY` and sender settings if email delivery is required.
+- `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and optional `RESEND_REPLY_TO` / `SUPPORT_EMAIL` if transactional email delivery is required.
 - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, and `R2_PUBLIC_URL` for the existing S3-compatible R2 upload route.
 - `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_APP_URL` set to the Cloudflare production hostname.
+- `SHIPBUBBLE_MOCK_MODE=false`; optionally set `SHIPBUBBLE_CATEGORY_ID` if using a non-default courier category.
+- `GEOAPIFY_API_KEY` and/or `LOKATE_API_KEY` if address autocomplete should be enabled.
 
 Set `DATABASE_URL=file:./prisma/dev.db` for Prisma's SQLite schema/generation configuration. Runtime production queries must use `TURSO_DATABASE_URL`; never point production at the local SQLite file. Keep `SHIPBUBBLE_MOCK_MODE` disabled in production.
 
