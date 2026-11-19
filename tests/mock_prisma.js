@@ -145,7 +145,7 @@ const mockPrisma = {
         }));
       }
       const newOrder = {
-        id: data.id || `ord_${Date.now()}`,
+        id: data.id || `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         ...data,
         items: itemsArray,
       };
