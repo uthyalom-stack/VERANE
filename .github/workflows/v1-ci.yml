@@ -1,5 +1,5 @@
 name: VÉRANE V1 CI
-# CI validation for receipt PDF and email changes
+# Initialize local schema once before regression and build
 
 on:
   pull_request:
@@ -25,6 +25,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Audit production dependencies
+        run: |
+          npm audit --omit=dev --json > npm-audit.json || true
+          node -e 'try { const a=require("./npm-audit.json"); console.log(JSON.stringify({counts:a.metadata?.vulnerabilities, advisories:Object.entries(a.vulnerabilities||{}).map(([name,v])=>({name,severity:v.severity,range:v.range,fixAvailable:v.fixAvailable}))},null,2)) } catch (e) { console.log("Audit report unavailable:",e.message) }'
 
       - name: Initialize local SQLite schema
         run: npm run db:init
