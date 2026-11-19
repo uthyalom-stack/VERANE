@@ -32,13 +32,6 @@ jobs:
           DATABASE_URL: file:./prisma/dev.db
           TURSO_DATABASE_URL: file:./prisma/dev.db
 
-      - name: Initialize local SQLite schema
-        run: npm run db:init
-        env:
-          NODE_ENV: development
-          DATABASE_URL: file:./prisma/dev.db
-          TURSO_DATABASE_URL: file:./prisma/dev.db
-
       - name: Run regression suite
         run: npm test
         env:
