@@ -1,5 +1,5 @@
 name: VÉRANE V1 CI
-# CI validation for receipt PDF and email changes
+# CI validation for receipt PDF/email and Shipbubble integration
 
 on:
   pull_request:
