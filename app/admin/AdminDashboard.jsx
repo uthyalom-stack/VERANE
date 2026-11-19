@@ -2,11 +2,6 @@
 
 import { useRouter } from "next/navigation";
 
-/**
- * Render the role-specific administration dashboard.
- * @param {{role?: string, name?: string}} admin - The administrator identity and role used to determine dashboard access and branding.
- * @returns {JSX.Element} The administration dashboard interface.
- */
 export default function AdminDashboard({ admin }) {
   const router = useRouter();
 
@@ -163,6 +158,22 @@ export default function AdminDashboard({ admin }) {
                 description="View brand performance dashboard"
                 onClick={() =>
                   router.push("/admin/analytics")
+                }
+              />
+
+              <AdminLink
+                title="Delivery"
+                description="Manage physical dispatch origin for Shipbubble delivery"
+                onClick={() =>
+                  router.push("/admin/delivery")
+                }
+              />
+
+              <AdminLink
+                title="Pickup Settings"
+                description="Manage atelier pickup location & scheduling"
+                onClick={() =>
+                  router.push("/admin/pickup-settings")
                 }
               />
             </div>

@@ -211,6 +211,8 @@ export async function PUT(request, { params }) {
 
             brandA: collaborationRequest.fromBrand,
             brandB: collaborationRequest.toBrand,
+            creatorBrand: collaborationRequest.fromBrand,
+            creatorRole: collaborationRequest.fromBrand,
             status: "active",
           },
 

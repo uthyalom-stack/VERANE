@@ -157,6 +157,8 @@ export default function AdminLayout({ children }) {
     { href: "/admin/categories", label: "Categories", show: isStoreAdmin },
     { href: "/admin/collections", label: "Collections", show: isStoreAdmin },
     { href: "/admin/storefront", label: "Store Page", show: isStoreAdmin },
+    { href: "/admin/delivery", label: "Delivery", show: isStoreAdmin },
+    { href: "/admin/pickup-settings", label: "Pickup Settings", show: isStoreAdmin },
     { href: "/admin/orders", label: "Orders", show: isStoreAdmin },
     { href: "/admin/discounts", label: "Discounts", show: isStoreAdmin },
     { href: "/admin/subscribers", label: "Subscribers", show: true },

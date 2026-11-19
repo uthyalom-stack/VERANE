@@ -80,7 +80,18 @@ const mockPrisma = {
   },
   collaboration: {
     findMany: async () => {
-      return db.collaborations;
+      return db.collaborations || [];
+    },
+    findUnique: async ({ where }) => {
+      return (db.collaborations || []).find((c) => c.id === where?.id) || null;
+    },
+  },
+  collaborationProduct: {
+    findUnique: async ({ where }) => {
+      return (db.collaborationProducts || []).find((cp) => cp.id === where?.id) || null;
+    },
+    findMany: async () => {
+      return db.collaborationProducts || [];
     },
   },
   order: {
