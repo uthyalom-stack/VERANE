@@ -238,6 +238,7 @@ async function runBrandTrackingTests() {
   res = await getCustomerOrdersHandler(req);
   json = await res.json();
   let foundCombined = json.orders.find((o) => o.id === combinedOrder.id);
+  console.log("DEBUG combined tracking", JSON.stringify({items: foundCombined.items?.map(i => ({productId:i.productId,brand:i.product?.brand,product:i.product?.name})), brandTrackings:foundCombined.brandTrackings, info:foundCombined.brandTrackingsInfo}, null, 2));
   assert.strictEqual(foundCombined.brandTrackingsInfo.length, 2, "Combined order has 2 brand tracking sections");
   const initialUthy = foundCombined.brandTrackingsInfo.find((b) => b.brand === "UTHY_LUXURY");
   const initialAlom = foundCombined.brandTrackingsInfo.find((b) => b.brand === "ALOMZIEE_FOOTIES");
