@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - ci/validate-v1-full
 
 concurrency:
   group: verane-v1-ci-${{ github.ref }}
