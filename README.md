@@ -116,7 +116,7 @@ Cloudflare Workers Free allows 10 ms of CPU time per request. The Paid Workers p
 
 1. Run `npm run cf:preview` and exercise the storefront, login, admin APIs, product CRUD, image upload, checkout, Paystack verification/webhook, PDF receipt generation, Resend email, Shipbubble rates, and waybill flow in the Workers runtime.
 2. Verify Turso reads and writes against a staging database first. The existing Vercel production database is not to be reset or re-initialized.
-3. Configure Cloudflare secrets and variables and verify the Worker preview. The deploy script passes Wrangler's `--keep-vars` flag so dashboard-managed runtime variables are preserved. Only then run `npm run cf:deploy`.
+3. Configure Cloudflare secrets and variables and verify the Worker preview. The deploy script passes Wrangler's `--keep-vars` flag so dashboard-managed runtime variables are preserved. Only then run `npm run cf:deploy`. For Cloudflare Workers Builds, use build command `npm run cf:build` and deploy command `npx wrangler deploy` (the Wrangler config sets `keep_vars: true` so dashboard variables are retained).
 4. Configure the custom domain and Paystack webhook URL for the Cloudflare hostname only after the deployed Worker passes the end-to-end checks.
 
 **Important:** a successful Next.js/Vercel build is not proof of Workers runtime compatibility. The S3-compatible upload client, Prisma/libSQL adapter, and PDF generation path still require runtime validation under Workers. Do not switch production traffic or disable the Vercel deployment until those checks pass.
