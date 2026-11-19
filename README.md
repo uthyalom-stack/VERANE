@@ -45,7 +45,8 @@ npm run dev
 
 Set these in your deployment environment:
 
-- `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`: production Turso/libSQL database.
+- `DATABASE_URL=file:./prisma/dev.db`: Prisma schema/build-time SQLite URL. Do not use the old PostgreSQL URL.
+- `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`: production Turso/libSQL database; runtime queries use this connection.
 - `ADMIN_AUTH_SECRET` and `CUSTOMER_AUTH_SECRET`: long random authentication secrets.
 - `PAYSTACK_SECRET_KEY`: Paystack server-side verification/initialization key.
 - `SHIPBUBBLE_API_KEY`: required for live courier rates and waybill creation.
