@@ -1,5 +1,5 @@
 name: VÉRANE V1 CI
-# CI validation for receipt PDF table layout fix
+# CI validation for receipts after schema initialization
 
 on:
   pull_request:
@@ -26,10 +26,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run regression suite
-        run: npm test
+      - name: Initialize local SQLite schema
+        run: npm run db:init
         env:
-          NODE_ENV: test
+          NODE_ENV: development
           DATABASE_URL: file:./prisma/dev.db
           TURSO_DATABASE_URL: file:./prisma/dev.db
 
@@ -37,6 +37,13 @@ jobs:
         run: npm run db:init
         env:
           NODE_ENV: development
+          DATABASE_URL: file:./prisma/dev.db
+          TURSO_DATABASE_URL: file:./prisma/dev.db
+
+      - name: Run regression suite
+        run: npm test
+        env:
+          NODE_ENV: test
           DATABASE_URL: file:./prisma/dev.db
           TURSO_DATABASE_URL: file:./prisma/dev.db
 
