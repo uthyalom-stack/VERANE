@@ -16,6 +16,8 @@ on:
       - "proxy.ts"
       - "open-next.config.ts"
       - "wrangler.jsonc"
+      - "public/**"
+      - "README.md"
       - ".gitignore"
       - ".github/workflows/cloudflare-build.yml"
   workflow_dispatch:
