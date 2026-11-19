@@ -108,6 +108,10 @@ Set `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_APP_URL` to the Cloudflare productio
 
 Set `DATABASE_URL=file:./prisma/dev.db` for Prisma's SQLite schema/generation configuration. Runtime production queries must use `TURSO_DATABASE_URL`; never point production at the local SQLite file. Keep `SHIPBUBBLE_MOCK_MODE` disabled in production.
 
+### Cloudflare plan limits to check
+
+Cloudflare Workers Free allows 10 ms of CPU time per request. The Paid Workers plan defaults to 30 seconds and can be raised up to 5 minutes. VÉRANE has database-backed server-rendered pages, so the local Workerd smoke test does not establish that those pages fit the Free CPU budget. Before production cutover, verify the account's Workers plan and measure real storefront, product, and checkout requests on a deployed staging Worker. If the Free CPU limit is exceeded, optimize those paths or use the Paid Workers plan; do not assume that increasing `limits.cpu_ms` works on a Free account.
+
 ### Before the first production deployment
 
 1. Run `npm run cf:preview` and exercise the storefront, login, admin APIs, product CRUD, image upload, checkout, Paystack verification/webhook, PDF receipt generation, Resend email, Shipbubble rates, and waybill flow in the Workers runtime.
