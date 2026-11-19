@@ -63,3 +63,46 @@ For a newly created Turso database, run `npm run db:init` once with the producti
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+## Deploy on Cloudflare Workers (additional deployment target)
+
+Cloudflare support is additive: the existing Next.js/Vercel scripts and deployment path remain unchanged. The Cloudflare target uses the OpenNext adapter so the existing App Router, route handlers, proxy, and server-rendered storefront can be retained.
+
+### Build and preview
+
+Use Node.js 24 and npm:
+
+```bash
+npm ci
+npm run db:init
+npm run cf:build
+npm run cf:preview
+```
+
+The Cloudflare scripts install the OpenNext adapter and Wrangler into the local working tree without changing the committed dependency manifest or lockfile. This deliberately keeps the current Vercel dependency graph untouched while the Workers compatibility work is validated. For a long-term pinned dependency setup, promote the verified adapter/Wrangler versions into the normal dependency manifest and regenerate the lockfile.
+
+### Required Worker configuration
+
+The committed `wrangler.jsonc` enables `nodejs_compat`, points Wrangler at the OpenNext Worker entry point, and serves the generated static assets. Do not replace the existing `next` build or `start` scripts; Vercel continues using them.
+
+Configure the following as Cloudflare Worker secrets/variables (not committed to Git):
+
+- `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`: use the existing production Turso database. Do not create a second database just for Cloudflare unless intentionally migrating.
+- `ADMIN_AUTH_SECRET` and `CUSTOMER_AUTH_SECRET`.
+- `PAYSTACK_SECRET_KEY`.
+- `SHIPBUBBLE_API_KEY`.
+- `RESEND_API_KEY` and sender settings if email delivery is required.
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, and `R2_PUBLIC_URL` for the existing S3-compatible R2 upload route.
+- `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_APP_URL` set to the Cloudflare production hostname.
+
+Set `DATABASE_URL=file:./prisma/dev.db` for Prisma's SQLite schema/generation configuration. Runtime production queries must use `TURSO_DATABASE_URL`; never point production at the local SQLite file. Keep `SHIPBUBBLE_MOCK_MODE` disabled in production.
+
+### Before the first production deployment
+
+1. Run `npm run cf:preview` and exercise the storefront, login, admin APIs, product CRUD, image upload, checkout, Paystack verification/webhook, PDF receipt generation, Resend email, Shipbubble rates, and waybill flow in the Workers runtime.
+2. Verify Turso reads and writes against a staging database first. The existing Vercel production database is not to be reset or re-initialized.
+3. Configure Cloudflare secrets and verify the Worker preview. Only then run `npm run cf:deploy`.
+4. Configure the custom domain and Paystack webhook URL for the Cloudflare hostname only after the deployed Worker passes the end-to-end checks.
+
+**Important:** a successful Next.js/Vercel build is not proof of Workers runtime compatibility. The S3-compatible upload client, Prisma/libSQL adapter, and PDF generation path still require runtime validation under Workers. Do not switch production traffic or disable the Vercel deployment until those checks pass.
