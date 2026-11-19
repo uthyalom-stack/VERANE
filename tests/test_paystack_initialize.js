@@ -28,6 +28,8 @@ async function runTests() {
     name: "Luxury Silk Gown",
     price: 150000,
     inventory: 10,
+    weight: 0.5,
+    categoryRef: { shippingWeight: 0.5 },
     brand: "UTHY",
   });
 
