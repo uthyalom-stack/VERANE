@@ -87,18 +87,24 @@ The Cloudflare scripts install pinned versions of the OpenNext adapter and Wrang
 
 The committed `wrangler.jsonc` enables `nodejs_compat`, points Wrangler at the OpenNext Worker entry point, and serves the generated static assets. Do not replace the existing `next` build or `start` scripts; Vercel continues using them.
 
-Configure the following as Cloudflare Worker secrets/variables (not committed to Git):
+Set these as Cloudflare Worker **secrets** (not committed to Git):
 
-- `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`: use the existing production Turso database. Do not create a second database just for Cloudflare unless intentionally migrating.
+- `TURSO_AUTH_TOKEN`.
 - `ADMIN_AUTH_SECRET` and `CUSTOMER_AUTH_SECRET`.
-- `ADMIN_UTHY_PASSWORD`, `ADMIN_ALOMZIEE_PASSWORD`, and `ADMIN_SUPERADMIN_PASSWORD`: required for the three admin login roles; store them as Worker secrets, not plain variables.
-- `PAYSTACK_SECRET_KEY`.
-- `SHIPBUBBLE_API_KEY`.
-- `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and optional `RESEND_REPLY_TO` / `SUPPORT_EMAIL` if transactional email delivery is required.
-- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, and `R2_PUBLIC_URL` for the existing S3-compatible R2 upload route.
-- `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_APP_URL` set to the Cloudflare production hostname.
+- `ADMIN_UTHY_PASSWORD`, `ADMIN_ALOMZIEE_PASSWORD`, and `ADMIN_SUPERADMIN_PASSWORD` for the three admin login roles.
+- `PAYSTACK_SECRET_KEY` and `SHIPBUBBLE_API_KEY`.
+- `RESEND_API_KEY` if transactional email delivery is required.
+- `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` for image uploads.
+
+Set these as Worker **variables**:
+
+- `TURSO_DATABASE_URL`: the existing production Turso URL. Do not create a second database just for Cloudflare unless intentionally migrating.
+- `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, and `R2_PUBLIC_URL` for the existing S3-compatible R2 upload route.
+- `RESEND_FROM_EMAIL`, and optional `RESEND_REPLY_TO` / `SUPPORT_EMAIL` if email is enabled.
 - `SHIPBUBBLE_MOCK_MODE=false`; optionally set `SHIPBUBBLE_CATEGORY_ID` if using a non-default courier category.
 - `GEOAPIFY_API_KEY` and/or `LOKATE_API_KEY` if address autocomplete should be enabled.
+
+Set `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_APP_URL` to the Cloudflare production hostname in the environment that runs `npm run cf:build`. Next.js embeds `NEXT_PUBLIC_*` values into the build, so setting them only as runtime dashboard variables will not update the already-built client bundle.
 
 Set `DATABASE_URL=file:./prisma/dev.db` for Prisma's SQLite schema/generation configuration. Runtime production queries must use `TURSO_DATABASE_URL`; never point production at the local SQLite file. Keep `SHIPBUBBLE_MOCK_MODE` disabled in production.
 
