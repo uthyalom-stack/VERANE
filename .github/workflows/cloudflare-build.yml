@@ -51,6 +51,8 @@ jobs:
       # These are deliberately fake values. The smoke test exercises only
       # static admin login and middleware behavior, never database writes or
       # third-party integrations.
+      - name: Validate deploy bundle without uploading
+        run: npx wrangler deploy --dry-run --outdir /tmp/verane-cloudflare-bundle
       - name: Configure isolated Worker preview variables
         run: |
           cat > .dev.vars <<'EOF'
