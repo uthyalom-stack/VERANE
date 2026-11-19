@@ -12,7 +12,7 @@
     "start": "next start",
     "test": "node tests/run_all_tests.mjs",
     "cf:install": "npm install --include=dev --no-save --package-lock=false @opennextjs/cloudflare@1.20.17 wrangler@4.165.0",
-    "cf:build": "npm run cf:install && npx prisma@5 generate && opennextjs-cloudflare build",
+    "cf:build": "node scripts/cloudflare-build.mjs",
     "cf:preview": "npm run cf:build && opennextjs-cloudflare preview",
     "cf:smoke": "node scripts/cloudflare-smoke.mjs",
     "cf:deploy": "npm run cf:build && wrangler deploy",
