@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordFailedAttempt } from "@/lib/rate-limit";
 
 /**
  * Normalizes a Geoapify feature into the unified VÉRANE address DTO.
@@ -214,9 +215,22 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const query = (searchParams.get("q") || searchParams.get("query") || "").trim();
 
-    // HARD REQUIREMENT: minimum 5 meaningful characters before searching
+    // Keep public provider requests bounded and require a meaningful query.
     if (!query || query.length < 5) {
       return NextResponse.json({ success: true, results: [] });
+    }
+    if (query.length > 120) {
+      return NextResponse.json({ success: false, error: "Address search query is too long." }, { status: 400 });
+    }
+
+    const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const clientIp = forwardedFor || request.headers.get("x-real-ip") || "unknown";
+    const rateLimit = await recordFailedAttempt(`public:address-search:${clientIp}`, { windowMs: 60_000 });
+    if (rateLimit.attempts > 20) {
+      return NextResponse.json(
+        { success: false, error: "Too many address searches. Please try again in a minute." },
+        { status: 429, headers: { "Retry-After": "60" } }
+      );
     }
 
     // TIER 1: Geoapify Nigeria-only
