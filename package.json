@@ -11,7 +11,7 @@
     "build": "npx prisma@5 generate && next build",
     "start": "next start",
     "test": "node tests/run_all_tests.mjs",
-    "cf:install": "npm install --no-save --package-lock=false @opennextjs/cloudflare@latest wrangler@latest",
+    "cf:install": "npm install --include=dev --no-save --package-lock=false @opennextjs/cloudflare@latest wrangler@latest",
     "cf:build": "npm run cf:install && npx prisma@5 generate && opennextjs-cloudflare build",
     "cf:preview": "npm run cf:build && opennextjs-cloudflare preview",
     "cf:deploy": "npm run cf:build && opennextjs-cloudflare deploy",
