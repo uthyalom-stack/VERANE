@@ -1,0 +1,81 @@
+name: Cloudflare Workers compatibility
+
+concurrency:
+  group: cloudflare-workers-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "prisma/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.*"
+      - "middleware.ts"
+      - "proxy.ts"
+      - "open-next.config.ts"
+      - "wrangler.jsonc"
+      - "public/**"
+      - "README.md"
+      - ".gitignore"
+      - ".github/workflows/cloudflare-build.yml"
+  workflow_dispatch:
+
+jobs:
+  workers-build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NODE_ENV: production
+      DATABASE_URL: file:./prisma/dev.db
+      TURSO_DATABASE_URL: file:./prisma/dev.db
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      # Tailwind/PostCSS are build-time devDependencies; production NODE_ENV
+      # must not cause npm ci to omit them in the Cloudflare build job.
+      - name: Install dependencies
+        run: npm ci --include=dev
+      - name: Initialize isolated local schema for build
+        run: npm run db:init
+      - name: Build the Cloudflare Worker
+        run: npm run cf:build
+      # These are deliberately fake values. The smoke test exercises only
+      # static admin login and middleware behavior, never database writes or
+      # third-party integrations.
+      - name: Inspect Cloudflare toolchain advisories
+        run: |
+          mkdir -p /tmp/verane-cf-toolchain-audit
+          cat > /tmp/verane-cf-toolchain-audit/package.json <<'EOF'
+          {
+            "name": "verane-cloudflare-toolchain-audit",
+            "private": true,
+            "dependencies": {
+              "@opennextjs/cloudflare": "1.20.17",
+              "wrangler": "4.165.0"
+            }
+          }
+          EOF
+          npm install --prefix /tmp/verane-cf-toolchain-audit --package-lock-only --ignore-scripts --no-audit
+          npm audit --prefix /tmp/verane-cf-toolchain-audit --json > /tmp/verane-cf-toolchain-audit/audit.json || true
+          node -e 'const a=require("/tmp/verane-cf-toolchain-audit/audit.json"); for (const [name,v] of Object.entries(a.vulnerabilities||{})) console.log(JSON.stringify({name,severity:v.severity,range:v.range,fixAvailable:v.fixAvailable,advisories:(v.via||[]).filter(x=>typeof x==="object").map(x=>({title:x.title,url:x.url,range:x.range}))}));'
+      - name: Validate deploy bundle without uploading
+        run: npx wrangler deploy --dry-run --outdir /tmp/verane-cloudflare-bundle
+      - name: Configure isolated Worker preview variables
+        run: |
+          cat > .dev.vars <<'EOF'
+          NEXTJS_ENV=production
+          TURSO_DATABASE_URL=libsql://verane-cloudflare-smoke.invalid
+          TURSO_AUTH_TOKEN=cloudflare-smoke-placeholder
+          ADMIN_AUTH_SECRET=cloudflare-smoke-admin-secret-not-for-production
+          EOF
+      - name: Run Cloudflare Workers runtime smoke tests
+        run: npm run cf:smoke

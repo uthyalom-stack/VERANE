@@ -10,7 +10,13 @@
     "db:init": "node scripts/init-turso-db.mjs",
     "build": "npx prisma@5 generate && next build",
     "start": "next start",
-    "test": "node tests/run_all_tests.mjs"
+    "test": "node tests/run_all_tests.mjs",
+    "cf:install": "npm install --include=dev --no-save --package-lock=false @opennextjs/cloudflare@1.20.17 wrangler@4.165.0",
+    "cf:build": "npm run cf:install && npx prisma@5 generate && opennextjs-cloudflare build",
+    "cf:preview": "npm run cf:build && opennextjs-cloudflare preview",
+    "cf:smoke": "node scripts/cloudflare-smoke.mjs",
+    "cf:deploy": "npm run cf:build && wrangler deploy",
+    "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1117.0",
