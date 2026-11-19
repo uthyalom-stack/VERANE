@@ -142,6 +142,28 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
+                {/* FULFILLMENT / PICKUP SPECIFICATION SUMMARY */}
+                {order.fulfillment && (
+                  <div className="mt-6 p-4 rounded-2xl border border-white/10 bg-black/40 text-xs">
+                    <p className="text-[10px] uppercase tracking-couture text-amber-400 font-bold mb-2">
+                      FULFILLMENT DETAILS
+                    </p>
+                    {order.fulfillment.fulfillmentType === "pickup" ? (
+                      <div className="space-y-1 text-neutral-300">
+                        <p className="font-bold text-white">Customer Pickup ({order.fulfillment.pickupBrand || "VÉRANE"} Atelier)</p>
+                        <p><span className="text-neutral-500">Address:</span> {order.fulfillment.pickupAddress || order.address || "Atelier Location"}</p>
+                        <p><span className="text-neutral-500">Scheduled Date:</span> {order.fulfillment.requestedPickupDate || "Scheduled Date"}</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 text-neutral-300">
+                        <p className="font-bold text-white">Courier Delivery</p>
+                        <p><span className="text-neutral-500">Courier:</span> {order.fulfillment.courierName || "Express Courier"}</p>
+                        <p><span className="text-neutral-500">Address:</span> {order.address}, {order.city}, {order.state}, {order.country}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* BRAND TRACKING STATUSES */}
                 {Array.isArray(order.brandTrackingsInfo) &&
                   order.brandTrackingsInfo.length > 0 && (

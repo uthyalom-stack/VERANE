@@ -15,6 +15,7 @@ const testFiles = [
   "tests/test_product_archival_suite.js",
   "tests/test_receipt_pdf_logos.js",
   "tests/test_registration_email.js",
+  "tests/test_shipping_and_pickup_suite.js",
 ];
 
 async function runTestFile(file) {

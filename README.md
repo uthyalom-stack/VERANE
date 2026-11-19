@@ -29,6 +29,34 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## VÉRANE V1 setup
+
+Copy `.env.example` to `.env` and fill in the values for the services you use.
+
+### Local development
+
+```bash
+npm ci
+npm run db:init
+npm run dev
+```
+
+### Production environment
+
+Set these in your deployment environment:
+
+- `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`: production Turso/libSQL database.
+- `ADMIN_AUTH_SECRET` and `CUSTOMER_AUTH_SECRET`: long random authentication secrets.
+- `PAYSTACK_SECRET_KEY`: Paystack server-side verification/initialization key.
+- `SHIPBUBBLE_API_KEY`: required for live courier rates and waybill creation.
+- `RESEND_API_KEY`: optional; order/welcome email delivery is disabled without it.
+- `R2_*`: optional Cloudflare R2 upload configuration.
+- `GEOAPIFY_API_KEY` and/or `LOKATE_API_KEY`: optional address autocomplete providers.
+
+For a newly created Turso database, run `npm run db:init` once with the production Turso URL and token configured. The initializer applies the SQLite/libSQL migration files and verifies the schema; it does not import records from the old PostgreSQL database.
+
+`SHIPBUBBLE_CATEGORY_ID` defaults to the Fashion Wears category (`98246239`). `SHIPBUBBLE_MOCK_MODE` is for tests/local development only and must remain disabled in production.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

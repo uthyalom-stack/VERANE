@@ -28,6 +28,8 @@ async function runTests() {
     name: "Luxury Silk Gown",
     price: 150000,
     inventory: 10,
+    weight: 0.5,
+    categoryRef: { shippingWeight: 0.5 },
     brand: "UTHY",
   });
 
@@ -71,6 +73,7 @@ async function runTests() {
       state: "Lagos",
       city: "Ikeja",
       address: "45 Allen Avenue",
+      selectedCourier: { courier_id: "cour_gig_01", service_code: "gig_express" },
     }),
   });
   reqGuestExistingEmail.nextUrl = new URL("http://localhost:3000/api/paystack/initialize");
@@ -124,6 +127,7 @@ async function runTests() {
       state: "Lagos",
       city: "Victoria Island",
       address: "10 Ahmadu Bello Way",
+      selectedCourier: { courier_id: "cour_gig_01", service_code: "gig_express" },
     }),
   });
   reqGuestNewEmail.nextUrl = new URL("http://localhost:3000/api/paystack/initialize");
@@ -162,6 +166,7 @@ async function runTests() {
       state: "Lagos",
       city: "Ikeja",
       address: "123 Allen Avenue",
+      selectedCourier: { courier_id: "cour_gig_01", service_code: "gig_express" },
     }),
   });
   reqAuthUser.nextUrl = new URL("http://localhost:3000/api/paystack/initialize");
