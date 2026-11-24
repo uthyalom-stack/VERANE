@@ -22,6 +22,11 @@ export default function AdminLayout({ children }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
+    if (pathname === "/admin/login") {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function loadSession() {
@@ -59,7 +64,7 @@ export default function AdminLayout({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, pathname]);
 
   const isSuperAdmin = admin?.role === "SUPERADMIN";
   const isStoreAdmin = admin?.role === "UTHY" || admin?.role === "ALOMZIEE";
@@ -178,6 +183,11 @@ export default function AdminLayout({ children }) {
     if (href === "/admin") return pathname === "/admin";
     return pathname === href || pathname.startsWith(`${href}/`);
   };
+
+  // The public login screen must not be wrapped in the authenticated admin shell.
+  if (pathname === "/admin/login") {
+    return children;
+  }
 
   if (loading) {
     return (
