@@ -24,6 +24,25 @@ on:
       - "README.md"
       - ".gitignore"
       - ".github/workflows/cloudflare-build.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+      - "prisma/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.*"
+      - "middleware.ts"
+      - "proxy.ts"
+      - "open-next.config.ts"
+      - "wrangler.jsonc"
+      - "public/**"
+      - "README.md"
+      - ".gitignore"
+      - ".github/workflows/cloudflare-build.yml"
   workflow_dispatch:
 
 jobs:
