@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 
 /**
  * Keep this as Edge middleware rather than Next.js 16 proxy.ts.
- * OpenNext supports Edge middleware on Cloudflare Workers, while Node.js
- * middleware remains experimental in the adapter. This gate intentionally
- * uses only standard Request/Response APIs and preserves the existing
- * admin page/API checks. Admin route handlers still verify signed sessions.
+ * The pathname header lets the root layout avoid importing storefront-only
+ * database modules while rendering the public admin login route.
  */
 export function middleware(request: Request) {
   const url = new URL(request.url);
   const pathname = url.pathname;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-verane-pathname", pathname);
 
   const authRequiredMap: Record<string, boolean> = {
     "/admin/login": false,
@@ -51,7 +51,9 @@ export function middleware(request: Request) {
     }
   }
 
-  const response = NextResponse.next();
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
